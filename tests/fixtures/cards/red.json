@@ -1,0 +1,86 @@
+[
+ {
+  "id": "ember_scout",
+  "name": "Ember Scout",
+  "kind": "champion",
+  "class": "elite",
+  "color": "Red",
+  "type": "Human",
+  "hp": 30,
+  "summon": {
+   "mana": 1
+  },
+  "attacks": [
+   {
+    "name": "Flare",
+    "damage": 10
+   }
+  ]
+ },
+ {
+  "id": "cinder_brute",
+  "name": "Cinder Brute",
+  "kind": "champion",
+  "class": "elite",
+  "color": "Red",
+  "type": "Creature",
+  "hp": 60,
+  "summon": {
+   "mana": 3
+  },
+  "attacks": [
+   {
+    "name": "Smash",
+    "damage": 30
+   },
+   {
+    "name": "Desperate Strike",
+    "damage": 50,
+    "requires": {
+     "self_hp_at_most": 30
+    }
+   }
+  ]
+ },
+ {
+  "id": "ash_duelist",
+  "name": "Ash Duelist",
+  "kind": "champion",
+  "class": "elite",
+  "color": "Red",
+  "type": "Human",
+  "hp": 40,
+  "summon": {
+   "mana": 2
+  },
+  "attacks": [
+   {
+    "name": "Slash",
+    "damage": 20
+   }
+  ],
+  "ability": {
+   "trigger": "on_attack",
+   "bonus_damage": 10,
+   "vs_type": "Creature"
+  }
+ },
+ {
+  "id": "cinder_tyrant",
+  "name": "Cinder Tyrant",
+  "kind": "champion",
+  "class": "elite",
+  "color": "Red",
+  "type": "Creature",
+  "hp": 100,
+  "summon": {
+   "sacrifice": 2
+  },
+  "attacks": [
+   {
+    "name": "Inferno",
+    "damage": 60
+   }
+  ]
+ }
+]

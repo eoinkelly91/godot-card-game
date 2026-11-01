@@ -1,0 +1,59 @@
+[
+ {
+  "id": "sun_acolyte",
+  "name": "Sun Acolyte",
+  "kind": "champion",
+  "class": "elite",
+  "color": "White",
+  "type": "Human",
+  "hp": 40,
+  "summon": {
+   "mana": 2
+  },
+  "attacks": [
+   {
+    "name": "Mana Lance",
+    "damage": 30,
+    "mana_cost": 1
+   }
+  ]
+ },
+ {
+  "id": "sunblade_champion",
+  "name": "Sunblade Champion",
+  "kind": "champion",
+  "class": "elite",
+  "color": "White",
+  "type": "Human",
+  "hp": 80,
+  "summon": {
+   "mana": 2,
+   "sacrifice": 1
+  },
+  "attacks": [
+   {
+    "name": "Judgement",
+    "damage": 60,
+    "mana_cost": 3
+   }
+  ]
+ },
+ {
+  "id": "dawn_hound",
+  "name": "Dawn Hound",
+  "kind": "champion",
+  "class": "elite",
+  "color": "White",
+  "type": "Creature",
+  "hp": 30,
+  "summon": {
+   "mana": 1
+  },
+  "attacks": [
+   {
+    "name": "Bite",
+    "damage": 10
+   }
+  ]
+ }
+]

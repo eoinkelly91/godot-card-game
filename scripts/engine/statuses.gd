@@ -1,0 +1,89 @@
+## statuses.gd - Ongoing effects other than locks: poison on champions, attack buffs on a player, and
+## start-of-turn abilities and enchantment effects. Everything here runs in the start-of-turn step
+## (or at end of turn for buff durations). Poison keeps working on champions that are encamped:
+## only NEW effects from the opponent are blocked from reaching them (see attack.gd and damage.gd).
+class_name StatusRules
+extends RefCounted
+
+
+## "+amount damage on this player's attacks for N of their turns", starting with the turn it is played.
+static func add_attack_buff(g: Game, p: int, amount: int, turns: int) -> void:
+	g.players[p].buffs.append({"kind": "attack", "amount": amount, "turns_left": turns})
+	g._log("P%d's attacks get +%d for %d turn(s)." % [p, amount, turns])
+
+
+static func attack_bonus(ps: PlayerState) -> int:
+	var total: int = 0
+	for b in ps.buffs:
+		if str(b.kind) == "attack":
+			total += int(b.amount)
+	return total
+
+
+static func end_of_turn(_g: Game, p: int) -> void:
+	var ps: PlayerState = _g.players[p]
+	for b in ps.buffs.duplicate():
+		b.turns_left = int(b.turns_left) - 1
+		if int(b.turns_left) <= 0:
+			ps.buffs.erase(b)
+
+
+static func apply_poison(g: Game, target: Champion, amount: int, turns: int, source: int) -> void:
+	target.statuses.append({"kind": "poison", "amount": amount, "turns_left": turns, "source": source})
+	if turns < 0:
+		g._log("%s is poisoned (%d damage every turn until it is removed)." % [target.describe(), amount])
+	else:
+		g._log("%s is poisoned (%d damage for %d turns)." % [target.describe(), amount, turns])
+
+
+## Start of player p's turn: poison ticks, then start-of-turn abilities and enchantment effects.
+static func run_start_of_turn(g: Game, p: int) -> void:
+	var ps: PlayerState = g.players[p]
+	for champion in ps.champions:
+		for st in champion.statuses.duplicate():
+			if str(st.kind) == "protected":  # "prevent all damage until your next turn" ends here
+				champion.statuses.erase(st)
+	for champion in ps.champions.duplicate():
+		for st in champion.statuses.duplicate():
+			if str(st.kind) != "poison" or not ps.champions.has(champion):
+				continue
+			# Existing effects continue even while encamped, so this bypasses encampment immunity.
+			DamageRules.damage_champion(g, champion, int(st.amount), int(st.source), true)
+			if int(st.turns_left) > 0:  # turns_left -1 means "until the champion is destroyed or it is removed"
+				st.turns_left = int(st.turns_left) - 1
+				if int(st.turns_left) <= 0:
+					champion.statuses.erase(st)
+	for champion in ps.champions.duplicate():
+		if champion.has_ability() and str(champion.card.ability.get("trigger", "")) == "start_of_turn":
+			_apply_simple_effect(g, p, champion, champion.card.ability)
+	for ench in ps.enchantments.duplicate():
+		if typeof(ench.get("start_of_turn")) == TYPE_DICTIONARY:
+			_apply_simple_effect(g, p, null, ench.start_of_turn)
+
+
+## Simple passive effects: gain_mana, draw, heal_self (champions only).
+static func _apply_simple_effect(g: Game, p: int, champion: Champion, eff: Dictionary) -> void:
+	var ps: PlayerState = g.players[p]
+	match str(eff.get("op", "")):
+		"gain_mana":
+			ps.mana += int(eff.get("amount", 0))
+		"draw":
+			for i in int(eff.get("amount", 1)):
+				if ps.deck.is_empty():
+					g._finish(1 - p, "Decking out")
+					return
+				ps.hand.append(ps.deck.pop_back())
+		"coin_protect":  # flip a coin; heads: prevent all damage to this champion until your next turn
+			if champion != null and g.flip_coin():
+				champion.statuses.append({"kind": "protected"})
+				g._log("%s is protected until its owner's next turn." % champion.card_name())
+			else:
+				g._log("P%d's coin lands Tails." % p)
+		"coin_lock":  # flip a coin; heads: lock the opponent from "what" for "turns" of their turns
+			if g.flip_coin():
+				LockRules.add(g, 1 - p, str(eff.get("what", "")), int(eff.get("turns", 1)))
+			else:
+				g._log("P%d's coin lands Tails." % p)
+		"heal_self":
+			if champion != null:
+				champion.damage = maxi(0, champion.damage - int(eff.get("amount", 0)))

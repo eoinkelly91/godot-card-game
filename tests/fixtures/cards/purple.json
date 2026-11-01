@@ -1,0 +1,54 @@
+[
+ {
+  "id": "grave_wisp",
+  "name": "Grave Wisp",
+  "kind": "champion",
+  "class": "basic",
+  "color": "Purple",
+  "type": "Spirit",
+  "hp": 40,
+  "summon": {},
+  "attacks": [
+   {
+    "name": "Drain",
+    "damage": 30
+   }
+  ]
+ },
+ {
+  "id": "bone_colossus",
+  "name": "Bone Colossus",
+  "kind": "champion",
+  "class": "elite",
+  "color": "Purple",
+  "type": "Creature",
+  "hp": 90,
+  "summon": {
+   "mana": 1
+  },
+  "attacks": [
+   {
+    "name": "Crush",
+    "damage": 40
+   }
+  ]
+ },
+ {
+  "id": "hollow_spirit",
+  "name": "Hollow Spirit",
+  "kind": "champion",
+  "class": "elite",
+  "color": "Purple",
+  "type": "Spirit",
+  "hp": 30,
+  "summon": {
+   "mana": 1
+  },
+  "attacks": [
+   {
+    "name": "Chill",
+    "damage": 10
+   }
+  ]
+ }
+]

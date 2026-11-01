@@ -1,0 +1,313 @@
+[
+ {
+  "id": "fu",
+  "name": "Fu",
+  "kind": "champion",
+  "class": "basic",
+  "color": "Blue",
+  "type": "Creature",
+  "hp": 30,
+  "summon": {},
+  "attacks": [
+   {
+    "name": "Spike",
+    "damage": 20
+   }
+  ]
+ },
+ {
+  "id": "deep_peed",
+  "name": "Deep Peed",
+  "kind": "champion",
+  "class": "basic",
+  "color": "Blue",
+  "type": "Creature",
+  "hp": 60,
+  "summon": {},
+  "attacks": [
+   {
+    "name": "Bite",
+    "damage": 10
+   }
+  ]
+ },
+ {
+  "id": "gluto",
+  "name": "Gluto",
+  "kind": "champion",
+  "class": "elite",
+  "color": "Blue",
+  "type": "Creature",
+  "hp": 120,
+  "summon": {
+   "sacrifice": 2
+  },
+  "attacks": [
+   {
+    "name": "Rage",
+    "damage": 60,
+    "mana_cost": 1
+   }
+  ],
+  "ability": {
+   "text": "Do 20 damage to any champion that attacks this champion.",
+   "trigger": "passive",
+   "when_attacked_damage_attacker": 20
+  }
+ },
+ {
+  "id": "mersoilder",
+  "name": "Mersoilder",
+  "kind": "champion",
+  "class": "elite",
+  "color": "Blue",
+  "type": "Human",
+  "hp": 70,
+  "summon": {
+   "sacrifice": 1
+  },
+  "attacks": [
+   {
+    "name": "Spear",
+    "damage": 20
+   },
+   {
+    "name": "Engage",
+    "damage": 20,
+    "mana_cost": 2,
+    "coin_bonus": 20,
+    "text": "20 + Flip a coin, if Heads this attack does plus 20 damage"
+   }
+  ]
+ },
+ {
+  "id": "gronk",
+  "name": "Gronk",
+  "kind": "champion",
+  "class": "elite",
+  "color": "Blue",
+  "type": "Creature",
+  "hp": 130,
+  "summon": {
+   "sacrifice": 2
+  },
+  "attacks": [
+   {
+    "name": "Devour",
+    "damage": 20,
+    "bonus_vs_class": {
+     "class": "basic",
+     "amount": 20
+    },
+    "text": "20 + this attack does plus 20 versus basic champions"
+   },
+   {
+    "name": "Path of Destruction",
+    "damage": 50,
+    "mana_cost": 2,
+    "splash_enemies": 20,
+    "text": "50 + this attack does 20 damage to every enemy champion"
+   }
+  ]
+ },
+ {
+  "id": "tree_dragon",
+  "name": "Tree Dragon",
+  "kind": "champion",
+  "class": "elite",
+  "color": "Blue",
+  "type": "Creature",
+  "hp": 120,
+  "summon": {
+   "sacrifice": 2
+  },
+  "attacks": [
+   {
+    "name": "Whomp",
+    "damage": 40,
+    "mana_cost": 1
+   },
+   {
+    "name": "Burnout",
+    "damage": 70,
+    "requires": {
+     "self_hp_at_least": 80
+    },
+    "splash_all": 10,
+    "text": "70 + this attack does 10 damage to every champion including your own"
+   }
+  ]
+ },
+ {
+  "id": "elite_o",
+  "name": "Elite-O",
+  "kind": "champion",
+  "class": "elite",
+  "color": "Blue",
+  "type": "Spirit",
+  "hp": 80,
+  "summon": {
+   "sacrifice": 1
+  },
+  "attacks": [
+   {
+    "name": "Dual Spear",
+    "damage": 10,
+    "unimplemented": "Dual Spear: second target missing (hits one target for now)",
+    "text": "Do 10 damage to 2 opponents"
+   },
+   {
+    "name": "Sword Spear",
+    "damage": 40,
+    "mana_cost": 1
+   }
+  ]
+ },
+ {
+  "id": "maragret",
+  "name": "Maragret",
+  "kind": "champion",
+  "class": "basic",
+  "color": "Blue",
+  "type": "Spirit",
+  "hp": 60,
+  "summon": {},
+  "attacks": [
+   {
+    "name": "Bite",
+    "damage": 10
+   },
+   {
+    "name": "Infest",
+    "damage": 0,
+    "mana_cost": 1,
+    "coin_opponent_discards": 1,
+    "text": "Flip a coin if heads your opponent must discard a card"
+   }
+  ]
+ },
+ {
+  "id": "dynamo",
+  "name": "Dynamo",
+  "kind": "champion",
+  "class": "elite",
+  "color": "Blue",
+  "type": "Human",
+  "hp": 90,
+  "summon": {
+   "sacrifice": 2
+  },
+  "attacks": [
+   {
+    "name": "Mega Lance",
+    "damage": 70,
+    "mana_cost": 2
+   }
+  ],
+  "ability": {
+   "text": "If this champion has 50 or more damage on him remove it all",
+   "trigger": "passive",
+   "clear_damage_at": 50
+  }
+ },
+ {
+  "id": "angorn",
+  "name": "Angorn",
+  "kind": "champion",
+  "class": "elite",
+  "color": "Blue",
+  "type": "Human",
+  "hp": 60,
+  "summon": {
+   "sacrifice": 1
+  },
+  "attacks": [
+   {
+    "name": "Spear",
+    "damage": 20
+   },
+   {
+    "name": "Dark Wing",
+    "damage": 30,
+    "requires": {
+     "self_hp_at_least": 30
+    }
+   }
+  ]
+ },
+ {
+  "id": "misley",
+  "name": "Misley",
+  "kind": "champion",
+  "class": "basic",
+  "color": "Blue",
+  "type": "Spirit",
+  "hp": 40,
+  "summon": {},
+  "attacks": [
+   {
+    "name": "Mist",
+    "damage": 10,
+    "coin_protect_self": true,
+    "text": "10 + flip a coin if heads prevent all damage done to misley next turn"
+   }
+  ]
+ },
+ {
+  "id": "saisen",
+  "name": "Saisen",
+  "kind": "champion",
+  "class": "basic",
+  "color": "Blue",
+  "type": "Human",
+  "hp": 50,
+  "summon": {},
+  "attacks": [
+   {
+    "name": "Death Stars",
+    "damage": 0,
+    "coins": {
+     "count": 3,
+     "per_heads_damage": 10
+    },
+    "text": "Flip 3 coins, this attack does 10 damage for each Heads."
+   }
+  ]
+ },
+ {
+  "id": "harmlobeast",
+  "name": "Harmlobeast",
+  "kind": "champion",
+  "class": "elite",
+  "color": "Blue",
+  "type": "Creature",
+  "hp": 100,
+  "summon": {
+   "sacrifice": 1
+  },
+  "attacks": [],
+  "ability": {
+   "text": "Your opponents Fortress effects do not activate as long as Harmlobeast is in play (active or encamped)",
+   "trigger": "passive",
+   "lock_enemy": "fortress"
+  }
+ },
+ {
+  "id": "taibait",
+  "name": "Taibait",
+  "kind": "champion",
+  "class": "basic",
+  "color": "Blue",
+  "type": "Human",
+  "hp": 60,
+  "summon": {},
+  "attacks": [
+   {
+    "name": "Jaguar Spear",
+    "damage": 30,
+    "self_damage": 10,
+    "text": "30  + this champion does 10 damage to itself."
+   }
+  ]
+ }
+]

@@ -1,0 +1,113 @@
+[
+ {
+  "id": "fire_bolt",
+  "name": "Fire Bolt",
+  "kind": "spell",
+  "effects": [
+   {
+    "op": "damage",
+    "amount": 20
+   },
+   {
+    "op": "bonus_damage",
+    "amount": 10
+   }
+  ]
+ },
+ {
+  "id": "mend",
+  "name": "Mend",
+  "kind": "spell",
+  "effects": [
+   {
+    "op": "heal",
+    "amount": 20
+   },
+   {
+    "op": "draw",
+    "amount": 1
+   }
+  ]
+ },
+ {
+  "id": "surge",
+  "name": "Surge",
+  "kind": "spell",
+  "effects": [
+   {
+    "op": "bonus_damage",
+    "amount": 20
+   },
+   {
+    "op": "gain_mana",
+    "amount": 1
+   }
+  ]
+ },
+ {
+  "id": "binding_seal",
+  "name": "Binding Seal",
+  "kind": "spell",
+  "effects": [
+   {
+    "op": "lock",
+    "what": "enchantment",
+    "turns": 5
+   },
+   {
+    "op": "lock",
+    "what": "spell",
+    "turns": 2
+   }
+  ]
+ },
+ {
+  "id": "venom_dart",
+  "name": "Venom Dart",
+  "kind": "spell",
+  "effects": [
+   {
+    "op": "poison",
+    "amount": 10,
+    "turns": 3
+   },
+   {
+    "op": "draw",
+    "amount": 1
+   }
+  ]
+ },
+ {
+  "id": "battle_cry",
+  "name": "Battle Cry",
+  "kind": "spell",
+  "effects": [
+   {
+    "op": "buff_attack",
+    "amount": 10,
+    "turns": 1
+   },
+   {
+    "op": "draw",
+    "amount": 1
+   }
+  ]
+ },
+ {
+  "id": "stillness",
+  "name": "Stillness",
+  "kind": "spell",
+  "effects": [
+   {
+    "op": "lock",
+    "what": "summon",
+    "turns": 1
+   },
+   {
+    "op": "lock",
+    "what": "fortress",
+    "turns": 2
+   }
+  ]
+ }
+]

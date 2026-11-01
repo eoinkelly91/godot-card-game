@@ -1,0 +1,353 @@
+[
+ {
+  "id": "amustas",
+  "name": "Amustas",
+  "kind": "champion",
+  "class": "elite",
+  "color": "Red",
+  "type": "Creature",
+  "hp": 150,
+  "summon": {
+   "sacrifice": 3
+  },
+  "attacks": [
+   {
+    "name": "Consume",
+    "damage": 40
+   },
+   {
+    "name": "Armageddon",
+    "damage": 100,
+    "requires": {
+     "self_hp_at_least": 80
+    }
+   }
+  ]
+ },
+ {
+  "id": "syranite",
+  "name": "Syranite",
+  "kind": "champion",
+  "class": "basic",
+  "color": "Red",
+  "type": "Human",
+  "hp": 60,
+  "summon": {},
+  "attacks": [
+   {
+    "name": "Jab",
+    "damage": 20
+   }
+  ]
+ },
+ {
+  "id": "battlement_guard",
+  "name": "Battlement Guard",
+  "kind": "champion",
+  "class": "elite",
+  "color": "Red",
+  "type": "Human",
+  "hp": 90,
+  "summon": {
+   "sacrifice": 1
+  },
+  "attacks": [
+   {
+    "name": "Dark Dagger",
+    "damage": 30
+   },
+   {
+    "name": "Shadow Blade",
+    "damage": 60,
+    "requires": {
+     "self_hp_at_least": 50
+    }
+   }
+  ]
+ },
+ {
+  "id": "joseph_the_knight",
+  "name": "Joseph the Knight",
+  "kind": "champion",
+  "class": "elite",
+  "color": "Red",
+  "type": "Human",
+  "hp": 100,
+  "summon": {
+   "sacrifice": 1
+  },
+  "attacks": [
+   {
+    "name": "Slice",
+    "damage": 30
+   },
+   {
+    "name": "Honourable Task",
+    "damage": 70,
+    "mana_cost": 1,
+    "self_damage": 20,
+    "text": "70 + this champion does 20 damage to itself."
+   }
+  ]
+ },
+ {
+  "id": "blackthorn_dragon",
+  "name": "Blackthorn Dragon",
+  "kind": "champion",
+  "class": "elite",
+  "color": "Red",
+  "type": "Creature",
+  "hp": 100,
+  "summon": {
+   "sacrifice": 1
+  },
+  "attacks": [
+   {
+    "name": "Fireball",
+    "damage": 30
+   }
+  ],
+  "ability": {
+   "text": "Flip a coin if heads prevent all damage to Blackthorn Dragon including damage done through spells and enchantments",
+   "trigger": "start_of_turn",
+   "op": "coin_protect"
+  }
+ },
+ {
+  "id": "capeasant",
+  "name": "Capeasant",
+  "kind": "champion",
+  "class": "basic",
+  "color": "Red",
+  "type": "Creature",
+  "hp": 50,
+  "summon": {},
+  "attacks": [
+   {
+    "name": "Revolt",
+    "damage": 0,
+    "mana_cost": 1,
+    "no_target": true,
+    "coin_each_enemy": 10,
+    "text": "Flip a coin for every champion your opponent has in play, this attack does 10 damage to that champion for evey heads."
+   }
+  ]
+ },
+ {
+  "id": "capatsar",
+  "name": "Capatsar",
+  "kind": "champion",
+  "class": "elite",
+  "color": "Red",
+  "type": "Creature",
+  "hp": 70,
+  "summon": {
+   "sacrifice": 1
+  },
+  "attacks": [
+   {
+    "name": "Revolt",
+    "damage": 0,
+    "mana_cost": 2,
+    "no_target": true,
+    "coin_each_enemy": 20,
+    "text": "Flip a coin for every champion your opponent has this attack does 20 damage to that champion for evey heads."
+   },
+   {
+    "name": "Duel",
+    "damage": 30,
+    "requires": {
+     "self_hp_at_least": 30
+    },
+    "unimplemented": "Duel: the target must attack Capatsar next turn",
+    "text": "30 + the champion being attacked must attack Capatsar next turn"
+   }
+  ]
+ },
+ {
+  "id": "molten_harry",
+  "name": "Molten Harry",
+  "kind": "champion",
+  "class": "elite",
+  "color": "Red",
+  "type": "Human",
+  "hp": 70,
+  "summon": {
+   "sacrifice": 1
+  },
+  "attacks": [
+   {
+    "name": "Mace",
+    "damage": 40,
+    "requires": {
+     "self_hp_at_least": 40
+    }
+   },
+   {
+    "name": "Volcanic Horn",
+    "damage": 0,
+    "mana_cost": 2,
+    "unimplemented": "Volcanic Horn: another champion attacks again on heads",
+    "text": "Flip a coin if heads one of your other champion can attack again this turn"
+   }
+  ]
+ },
+ {
+  "id": "cwelen",
+  "name": "Cwelen",
+  "kind": "champion",
+  "class": "elite",
+  "color": "Red",
+  "type": "Human",
+  "hp": 80,
+  "summon": {
+   "sacrifice": 1
+  },
+  "attacks": [
+   {
+    "name": "Slash",
+    "damage": 20
+   },
+   {
+    "name": "Risky Move",
+    "damage": 50,
+    "requires": {
+     "self_hp_at_least": 50
+    },
+    "coin_fizzle": true,
+    "text": "50 + flip a coin if heads this attack does nothing"
+   }
+  ]
+ },
+ {
+  "id": "suburn",
+  "name": "Suburn",
+  "kind": "champion",
+  "class": "basic",
+  "color": "Red",
+  "type": "Creature",
+  "hp": 50,
+  "summon": {},
+  "attacks": [
+   {
+    "name": "Air Claw",
+    "damage": 10,
+    "coin_bonus": 20,
+    "text": "10 + 20X1CoinFlip"
+   }
+  ]
+ },
+ {
+  "id": "small_troll",
+  "name": "Small Troll",
+  "kind": "champion",
+  "class": "basic",
+  "color": "Red",
+  "type": "Creature",
+  "hp": 40,
+  "summon": {},
+  "attacks": [
+   {
+    "name": "Club Bam",
+    "damage": 10
+   }
+  ],
+  "ability": {
+   "text": "If an attack does over 30 damage to Small Troll prevent that attack from happening and all its effects",
+   "trigger": "passive",
+   "negate_if_damage_over": 30
+  }
+ },
+ {
+  "id": "big_troll",
+  "name": "Big Troll",
+  "kind": "champion",
+  "class": "elite",
+  "color": "Red",
+  "type": "Creature",
+  "hp": 120,
+  "summon": {
+   "sacrifice": 1
+  },
+  "attacks": [
+   {
+    "name": "Club Bam",
+    "damage": 20
+   }
+  ],
+  "ability": {
+   "text": "If an attack does over 60 damage to Big  Troll prevent that attack from happening and all its effects",
+   "trigger": "passive",
+   "negate_if_damage_over": 60
+  }
+ },
+ {
+  "id": "griffog",
+  "name": "Griffog",
+  "kind": "champion",
+  "class": "elite",
+  "color": "Red",
+  "type": "Creature",
+  "hp": 70,
+  "summon": {
+   "sacrifice": 1
+  },
+  "attacks": [
+   {
+    "name": "Poisonous Bite",
+    "damage": 20,
+    "poison": {
+     "amount": 10,
+     "turns": -1
+    },
+    "text": "20 + the defending champion is now poisoned."
+   }
+  ]
+ },
+ {
+  "id": "gorth",
+  "name": "Gorth",
+  "kind": "champion",
+  "class": "basic",
+  "color": "Red",
+  "type": "Creature",
+  "hp": 60,
+  "summon": {},
+  "attacks": [
+   {
+    "name": "Savage",
+    "damage": 50,
+    "self_damage": 10,
+    "text": "50  + this champion does 10 damage to itself."
+   }
+  ]
+ },
+ {
+  "id": "lava_titan",
+  "name": "Lava Titan",
+  "kind": "champion",
+  "class": "elite",
+  "color": "Red",
+  "type": "Creature",
+  "hp": 300,
+  "summon": {
+   "sacrifice": 2
+  },
+  "attacks": [
+   {
+    "name": "Eruption",
+    "damage": 30,
+    "self_damage": 10,
+    "text": "30  + this champion does 10 damage to itself."
+   }
+  ],
+  "ability": {
+   "text": "Add 10 damage to this champions attack for every 5 damage counters on Lava Titan",
+   "trigger": "on_attack",
+   "bonus_per": {
+    "count": "own_damage_per_5_counters",
+    "amount": 10
+   }
+  }
+ }
+]

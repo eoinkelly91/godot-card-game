@@ -1,0 +1,40 @@
+{
+ "red_blue": {
+  "ember_scout": 4,
+  "cinder_brute": 4,
+  "ash_duelist": 4,
+  "rune_adept": 4,
+  "tide_guard": 4,
+  "glass_sage": 4,
+  "cinder_tyrant": 2,
+  "fire_bolt": 4,
+  "mend": 4,
+  "surge": 4,
+  "binding_seal": 3,
+  "venom_dart": 3,
+  "battle_cry": 4,
+  "stillness": 2,
+  "war_banner": 4,
+  "ward_of_reprisal": 2,
+  "thorn_aura": 4
+ },
+ "white_purple": {
+  "sun_acolyte": 4,
+  "sunblade_champion": 4,
+  "dawn_hound": 4,
+  "grave_wisp": 4,
+  "bone_colossus": 4,
+  "hollow_spirit": 4,
+  "fire_bolt": 4,
+  "mend": 4,
+  "surge": 3,
+  "binding_seal": 3,
+  "venom_dart": 4,
+  "battle_cry": 3,
+  "stillness": 3,
+  "war_banner": 4,
+  "spellfire_sigil": 4,
+  "ward_of_reprisal": 2,
+  "thorn_aura": 2
+ }
+}

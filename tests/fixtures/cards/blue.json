@@ -1,0 +1,60 @@
+[
+ {
+  "id": "rune_adept",
+  "name": "Rune Adept",
+  "kind": "champion",
+  "class": "elite",
+  "color": "Blue",
+  "type": "Human",
+  "hp": 40,
+  "summon": {
+   "mana": 2
+  },
+  "attacks": [
+   {
+    "name": "Bolt",
+    "damage": 20
+   }
+  ]
+ },
+ {
+  "id": "tide_guard",
+  "name": "Tide Guard",
+  "kind": "champion",
+  "class": "elite",
+  "color": "Blue",
+  "type": "Creature",
+  "hp": 50,
+  "summon": {
+   "mana": 3
+  },
+  "attacks": [
+   {
+    "name": "Wave",
+    "damage": 20
+   },
+   {
+    "name": "Crash",
+    "damage": 30
+   }
+  ]
+ },
+ {
+  "id": "glass_sage",
+  "name": "Glass Sage",
+  "kind": "champion",
+  "class": "elite",
+  "color": "Blue",
+  "type": "Spirit",
+  "hp": 30,
+  "summon": {
+   "mana": 1
+  },
+  "attacks": [
+   {
+    "name": "Spark",
+    "damage": 10
+   }
+  ]
+ }
+]

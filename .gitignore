@@ -1,0 +1,26 @@
+# Godot 4 generated files (rebuilt by `godot --headless --import`)
+.godot/
+
+# Exports and builds
+export/
+build/
+*.exe
+*.pck
+*.apk
+*.aab
+
+# Export credentials (keystores, signing passwords)
+export_credentials.cfg
+
+# Editor and OS clutter
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Python (from tools/import_champions.py)
+__pycache__/
+*.pyc
+
+# Local simulation logs, if you save any
+*.log

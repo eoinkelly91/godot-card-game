@@ -1,0 +1,310 @@
+[
+ {
+  "id": "gob",
+  "name": "Gob",
+  "kind": "champion",
+  "class": "basic",
+  "color": "Purple",
+  "type": "Spirit",
+  "hp": 40,
+  "summon": {},
+  "attacks": [
+   {
+    "name": "Headbutt",
+    "damage": 10
+   }
+  ]
+ },
+ {
+  "id": "cyris",
+  "name": "Cyris",
+  "kind": "champion",
+  "class": "basic",
+  "color": "Purple",
+  "type": "Human",
+  "hp": 50,
+  "summon": {},
+  "attacks": [
+   {
+    "name": "Red Blade",
+    "damage": 20
+   }
+  ]
+ },
+ {
+  "id": "green_goblin",
+  "name": "Green Goblin",
+  "kind": "champion",
+  "class": "basic",
+  "color": "Purple",
+  "type": "Creature",
+  "hp": 40,
+  "summon": {},
+  "attacks": [
+   {
+    "name": "Slime",
+    "damage": 10,
+    "bonus_vs_class": {
+     "class": "basic",
+     "amount": 10
+    },
+    "text": "10 + this attack does plus 10 versus basic champions"
+   }
+  ]
+ },
+ {
+  "id": "grey_goblin",
+  "name": "Grey Goblin",
+  "kind": "champion",
+  "class": "elite",
+  "color": "Purple",
+  "type": "Creature",
+  "hp": 90,
+  "summon": {
+   "sacrifice": 1
+  },
+  "attacks": [
+   {
+    "name": "Slash",
+    "damage": 20
+   },
+   {
+    "name": "Leer",
+    "damage": 30,
+    "requires": {
+     "self_hp_at_least": 50
+    }
+   }
+  ]
+ },
+ {
+  "id": "pumpkin_knight",
+  "name": "Pumpkin Knight",
+  "kind": "champion",
+  "class": "elite",
+  "color": "Purple",
+  "type": "Human",
+  "hp": 70,
+  "summon": {
+   "sacrifice": 1
+  },
+  "attacks": [
+   {
+    "name": "Slay",
+    "damage": 10,
+    "bonus_vs_type": {
+     "type": "Creature",
+     "amount": 30
+    },
+    "text": "10 + 30 damage against creatures"
+   },
+   {
+    "name": "Darkness Hit",
+    "damage": 50,
+    "requires": {
+     "self_hp_at_least": 50
+    }
+   }
+  ]
+ },
+ {
+  "id": "psyville",
+  "name": "Psyville",
+  "kind": "champion",
+  "class": "basic",
+  "color": "Purple",
+  "type": "Spirit",
+  "hp": 50,
+  "summon": {},
+  "attacks": [
+   {
+    "name": "Trident",
+    "damage": 0,
+    "requires": {
+     "self_hp_at_least": 30
+    },
+    "no_target": true,
+    "damage_each_enemy": 10,
+    "text": "Do 10 damage to each of your opponts champions"
+   }
+  ]
+ },
+ {
+  "id": "psybar",
+  "name": "Psybar",
+  "kind": "champion",
+  "class": "elite",
+  "color": "Purple",
+  "type": "Spirit",
+  "hp": 70,
+  "summon": {
+   "sacrifice": 1
+  },
+  "attacks": [
+   {
+    "name": "Demonic",
+    "damage": 10,
+    "mana_cost": 1,
+    "per_own_enchantment": 10,
+    "text": "10 + 10 damage for each of your enchantments in play"
+   }
+  ],
+  "ability": {
+   "text": "Flip a coin if heads your opponet cannot draw a card next turn",
+   "trigger": "start_of_turn",
+   "op": "coin_lock",
+   "what": "draw",
+   "turns": 1
+  }
+ },
+ {
+  "id": "warlord",
+  "name": "Warlord",
+  "kind": "champion",
+  "class": "elite",
+  "color": "Purple",
+  "type": "Creature",
+  "hp": 120,
+  "summon": {
+   "sacrifice": 2
+  },
+  "attacks": [
+   {
+    "name": "Dark Dagger",
+    "damage": 30
+   },
+   {
+    "name": "Molten Fury",
+    "damage": 80,
+    "mana_cost": 2
+   }
+  ],
+  "ability": {
+   "text": "Your opponent cannot play spell cards while this champion is in play (active or encamped)",
+   "trigger": "passive",
+   "lock_enemy": "spell"
+  }
+ },
+ {
+  "id": "gyptjeous",
+  "name": "Gyptjeous",
+  "kind": "champion",
+  "class": "elite",
+  "color": "Purple",
+  "type": "Spirit",
+  "hp": 170,
+  "summon": {
+   "sacrifice": 2
+  },
+  "attacks": [
+   {
+    "name": "Black Magic",
+    "damage": 50,
+    "mana_cost": 1
+   }
+  ],
+  "ability": {
+   "text": "Do 20 damage to any champion that deals over 50 damage with their attack",
+   "trigger": "passive",
+   "when_hit_over_damage_attacker": {
+    "over": 50,
+    "amount": 20
+   }
+  }
+ },
+ {
+  "id": "dark_raider",
+  "name": "Dark Raider",
+  "kind": "champion",
+  "class": "basic",
+  "color": "Purple",
+  "type": "Human",
+  "hp": 60,
+  "summon": {},
+  "attacks": [
+   {
+    "name": "Mace",
+    "damage": 40,
+    "requires": {
+     "self_hp_at_least": 40
+    }
+   }
+  ]
+ },
+ {
+  "id": "stanter",
+  "name": "Stanter",
+  "kind": "champion",
+  "class": "elite",
+  "color": "Purple",
+  "type": "Human",
+  "hp": 70,
+  "summon": {
+   "sacrifice": 1
+  },
+  "attacks": [
+   {
+    "name": "Staff Attack",
+    "damage": 10,
+    "unimplemented": "Staff Attack: the optional discard for +30 is missing (10 damage for now)",
+    "text": "10 + discard a card to do plus 30 damage"
+   },
+   {
+    "name": "Divine Wind",
+    "damage": 70,
+    "requires": {
+     "self_hp_at_least": 70
+    }
+   }
+  ]
+ },
+ {
+  "id": "the_magician_gcairo",
+  "name": "The Magician Gcairo",
+  "kind": "champion",
+  "class": "elite",
+  "color": "Purple",
+  "type": "Human",
+  "hp": 90,
+  "summon": {
+   "sacrifice": 2
+  },
+  "attacks": [
+   {
+    "name": "Surprise Attack",
+    "damage": 0,
+    "per_opponent_hand_card": 10,
+    "text": "Does 10 damage for every card in your opponents hand"
+   },
+   {
+    "name": "Vanish",
+    "damage": 0,
+    "requires": {
+     "self_hp_at_least": 60
+    },
+    "unimplemented": "Vanish: return an enemy champion and its attached cards to hand on heads",
+    "text": "Flip a coin if heads return one of your opponents champions and all cards attached to it back into their hand"
+   }
+  ]
+ },
+ {
+  "id": "skullmort",
+  "name": "Skullmort",
+  "kind": "champion",
+  "class": "elite",
+  "color": "Purple",
+  "type": "Creature",
+  "hp": 80,
+  "summon": {
+   "sacrifice": 1
+  },
+  "attacks": [
+   {
+    "name": "Army of the dead",
+    "damage": 0,
+    "per_champion_in_own_discard": 10,
+    "text": "Do 10 damage for every chamion card in the discard pile."
+   }
+  ]
+ }
+]

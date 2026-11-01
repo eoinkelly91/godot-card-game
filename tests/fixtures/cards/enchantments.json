@@ -1,0 +1,48 @@
+[
+ {
+  "id": "war_banner",
+  "name": "War Banner",
+  "kind": "enchantment",
+  "cost": 2,
+  "damage_percent": 50,
+  "affects_spell_damage": false
+ },
+ {
+  "id": "spellfire_sigil",
+  "name": "Spellfire Sigil",
+  "kind": "enchantment",
+  "cost": 2,
+  "damage_percent": 50,
+  "affects_spell_damage": true
+ },
+ {
+  "id": "ward_of_reprisal",
+  "name": "Ward of Reprisal",
+  "kind": "enchantment",
+  "cost": 3,
+  "reaction": {
+   "when": {
+    "attacker_color": "Red"
+   },
+   "effect": {
+    "op": "negate_attack"
+   },
+   "one_shot": true
+  }
+ },
+ {
+  "id": "thorn_aura",
+  "name": "Thorn Aura",
+  "kind": "enchantment",
+  "cost": 2,
+  "reaction": {
+   "when": {
+    "deals_damage": true
+   },
+   "effect": {
+    "op": "damage_attacker",
+    "amount": 10
+   }
+  }
+ }
+]

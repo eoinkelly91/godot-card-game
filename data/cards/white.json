@@ -1,0 +1,310 @@
+[
+ {
+  "id": "war_bear",
+  "name": "War Bear",
+  "kind": "champion",
+  "class": "elite",
+  "color": "White",
+  "type": "Creature",
+  "hp": 80,
+  "summon": {
+   "sacrifice": 1
+  },
+  "attacks": [
+   {
+    "name": "Claw",
+    "damage": 20
+   },
+   {
+    "name": "Double Claw",
+    "damage": 0,
+    "mana_cost": 1,
+    "coins": {
+     "count": 3,
+     "per_heads_damage": 20
+    },
+    "text": "Flip 3 coins, this attack does 20 damage for each Heads."
+   }
+  ]
+ },
+ {
+  "id": "ramaire",
+  "name": "Ramaire",
+  "kind": "champion",
+  "class": "elite",
+  "color": "White",
+  "type": "Creature",
+  "hp": 80,
+  "summon": {
+   "sacrifice": 2
+  },
+  "attacks": [
+   {
+    "name": "Slash",
+    "damage": 20
+   }
+  ],
+  "ability": {
+   "text": "Opponent cannot play spell cards while this champion is in play (active or encamped)",
+   "trigger": "passive",
+   "lock_enemy": "spell"
+  }
+ },
+ {
+  "id": "tigrodon",
+  "name": "Tigrodon",
+  "kind": "champion",
+  "class": "elite",
+  "color": "White",
+  "type": "Creature",
+  "hp": 130,
+  "summon": {
+   "sacrifice": 2
+  },
+  "attacks": [
+   {
+    "name": "Savage",
+    "damage": 50,
+    "mana_cost": 1
+   },
+   {
+    "name": "Charge",
+    "damage": 90,
+    "mana_cost": 2,
+    "self_damage": 30,
+    "text": "90+ this champion does 30 damage to itself."
+   }
+  ]
+ },
+ {
+  "id": "poglasaur",
+  "name": "Poglasaur",
+  "kind": "champion",
+  "class": "elite",
+  "color": "White",
+  "type": "Creature",
+  "hp": 80,
+  "summon": {
+   "sacrifice": 2
+  },
+  "attacks": [
+   {
+    "name": "Ring of Defiance",
+    "damage": 40
+   }
+  ],
+  "ability": {
+   "text": "At the start of your turn draw a card",
+   "trigger": "start_of_turn",
+   "op": "draw",
+   "amount": 1
+  }
+ },
+ {
+  "id": "poglass",
+  "name": "Poglass",
+  "kind": "champion",
+  "class": "elite",
+  "color": "White",
+  "type": "Creature",
+  "hp": 60,
+  "summon": {
+   "sacrifice": 1
+  },
+  "attacks": [
+   {
+    "name": "Tail Swipe",
+    "damage": 10
+   },
+   {
+    "name": "Ring of Greed",
+    "damage": 0,
+    "mana_cost": 1,
+    "coin_draw_or_discard": {
+     "draw": 2,
+     "discard": 1
+    },
+    "text": "Flip a coin if heads draw 2 cards. If tails discard a card from your hand"
+   }
+  ]
+ },
+ {
+  "id": "pog",
+  "name": "Pog",
+  "kind": "champion",
+  "class": "basic",
+  "color": "White",
+  "type": "Creature",
+  "hp": 50,
+  "summon": {},
+  "attacks": [
+   {
+    "name": "Puff",
+    "damage": 10
+   }
+  ]
+ },
+ {
+  "id": "grimn",
+  "name": "Grimn",
+  "kind": "champion",
+  "class": "basic",
+  "color": "White",
+  "type": "Creature",
+  "hp": 50,
+  "summon": {},
+  "attacks": [
+   {
+    "name": "Gnaw",
+    "damage": 20
+   }
+  ],
+  "ability": {
+   "text": "If Grimn does not attack this turn Gnaw does 40 damage next turn",
+   "trigger": "passive",
+   "unimplemented": "stored Gnaw bonus not built yet"
+  }
+ },
+ {
+  "id": "gnome",
+  "name": "Gnome",
+  "kind": "champion",
+  "class": "basic",
+  "color": "White",
+  "type": "Human",
+  "hp": 40,
+  "summon": {},
+  "attacks": [
+   {
+    "name": "Spark",
+    "damage": 10
+   }
+  ],
+  "ability": {
+   "text": "No champion with over 60 HP can do damage to Gnome",
+   "trigger": "passive",
+   "immune_to_attackers_max_hp_over": 60
+  }
+ },
+ {
+  "id": "marcos_the_gladiator",
+  "name": "Marcos the Gladiator",
+  "kind": "champion",
+  "class": "elite",
+  "color": "White",
+  "type": "Human",
+  "hp": 80,
+  "summon": {
+   "sacrifice": 1
+  },
+  "attacks": [
+   {
+    "name": "Slash",
+    "damage": 20
+   }
+  ],
+  "ability": {
+   "text": "Add +10 damage to this champoins attack for each of your active champions",
+   "trigger": "on_attack",
+   "bonus_per": {
+    "count": "own_champions",
+    "amount": 10
+   }
+  }
+ },
+ {
+  "id": "psytwist",
+  "name": "Psytwist",
+  "kind": "champion",
+  "class": "elite",
+  "color": "White",
+  "type": "Spirit",
+  "hp": 70,
+  "summon": {
+   "sacrifice": 1
+  },
+  "attacks": [
+   {
+    "name": "Mental Blast",
+    "damage": 20
+   }
+  ],
+  "ability": {
+   "text": "Add +10 damage to this champoins attack for every spirit champions in play",
+   "trigger": "on_attack",
+   "bonus_per": {
+    "count": "spirits_in_play",
+    "amount": 10
+   }
+  }
+ },
+ {
+  "id": "hypnotwist",
+  "name": "Hypnotwist",
+  "kind": "champion",
+  "class": "basic",
+  "color": "White",
+  "type": "Spirit",
+  "hp": 50,
+  "summon": {},
+  "attacks": [
+   {
+    "name": "Mental Blast",
+    "damage": 10
+   }
+  ],
+  "ability": {
+   "text": "Add +10 damage to this champoins attack for each of your spirit champions in play",
+   "trigger": "on_attack",
+   "bonus_per": {
+    "count": "own_spirits",
+    "amount": 10
+   }
+  }
+ },
+ {
+  "id": "pupever",
+  "name": "Pupever",
+  "kind": "champion",
+  "class": "basic",
+  "color": "White",
+  "type": "Creature",
+  "hp": 50,
+  "summon": {},
+  "attacks": [
+   {
+    "name": "Glide",
+    "damage": 10,
+    "coin_protect_self": true,
+    "text": "10 + Flip a coin if heads prevent all damage done to Pupever"
+   }
+  ]
+ },
+ {
+  "id": "spike",
+  "name": "Spike",
+  "kind": "champion",
+  "class": "basic",
+  "color": "White",
+  "type": "Creature",
+  "hp": 50,
+  "summon": {},
+  "attacks": [
+   {
+    "name": "Poisonous Bite",
+    "damage": 10,
+    "poison": {
+     "amount": 10,
+     "turns": -1
+    },
+    "coin_gated": true,
+    "text": "10 + Flip a coin if heads the defending champoin is now poisoned."
+   }
+  ],
+  "ability": {
+   "text": "This champion can be sacrificed as any color champion.",
+   "trigger": "passive",
+   "sacrifice_as_any_color": true
+  }
+ }
+]
