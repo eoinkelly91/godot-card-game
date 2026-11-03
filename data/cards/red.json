@@ -159,7 +159,7 @@
     "requires": {
      "self_hp_at_least": 30
     },
-    "unimplemented": "Duel: the target must attack Capatsar next turn",
+    "duel": true,
     "text": "30 + the champion being attacked must attack Capatsar next turn"
    }
   ]
@@ -187,7 +187,8 @@
     "name": "Volcanic Horn",
     "damage": 0,
     "mana_cost": 2,
-    "unimplemented": "Volcanic Horn: another champion attacks again on heads",
+    "no_target": true,
+    "coin_extra_attack": true,
     "text": "Flip a coin if heads one of your other champion can attack again this turn"
    }
   ]

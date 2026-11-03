@@ -70,6 +70,20 @@ static func _cast_spells(g: Game, p: int) -> void:
 			"poison":
 				if not foe.castled and not foe.champions.is_empty():
 					g.play_spell(p, i, 0, {"champion": _weakest(foe).uid})
+			"cleanse":
+				for c in me.champions:
+					for st in c.statuses:
+						if str(st.kind) == "poison":
+							g.play_spell(p, i, 0, {"champion": c.uid})
+							break
+			"drain_mana":
+				if foe.mana >= 2:
+					g.play_spell(p, i, 0)
+			"no_attack":
+				if not foe.castled and not foe.champions.is_empty():
+					g.play_spell(p, i, 0, {"champion": _weakest(foe).uid})
+			"wizardry_draw":
+				g.play_spell(p, i, 0)
 			"buff_attack", "lock", "draw", "gain_mana":
 				if str(effect.op) != "buff_attack" or not me.castled:
 					g.play_spell(p, i, 0)
@@ -78,18 +92,23 @@ static func _cast_spells(g: Game, p: int) -> void:
 ## Biggest affordable attack by an unused color, at the weakest legal target. Returns false if none worked.
 static func _attack_once(g: Game, p: int) -> bool:
 	var me: PlayerState = g.players[p]
-	var foe: PlayerState = g.players[1 - p]
 	var options: Array = []
 	for c in me.champions:
 		if c.color() in me.colors_used:
-			continue
+			var has_token: bool = false  # Volcanic Horn lets another champion attack again
+			for src in me.extra_attacks:
+				if int(src) != c.uid:
+					has_token = true
+			if not has_token:
+				continue
 		var attacks: Array = c.card.attacks
 		for ai in attacks.size():
 			if int(attacks[ai].get("mana_cost", 0)) <= me.mana:
 				options.append({"uid": c.uid, "index": ai, "damage": int(attacks[ai].damage)})
 	options.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return a.damage > b.damage)
-	var target: Dictionary = {"fortress": 1 - p} if (foe.castled or foe.champions.is_empty()) else {"champion": _weakest(foe).uid}
 	for opt in options:
+		var attacker: Champion = g._champion_of(me, opt.uid)
+		var target: Dictionary = _target_for(g, p, attacker, attacker.card.attacks[opt.index])
 		var picks: Array = []
 		for i in me.hand.size():
 			if str(me.hand[i].get("kind", "")) == "spell" and me.hand[i].effects.size() > 1 and me.hand[i].effects[1].op == "bonus_damage":
@@ -101,6 +120,28 @@ static func _attack_once(g: Game, p: int) -> bool:
 		if r.ok:
 			return true
 	return false
+
+
+## Picks the target (and options such as a discard) for one attack: Duel forces the duelist, Dual Spear needs two
+## champions, Staff Attack discards a spare card when the hand is big.
+static func _target_for(g: Game, p: int, attacker: Champion, atk: Dictionary) -> Dictionary:
+	var me: PlayerState = g.players[p]
+	var foe: PlayerState = g.players[1 - p]
+	var target: Dictionary = {"fortress": 1 - p}
+	if not foe.castled and not foe.champions.is_empty():
+		target = {"champion": _weakest(foe).uid}
+		for st in attacker.statuses:
+			if str(st.kind) == "duel":
+				var duelist: Champion = g._champion_of(foe, int(st.duelist))
+				if duelist != null:
+					target = {"champion": duelist.uid}
+		if int(atk.get("multi_target", 0)) > 1 and foe.champions.size() >= 2:
+			var sorted: Array = foe.champions.duplicate()
+			sorted.sort_custom(func(a: Champion, b: Champion) -> bool: return a.current_hp() < b.current_hp())
+			target = {"champions": [sorted[0].uid, sorted[1].uid]}
+	if atk.has("optional_discard_bonus") and me.hand.size() >= 3:
+		target["discard"] = me.hand.size() - 1
+	return target
 
 
 static func _sacrifices(ps: PlayerState, card: Dictionary) -> Array:

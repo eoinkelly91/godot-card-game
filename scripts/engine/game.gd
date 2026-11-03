@@ -23,7 +23,7 @@ const DEFAULT_RULES := {
 	"start_mana": 5,
 	"max_mulligans": 2,
 	"board_limit": 6,                        # champions in the active play area, and in the encampment area
-	"enchantment_limit": 5,
+	"enchantment_limit": 3,
 	"annihilation_goal": 10,
 	"economic_goal": 30,
 	"castles_per_game": 1,
@@ -128,8 +128,8 @@ func fortress_heal(p: int, champion_uid: int) -> Dictionary:
 	return SummonRules.fortress_heal(self, p, champion_uid)
 
 
-func summon(p: int, hand_index: int, sacrifice_uids: Array = []) -> Dictionary:
-	return SummonRules.summon(self, p, hand_index, sacrifice_uids)
+func summon(p: int, hand_index: int, sacrifice_uids: Array = [], discount_on: String = "") -> Dictionary:
+	return SummonRules.summon(self, p, hand_index, sacrifice_uids, discount_on)
 
 
 func play_enchantment(p: int, hand_index: int) -> Dictionary:

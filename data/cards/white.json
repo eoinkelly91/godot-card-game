@@ -162,7 +162,7 @@
   "ability": {
    "text": "If Grimn does not attack this turn Gnaw does 40 damage next turn",
    "trigger": "passive",
-   "unimplemented": "stored Gnaw bonus not built yet"
+   "stored_bonus_if_idle": 20
   }
  },
  {

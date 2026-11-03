@@ -82,6 +82,25 @@ static func after_damage(g: Game, p: int, attacker: Champion, atk: Dictionary, t
 		else:
 			g._log("Coin: Tails.")
 
+	if bool(atk.get("duel", false)) and target != null and foe.champions.has(target):
+		target.statuses.append({"kind": "duel", "duelist": attacker.uid, "turns_left": 1})
+		g._log("%s must attack %s on its owner's next turn." % [target.describe(), attacker.card_name()])
+	if bool(atk.get("coin_extra_attack", false)):
+		if g.flip_coin():
+			me.extra_attacks.append(attacker.uid)
+			g._log("Coin: Heads, another of P%d's champions can attack again this turn." % p)
+		else:
+			g._log("Coin: Tails.")
+	if bool(atk.get("coin_return_target_to_hand", false)) and target != null and foe.champions.has(target):
+		if g.flip_coin():
+			foe.champions.erase(target)
+			foe.hand.append(target.card)
+			for att in target.attached:
+				foe.hand.append(att)
+			g._log("%s and its attached cards return to P%d's hand." % [target.card_name(), 1 - p])
+		else:
+			g._log("Coin: Tails.")
+
 	# Self damage comes last. A champion destroyed by its own recoil scores a point for the opponent.
 	if atk.has("self_damage") and me.champions.has(attacker):
 		DamageRules.damage_champion(g, attacker, int(atk.self_damage), 1 - p)

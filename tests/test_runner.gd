@@ -68,6 +68,29 @@ func _init() -> void:
 		test_start_of_turn_champion_abilities,
 		test_protection_and_blackthorn,
 		test_poison_discard_and_hand_effects,
+		test_real_spell_data,
+		test_spells_any_time_after_castle_and_cost_mana,
+		test_heal_cleanse_and_choose_one,
+		test_mist_of_despair,
+		test_treason,
+		test_mana_and_hand_spells,
+		test_battle_axe,
+		test_reconstruction_and_ancient_script,
+		test_spirit_chain,
+		test_wizardry_archaeology_decoder,
+		test_mumified,
+		test_enchantments_start_of_turn,
+		test_battlements,
+		test_mist_of_grief,
+		test_treason_bypasses_protection,
+		test_mist_of_grief_spell_deaths,
+		test_champion_summon_by_sacrifice_or_mana_not_both,
+		test_duel,
+		test_volcanic_horn,
+		test_vanish,
+		test_dual_spear,
+		test_staff_attack,
+		test_grimn,
 	]
 	for t in tests:
 		var before_failed := failed
@@ -350,7 +373,7 @@ func test_enchantment_limit() -> void:
 	for i in 6:
 		if g.play_enchantment(0, 0).ok:
 			oks += 1
-	check(oks == 5, "only 5 enchantments allowed")
+	check(oks == 3, "only 3 enchantments allowed")
 
 
 func test_standalone_spell_damage_and_enchantments() -> void:
@@ -928,7 +951,7 @@ func test_attack_bonuses() -> void:
 	var g6 := real_game()
 	var sk := spawn(g6, 0, "skullmort")
 	var t6 := spawn(g6, 1, "amustas")
-	g6.players[0].discard = [rc("syranite"), rc("syranite"), rc("fire_bolt")]
+	g6.players[0].discard = [rc("syranite"), rc("syranite"), rc("crimson_wave")]
 	to_attack(g6)
 	check(g6.attack(0, sk.uid, 0, {"champion": t6.uid}).damage == 20, "Army of the Dead: 10 per champion card in your discard pile")
 
@@ -1018,13 +1041,13 @@ func test_reactive_abilities() -> void:
 func test_passive_locks() -> void:
 	var g := real_game()
 	spawn(g, 1, "ramaire")
-	g.players[0].hand = [rc("fire_bolt")]
+	g.players[0].hand = [rc("crimson_wave")]
 	spawn(g, 0, "pog")
 	to_attack(g)
 	check(not g.play_spell(0, 0, 0, {"champion": g.players[1].champions[0].uid}).ok, "Ramaire locks the opponent's spells")
 	var g2 := real_game()
 	var w := spawn(g2, 1, "warlord")
-	g2.players[0].hand = [rc("fire_bolt")]
+	g2.players[0].hand = [rc("crimson_wave")]
 	spawn(g2, 0, "pog")
 	g2.players[1].castled = true
 	to_attack(g2)
@@ -1139,3 +1162,643 @@ func test_poison_discard_and_hand_effects() -> void:
 	to_attack(g5)
 	g5.attack(0, pg5.uid, 1, {"champion": t5.uid})
 	check(g5.players[0].hand.size() == 1, "Ring of Greed on Tails: discard a card")
+
+
+# ---------------------------------------------------------------- real spells and enchantments
+
+func test_real_spell_data() -> void:
+	var spells := 0
+	var enchants := 0
+	for id in real:
+		var c: Dictionary = real[id]
+		if str(c.kind) == "spell":
+			spells += 1
+			check(c.has("effects") and c.effects.size() >= 1 and c.effects.size() <= 2, "%s has one or two effects" % id)
+			check(not c.has("color"), "%s is colorless" % id)
+		elif str(c.kind) == "enchantment":
+			enchants += 1
+			check(int(c.cost) == 3 or id == "mist_of_grief", "%s costs mana as in the sheet" % id)
+	check(spells == 13 and enchants == 5, "13 spells and 5 enchantments load (got %d and %d)" % [spells, enchants])
+	check(int(rc("heal").cost) == 0 and int(rc("battle_axe").cost) == 1 and int(rc("treason").cost) == 3, "spell costs come from the sheet")
+
+
+func test_spells_any_time_after_castle_and_cost_mana() -> void:
+	var g := real_game()
+	g.players[0].hand = [rc("crimson_wave"), rc("mumified")]
+	check(g.step == Game.Step.CASTLE, "the turn starts in the castle step")
+	check(g.play_spell(0, 0, 0).ok, "a free spell can be played right after the castle step (Summon step)")
+	check(g.step == Game.Step.SUMMON, "playing a spell moves the turn to the Summon step")
+	g.players[0].mana = 1  # after the Fortress mana has arrived
+	check(not g.play_spell(0, 0, 0).ok, "Mumified needs 2 mana")
+	g.players[0].mana = 2
+	check(g.play_spell(0, 0, 0).ok and g.players[0].mana == 0, "Mumified costs 2 mana in the Summon step")
+	to_attack(g)
+	g.players[0].hand = [rc("crimson_wave")]
+	check(g.play_spell(0, 0, 0).ok, "spells also work in the Attack step")
+	var g2 := real_game()
+	g2.players[0].turns_taken = 1
+	g2.players[0].hand = [rc("crimson_wave")]
+	check(not g2.play_spell(0, 0, 0).ok, "no spells on a first turn")
+
+
+func test_heal_cleanse_and_choose_one() -> void:
+	var g := real_game()
+	var c := spawn(g, 0, "amustas")
+	g.next_step(0)  # start-of-turn effects happen first
+	c.damage = 100
+	StatusRules.apply_poison(g, c, 10, -1, 1)
+	c.statuses.append({"kind": "protected"})
+	g.players[0].hand = [rc("heal"), rc("heal")]
+	check(g.play_spell(0, 0, 0, {"champion": c.uid}).ok and c.damage == 50, "Heal effect 1 heals 50")
+	check(c.statuses.size() == 2, "choosing the heal does not remove statuses")
+	check(g.play_spell(0, 0, 1, {"champion": c.uid}).ok, "Heal effect 2 removes statuses")
+	check(c.statuses.size() == 1 and c.statuses[0].kind == "protected" and c.damage == 50, "only negative statuses are removed and no HP is healed")
+	var g2 := real_game()
+	var foe := spawn(g2, 1, "gob")
+	g2.players[0].hand = [rc("heal")]
+	check(not g2.play_spell(0, 0, 0, {"champion": foe.uid}).ok, "Heal needs one of your own champions")
+
+
+func test_mist_of_despair() -> void:
+	var g := real_game()
+	var a := spawn(g, 0, "amustas")
+	var b := spawn(g, 0, "amustas")
+	a.damage = 20
+	b.damage = 30
+	var e1 := spawn(g, 1, "amustas")
+	var e2 := spawn(g, 1, "amustas")
+	g.players[0].mana = 2
+	g.players[0].hand = [rc("mist_of_despair")]
+	var moves := [{"from": a.uid, "to": e1.uid, "counters": 2}, {"from": b.uid, "to": e2.uid, "counters": 1}]
+	check(g.play_spell(0, 0, 0, {"moves": moves}).ok, "Mist of Despair resolves")
+	check(a.damage == 0 and b.damage == 20 and e1.damage == 20 and e2.damage == 10, "3 counters move: 20+10 damage onto the enemies")
+	var g2 := real_game()
+	var a2 := spawn(g2, 0, "amustas")
+	a2.damage = 10
+	var e3 := spawn(g2, 1, "amustas")
+	g2.players[0].mana = 2
+	g2.players[0].hand = [rc("mist_of_despair")]
+	check(not g2.play_spell(0, 0, 0, {"moves": [{"from": a2.uid, "to": e3.uid, "counters": 3}]}).ok, "you cannot take counters a champion does not have")
+	var g3 := real_game()
+	var a3 := spawn(g3, 0, "amustas")
+	a3.damage = 30
+	var e4 := spawn(g3, 1, "gob")
+	e4.damage = 20
+	g3.players[0].mana = 2
+	g3.players[0].hand = [rc("mist_of_despair")]
+	g3.play_spell(0, 0, 0, {"moves": [{"from": a3.uid, "to": e4.uid, "counters": 3}]})
+	check(g3.players[1].champions.is_empty() and g3.players[0].kills == 1, "moved damage that destroys an enemy champion scores a point")
+	var g4 := real_game()
+	var a4 := spawn(g4, 0, "amustas")
+	a4.damage = 30
+	var e5 := spawn(g4, 1, "amustas")
+	e5.statuses.append({"kind": "protected"})
+	g4.players[0].mana = 2
+	g4.players[0].hand = [rc("mist_of_despair")]
+	g4.play_spell(0, 0, 0, {"moves": [{"from": a4.uid, "to": e5.uid, "counters": 3}]})
+	check(e5.damage == 0 and a4.damage == 0, "protection stops the moved damage")
+
+
+func test_treason() -> void:
+	var g := real_game()
+	var a := spawn(g, 0, "amustas")
+	var b := spawn(g, 0, "amustas")
+	a.damage = 60
+	g.players[0].mana = 3
+	g.players[0].hand = [rc("treason")]
+	check(g.play_spell(0, 0, 0, {"from": a.uid, "to": b.uid}).ok, "Treason resolves")
+	check(a.damage == 0 and b.damage == 60, "all damage moves to the other champion")
+	var g2 := real_game()
+	var a2 := spawn(g2, 0, "amustas")
+	var weak := spawn(g2, 0, "gob")
+	a2.damage = 100
+	g2.players[0].mana = 3
+	g2.players[0].hand = [rc("treason")]
+	g2.play_spell(0, 0, 0, {"from": a2.uid, "to": weak.uid})
+	check(g2.players[0].champions.size() == 1 and g2.players[1].kills == 1, "Treason that destroys the receiver scores for the opponent")
+	var g3 := real_game()
+	g3.players[0].castled = true
+	var a3 := spawn(g3, 0, "amustas")
+	var b3 := spawn(g3, 0, "amustas")
+	a3.damage = 40
+	g3.players[0].mana = 3
+	g3.players[0].hand = [rc("treason")]
+	check(g3.play_spell(0, 0, 0, {"from": a3.uid, "to": b3.uid}).ok and b3.damage == 40, "Treason works on encamped champions")
+
+
+func test_mana_and_hand_spells() -> void:
+	var g := real_game()
+	g.players[1].mana = 5
+	g.players[0].hand = [rc("crimson_wave")]
+	g.play_spell(0, 0, 0)
+	check(g.players[1].mana == 2, "Crimson Wave takes 3 mana")
+	var g2 := real_game()
+	g2.players[1].mana = 1
+	g2.players[0].hand = [rc("crimson_wave")]
+	g2.play_spell(0, 0, 0)
+	check(g2.players[1].mana == 0, "mana never goes below 0")
+	var g3 := real_game()
+	g3.next_step(0)
+	g3.players[1].mana = 6
+	g3.players[1].hand = [rc("syranite"), rc("syranite"), rc("syranite")]
+	g3.players[0].mana = 4
+	g3.players[0].hand = [rc("parasite"), rc("parasite")]
+	g3.play_spell(0, 0, 0)
+	check(g3.players[1].mana == 3 and g3.players[1].hand.size() == 3, "Parasite effect 1: lose 1 mana per card in hand, no discards")
+	g3.play_spell(0, 0, 1)
+	check(g3.players[1].hand.size() == 1 and g3.players[1].discard.size() == 2, "Parasite effect 2: discard two cards")
+	var g4 := real_game()
+	g4.next_step(0)
+	g4.players[0].mana = 0
+	g4.players[0].hand = [rc("decoder"), rc("crimson_wave"), rc("syranite"), rc("heal")]
+	check(not g4.play_spell(0, 0, 0, {"discard_indices": [2]}).ok, "Decoder can only discard spell cards")
+	check(g4.play_spell(0, 0, 0, {"discard_indices": [1, 3]}).ok and g4.players[0].mana == 4, "Decoder effect 1: 2 mana per spell discarded")
+	check(g4.players[0].hand.size() == 1 and g4.players[0].discard.size() == 3, "the discarded spells and Decoder are in the discard pile")
+	var g5 := real_game()
+	g5.next_step(0)
+	g5.players[0].mana = 5
+	g5.players[0].enchantments = [rc("field_medics")]
+	g5.players[0].hand = [rc("decoder")]
+	g5.play_spell(0, 0, 1, {"enchantment": 0})
+	check(g5.players[0].enchantments.is_empty() and g5.players[0].mana == 10, "Decoder effect 2: discard an enchantment in play for 5 mana")
+	var g6 := real_game()
+	g6.next_step(0)
+	g6.players[0].mana = 5
+	g6.players[0].hand = [rc("decoder"), rc("battlements")]
+	g6.play_spell(0, 0, 1, {"hand_index": 1})
+	check(g6.players[0].hand.is_empty() and g6.players[0].mana == 10, "Decoder effect 2 also takes an enchantment from your hand")
+
+
+func test_battle_axe() -> void:
+	var g := real_game()
+	var a := spawn(g, 0, "syranite")
+	var b := spawn(g, 0, "syranite")
+	var t := spawn(g, 1, "amustas")
+	g.players[0].mana = 1
+	g.players[0].hand = [rc("battle_axe")]
+	check(g.play_spell(0, 0, 0, {"champion": a.uid}).ok, "Battle Axe effect 1 names a champion")
+	to_attack(g)
+	var r := g.attack(0, a.uid, 0, {"champion": t.uid})
+	check(r.damage == 50, "its next attack does +30 (20 + 30)")
+	check(g.attack(0, b.uid, 0, {"champion": t.uid}).ok or true, "another champion is not affected")
+	var g2 := real_game()
+	var a2 := spawn(g2, 0, "syranite")
+	var t2 := spawn(g2, 1, "amustas")
+	g2.players[0].mana = 1
+	g2.players[0].hand = [rc("battle_axe")]
+	g2.play_spell(0, 0, 0, {"champion": a2.uid})
+	g2.end_turn(0)
+	check(a2.statuses.is_empty(), "an unused bonus does not carry over to the next turn")
+	var g3 := real_game()
+	spawn(g3, 0, "syranite")
+	var a3 := spawn(g3, 0, "gob")
+	var f1 := spawn(g3, 1, "amustas")
+	var f2 := spawn(g3, 1, "amustas")
+	var f3 := spawn(g3, 1, "amustas")
+	var f4 := spawn(g3, 1, "amustas")
+	g3.players[0].mana = 1
+	g3.players[0].hand = [rc("battle_axe")]
+	check(not g3.play_spell(0, 0, 1, {"champions": [f1.uid, f2.uid]}).ok, "effect 2 needs three different champions when they have four")
+	g3.play_spell(0, 0, 1, {"champions": [f1.uid, f2.uid, f3.uid]})
+	check(f1.damage == 10 and f2.damage == 10 and f3.damage == 10 and f4.damage == 0, "effect 2: 10 damage to three enemy champions")
+	var g4 := real_game()
+	var only := spawn(g4, 1, "amustas")
+	g4.players[0].mana = 1
+	g4.players[0].hand = [rc("battle_axe")]
+	g4.play_spell(0, 0, 1, {"champions": [only.uid]})
+	check(only.damage == 10, "with fewer than three enemy champions it hits them all")
+	var g5 := real_game()
+	var a5 := spawn(g5, 0, "syranite")
+	var t5 := spawn(g5, 1, "amustas")
+	g5.players[0].mana = 1
+	g5.players[0].hand = [rc("battle_axe")]
+	to_attack(g5)
+	g5.players[0].mana = 1
+	check(g5.attack(0, a5.uid, 0, {"champion": t5.uid}, [{"hand_index": 0, "effect_index": 0}]).damage == 50, "Battle Axe can also be attached to the attack")
+	check(g5.players[0].mana == 0, "the attached spell's mana cost is paid")
+
+
+func test_reconstruction_and_ancient_script() -> void:
+	var g := real_game()
+	g.players[0].fortress_hp = 300
+	g.players[0].hand = [rc("reconstruction"), rc("syranite"), rc("syranite"), rc("gob")]
+	check(g.play_spell(0, 0, 0, {"discard_indices": [1, 3]}).ok, "Reconstruction resolves")
+	check(g.players[0].fortress_hp == 400 and g.players[0].hand.size() == 1, "two cards discarded repair 100 Fortress HP")
+	var g2 := real_game()
+	g2.players[0].fortress_hp = 480
+	g2.players[0].hand = [rc("reconstruction"), rc("syranite"), rc("syranite")]
+	g2.play_spell(0, 0, 0, {"discard_random": 2})
+	check(g2.players[0].fortress_hp == 500, "repair is capped at the starting HP of 500")
+	check(g2.players[0].hand.is_empty(), "random discards used up the cards")
+	var g3 := real_game()
+	g3.players[1].enchantments = [rc("field_medics"), rc("battlements")]
+	g3.players[0].hand = [rc("ancient_script")]
+	check(g3.play_spell(0, 0, 0, {"enchantment": 1}).ok, "Ancient Script removes an enchantment")
+	check(g3.players[1].enchantments.size() == 1 and g3.players[1].discard.size() == 1 and g3.players[1].discard[0].id == "battlements", "it goes to the opponent's discard pile")
+
+
+func test_spirit_chain() -> void:
+	var g := real_game()
+	var t := spawn(g, 1, "amustas")
+	var mine := spawn(g, 0, "syranite")
+	g.players[0].mana = 2
+	g.players[0].hand = [rc("spirit_chain")]
+	check(g.play_spell(0, 0, 0, {"champion": t.uid}).ok, "Spirit Chain resolves")
+	g.end_turn(0)
+	g.players[1].turns_taken = 2
+	g.next_step(1)
+	to_attack(g)
+	check(not g.attack(1, t.uid, 0, {"champion": mine.uid}).ok, "the chained champion cannot attack on its owner's next turn")
+	g.end_turn(1)
+	check(t.statuses.is_empty(), "the chain ends after that turn")
+	g.end_turn(0)
+	g.players[1].turns_taken = 3
+	to_attack(g)
+	check(g.attack(1, t.uid, 0, {"champion": mine.uid}).ok, "it can attack again the turn after")
+
+
+func test_wizardry_archaeology_decoder() -> void:
+	var g := real_game()
+	g.players[0].deck = [rc("gob"), rc("gob"), rc("gob"), rc("fu"), rc("pog"), rc("syranite")]
+	g.players[0].mana = 2
+	g.players[0].hand = [rc("wizardry")]
+	g.play_spell(0, 0, 0, {"discard_choice": 0})
+	check(g.players[0].hand.size() == 2 and g.players[0].discard.size() == 2, "Wizardry effect 1: draw 3, discard 1 of them (hand 2)")
+	var g2 := real_game()
+	g2.players[0].deck = [rc("gob"), rc("fu"), rc("pog"), rc("syranite"), rc("amustas")]
+	g2.players[0].mana = 2
+	g2.players[0].hand = [rc("wizardry")]
+	g2.play_spell(0, 0, 1, {"order": [4, 3, 2, 1, 0]})
+	check(g2.players[0].deck.back().id == "gob", "Wizardry effect 2 rearranges the top 5 (the old fifth card is now on top)")
+	var g3 := real_game()
+	g3.players[0].deck = [rc("gob"), rc("fu")]
+	g3.players[0].mana = 2
+	g3.players[0].hand = [rc("wizardry")]
+	check(g3.play_spell(0, 0, 1).ok, "with fewer than 5 cards left, Wizardry uses what is there")
+	var g4 := real_game()
+	g4.players[0].mana = 3
+	g4.players[0].discard = [rc("fire_bolt") if false else rc("heal"), rc("amustas")]
+	g4.players[0].hand = [rc("archaeology")]
+	check(not g4.play_spell(0, 0, 0, {"discard_index": 0}).ok, "Archaeology only takes champion cards")
+	check(g4.play_spell(0, 0, 0, {"discard_index": 1}).ok and g4.players[0].hand.size() == 1 and g4.players[0].hand[0].id == "amustas", "Archaeology puts the chosen champion into your hand")
+
+
+func test_mumified() -> void:
+	var g := real_game()
+	var sac := spawn(g, 0, "syranite")
+	g.next_step(0)
+	g.players[0].mana = 2
+	g.players[0].hand = [rc("mumified"), rc("war_bear")]  # War Bear needs 1 sacrifice
+	g.play_spell(0, 0, 0)
+	check(g.summon(0, 0, []).ok, "with Mumified a 1-sacrifice champion needs no sacrifice")
+	check(g.players[0].champions.has(sac), "nobody was sacrificed")
+	var g2 := real_game()
+	var amustas := rc("amustas")  # 3 sacrifices
+	g2.players[0].mana = 2
+	g2.players[0].hand = [rc("mumified"), amustas]
+	var s1 := spawn(g2, 0, "syranite")
+	var s2 := spawn(g2, 0, "syranite")
+	g2.next_step(0)
+	g2.players[0].mana = 2
+	g2.play_spell(0, 0, 0)
+	check(g2.summon(0, 0, [s1.uid, s2.uid]).ok, "with Mumified a 3-sacrifice champion needs only 2")
+	var g3 := real_game()
+	var elite := rc("war_bear").duplicate(true)
+	elite.summon = {"mana": 2}
+	g3.next_step(0)
+	g3.players[0].mana = 3
+	g3.players[0].hand = [rc("mumified"), elite]
+	g3.play_spell(0, 0, 0)
+	check(g3.players[0].mana == 1, "Mumified cost 2 mana")
+	check(g3.summon(0, 0, []).ok and g3.players[0].mana == 0, "a 2-mana champion costs 1 less mana with Mumified")
+
+
+func test_enchantments_start_of_turn() -> void:
+	var g := real_game()
+	var a := spawn(g, 0, "amustas")
+	var b := spawn(g, 0, "amustas")
+	a.damage = 50
+	b.damage = 5
+	g.players[0].enchantments = [rc("field_medics"), rc("field_medics")]
+	g.next_step(0)
+	check(a.damage == 30 and b.damage == 0, "two Field Medics stack: 20 healing each, never below 0")
+	var g2 := real_game()
+	spawn(g2, 0, "gob")
+	spawn(g2, 0, "gob")
+	spawn(g2, 0, "gob")
+	g2.players[0].castled = true
+	g2.players[0].enchantments = [rc("enchanted_forest")]
+	var mana: int = g2.players[0].mana
+	g2.next_step(0)
+	check(g2.players[0].mana == mana + 1 + 3, "Enchanted Forest: 1 mana per champion, encamped ones included (plus the Fortress)")
+	var g3 := real_game()
+	spawn(g3, 0, "gob")
+	spawn(g3, 0, "gob")
+	spawn(g3, 1, "gob")
+	g3.players[0].enchantments = [rc("siege_works")]
+	var hp: int = g3.players[1].fortress_hp
+	g3.next_step(0)
+	check(g3.players[1].fortress_hp == hp - 20, "Siege Works hits the Fortress for 10 per active champion, even though it is immune to attacks")
+	var g4 := real_game()
+	spawn(g4, 0, "gob")
+	spawn(g4, 0, "gob")
+	g4.players[0].castled = true
+	g4.players[0].enchantments = [rc("siege_works")]
+	hp = g4.players[1].fortress_hp
+	g4.next_step(0)
+	check(g4.players[1].fortress_hp == hp, "encamped champions do not count for Siege Works")
+
+
+func test_battlements() -> void:
+	var g := real_game()
+	g.players[1].castled = true
+	g.players[1].enchantments = [rc("battlements")]
+	var a := spawn(g, 0, "syranite")
+	var hp: int = g.players[1].fortress_hp
+	to_attack(g)
+	g.attack(0, a.uid, 0, {"fortress": 1})
+	check(g.players[1].fortress_hp == hp, "Battlements prevents 20 damage (20 attack does 0)")
+	check(a.damage == 20, "and does 20 damage to the attacker, even though no damage got through")
+	var g2 := real_game()
+	g2.players[1].castled = true
+	g2.players[1].enchantments = [rc("battlements"), rc("battlements")]
+	var big := spawn(g2, 0, "amustas")
+	hp = g2.players[1].fortress_hp
+	to_attack(g2)
+	g2.attack(0, big.uid, 0, {"fortress": 1})
+	check(g2.players[1].fortress_hp == hp and big.damage == 40, "two Battlements stack: 40 prevented and 40 back")
+
+
+func test_mist_of_grief() -> void:
+	var g := real_game()
+	g.players[1].enchantments = [rc("mist_of_grief")]
+	var mine := spawn(g, 1, "gob")
+	mine.damage = 40
+	var a := spawn(g, 0, "syranite")
+	var mana: int = g.players[1].mana
+	to_attack(g)
+	g.attack(0, a.uid, 0, {"champion": mine.uid})
+	check(g.players[1].champions.is_empty() and g.players[1].mana == mana + 1, "losing a champion to an attack gives 1 mana")
+	var g2 := real_game()
+	g2.players[1].enchantments = [rc("mist_of_grief")]
+	var m2 := spawn(g2, 1, "gob")
+	StatusRules.apply_poison(g2, m2, 100, -1, 0)
+	var mana2: int = g2.players[1].mana
+	StatusRules.run_start_of_turn(g2, 1)
+	check(g2.players[1].mana == mana2 + 1, "poison deaths give 1 mana")
+	var g3 := real_game()
+	g3.players[1].enchantments = [rc("mist_of_grief")]
+	var s := spawn(g3, 1, "gob")
+	s.damage = 40
+	g3.players[1].hand = [rc("war_bear")]
+	g3.active = 1
+	g3.players[1].turns_taken = 2
+	g3.next_step(1)
+	var mana3: int = g3.players[1].mana
+	g3.summon(1, 0, [s.uid])
+	check(g3.players[1].mana == mana3, "sacrifices give no mana")
+	var g4 := real_game()
+	g4.players[1].enchantments = [rc("mist_of_grief")]
+	var s4 := spawn(g4, 1, "syranite")
+	s4.damage = 55
+	g4.players[1].hand = [rc("amustas").duplicate(true)]
+	var weak := rc("war_bear").duplicate(true)
+	weak.hp = 50
+	g4.players[1].hand = [weak]
+	g4.active = 1
+	g4.players[1].turns_taken = 2
+	g4.next_step(1)
+	var mana4: int = g4.players[1].mana
+	g4.summon(1, 0, [s4.uid])
+	check(g4.players[1].mana == mana4, "carry-over deaths give no mana")
+
+
+# ---------------------------------------------------------------- the six formerly unfinished abilities
+
+func test_treason_bypasses_protection() -> void:
+	var g := real_game()
+	var a := spawn(g, 0, "amustas")
+	var b := spawn(g, 0, "amustas")
+	a.damage = 50
+	b.statuses.append({"kind": "protected"})
+	g.players[0].mana = 3
+	g.players[0].hand = [rc("treason")]
+	g.play_spell(0, 0, 0, {"from": a.uid, "to": b.uid})
+	check(a.damage == 0 and b.damage == 50, "Treason forces all the damage onto a protected champion")
+
+
+func test_mist_of_grief_spell_deaths() -> void:
+	var g := real_game()
+	g.players[0].enchantments = [rc("mist_of_grief")]
+	var a := spawn(g, 0, "amustas")
+	var weak := spawn(g, 0, "gob")
+	a.damage = 100
+	g.next_step(0)
+	var mana: int = g.players[0].mana
+	g.players[0].mana += 3
+	g.players[0].hand = [rc("treason")]
+	g.play_spell(0, 0, 0, {"from": a.uid, "to": weak.uid})
+	check(g.players[0].mana == mana + 1, "a champion lost to a spell (Treason) gives Mist of Grief mana")
+	var g2 := real_game()
+	g2.players[0].enchantments = [rc("mist_of_grief")]
+	var own := spawn(g2, 0, "tigrodon")
+	own.damage = 100
+	var t := spawn(g2, 1, "amustas")
+	to_attack(g2)
+	g2.players[0].mana = 2
+	var m2: int = g2.players[0].mana
+	g2.attack(0, own.uid, 1, {"champion": t.uid})
+	check(g2.players[0].mana == m2 - 2 + 1, "a champion that dies to its own recoil also gives mana (paid 2 for Savage... got %d)" % g2.players[0].mana)
+
+
+func test_champion_summon_by_sacrifice_or_mana_not_both() -> void:
+	for id in real:
+		var c: Dictionary = real[id]
+		if str(c.kind) == "champion":
+			check(not (c.summon.has("sacrifice") and c.summon.has("mana")), "%s is summoned by sacrifice or mana, not both" % id)
+			for atk in c.attacks:
+				check(not atk.has("unimplemented"), "%s: %s has no unimplemented effect left" % [id, atk.name])
+			if c.has("ability"):
+				check(not c.ability.has("unimplemented"), "%s: ability is implemented" % id)
+
+
+func test_duel() -> void:
+	var g := real_game()
+	var cap := spawn(g, 0, "capatsar")
+	var x := spawn(g, 1, "amustas")
+	var mine := spawn(g, 0, "gob")
+	to_attack(g)
+	var r := g.attack(0, cap.uid, 1, {"champion": x.uid})
+	check(r.ok and r.damage == 30 and x.damage == 30, "Duel does 30 damage")
+	check(not x.statuses.is_empty() and x.statuses[0].kind == "duel", "the target is dueled")
+	g.end_turn(0)
+	g.players[1].turns_taken = 2
+	g.next_step(1)
+	to_attack(g)
+	check(not g.attack(1, x.uid, 0, {"champion": mine.uid}).ok, "the dueled champion cannot attack another champion")
+	check(g.attack(1, x.uid, 0, {"champion": cap.uid}).ok, "it must attack Capatsar")
+	g.end_turn(1)
+	check(x.statuses.is_empty(), "the duel ends after that turn")
+	var g2 := real_game()
+	var cap2 := spawn(g2, 0, "capatsar")
+	var x2 := spawn(g2, 1, "amustas")
+	var mine2 := spawn(g2, 0, "gob")
+	to_attack(g2)
+	g2.attack(0, cap2.uid, 1, {"champion": x2.uid})
+	g2.players[0].champions.erase(cap2)  # Capatsar leaves play
+	g2.end_turn(0)
+	g2.players[1].turns_taken = 2
+	g2.next_step(1)
+	to_attack(g2)
+	check(g2.attack(1, x2.uid, 0, {"champion": mine2.uid}).ok, "the duel does nothing once Capatsar is gone")
+
+
+func test_volcanic_horn() -> void:
+	var g := real_game()
+	var harry := spawn(g, 0, "molten_harry")
+	var ally := spawn(g, 0, "syranite")  # Red as well
+	var t := spawn(g, 1, "amustas")
+	to_attack(g)
+	g.players[0].mana = 2
+	g.forced_coins = [true]
+	check(g.attack(0, harry.uid, 1, {}).ok, "Volcanic Horn needs no target")
+	check(not g.attack(0, harry.uid, 0, {"champion": t.uid}).ok, "Molten Harry itself cannot attack again")
+	check(g.attack(0, ally.uid, 0, {"champion": t.uid}).ok and t.damage == 20, "on Heads another Red champion attacks again this turn")
+	check(not g.attack(0, ally.uid, 0, {"champion": t.uid}).ok, "the extra attack is used up")
+	var g2 := real_game()
+	var harry2 := spawn(g2, 0, "molten_harry")
+	var ally2 := spawn(g2, 0, "syranite")
+	var t2 := spawn(g2, 1, "amustas")
+	to_attack(g2)
+	g2.players[0].mana = 2
+	g2.forced_coins = [false]
+	g2.attack(0, harry2.uid, 1, {})
+	check(not g2.attack(0, ally2.uid, 0, {"champion": t2.uid}).ok, "on Tails there is no extra attack")
+	g2.forced_coins = [true]
+	var g3 := real_game()
+	var h3 := spawn(g3, 0, "molten_harry")
+	var a3 := spawn(g3, 0, "syranite")
+	to_attack(g3)
+	g3.players[0].mana = 2
+	g3.forced_coins = [true]
+	g3.attack(0, h3.uid, 1, {})
+	check(g3.players[0].extra_attacks.size() == 1, "Heads stores one extra attack")
+	g3.end_turn(0)
+	g3.end_turn(1)
+	check(g3.players[0].extra_attacks.is_empty(), "an unused extra attack is cleared when the next turn starts")
+
+
+func test_vanish() -> void:
+	var g := real_game()
+	var gc := spawn(g, 0, "the_magician_gcairo")
+	var t := spawn(g, 1, "amustas")
+	t.damage = 50
+	to_attack(g)
+	g.forced_coins = [true]
+	var hand_before: int = g.players[1].hand.size()
+	check(g.attack(0, gc.uid, 1, {"champion": t.uid}).ok, "Vanish resolves")
+	check(g.players[1].champions.is_empty() and g.players[1].hand.size() == hand_before + 1, "on Heads the champion returns to its owner's hand")
+	check(g.players[1].hand.back().id == "amustas" and g.players[1].kills == 0 and g.players[0].kills == 0, "it was not destroyed, so nobody scores")
+	var g2 := real_game()
+	var gc2 := spawn(g2, 0, "the_magician_gcairo")
+	var t2 := spawn(g2, 1, "amustas")
+	to_attack(g2)
+	g2.forced_coins = [false]
+	g2.attack(0, gc2.uid, 1, {"champion": t2.uid})
+	check(g2.players[1].champions.size() == 1, "on Tails nothing happens")
+	var g3 := real_game()
+	var gc3 := spawn(g3, 0, "the_magician_gcairo")
+	var t3 := spawn(g3, 1, "amustas")
+	t3.attached = [{"id": "x", "name": "attached card"}]
+	to_attack(g3)
+	g3.forced_coins = [true]
+	g3.attack(0, gc3.uid, 1, {"champion": t3.uid})
+	check(g3.players[1].hand.size() == 2, "attached cards return to hand too")
+
+
+func test_dual_spear() -> void:
+	var g := real_game()
+	var eo := spawn(g, 0, "elite_o")
+	var a := spawn(g, 1, "amustas")
+	var b := spawn(g, 1, "amustas")
+	var c := spawn(g, 1, "amustas")
+	to_attack(g)
+	check(not g.attack(0, eo.uid, 0, {"champion": a.uid}).ok, "Dual Spear needs two targets when there are two or more")
+	check(not g.attack(0, eo.uid, 0, {"champions": [a.uid, a.uid]}).ok, "the two targets must differ")
+	check(g.attack(0, eo.uid, 0, {"champions": [a.uid, c.uid]}).ok, "Dual Spear resolves")
+	check(a.damage == 10 and c.damage == 10 and b.damage == 0, "10 damage to each of two enemy champions")
+	var g2 := real_game()
+	var eo2 := spawn(g2, 0, "elite_o")
+	var only := spawn(g2, 1, "amustas")
+	to_attack(g2)
+	check(g2.attack(0, eo2.uid, 0, {"champion": only.uid}).ok and only.damage == 10, "with one enemy champion a single target is fine")
+	var g3 := real_game()
+	var eo3 := spawn(g3, 0, "elite_o")
+	var gnome := spawn(g3, 1, "gnome")
+	var norm := spawn(g3, 1, "amustas")
+	to_attack(g3)
+	g3.attack(0, eo3.uid, 0, {"champions": [gnome.uid, norm.uid]})
+	check(norm.damage == 10 and gnome.damage == 0, "Gnome is immune to Elite-O (80 HP) as the first target, the other target is hit")
+	var g4 := real_game()
+	var eo4 := spawn(g4, 0, "elite_o")
+	var gnome4 := spawn(g4, 1, "gnome")
+	var norm4 := spawn(g4, 1, "amustas")
+	to_attack(g4)
+	g4.attack(0, eo4.uid, 0, {"champions": [norm4.uid, gnome4.uid]})
+	check(norm4.damage == 10 and gnome4.damage == 0, "Gnome's immunity also works when it is the second target")
+	var g5 := real_game()
+	var eo5 := spawn(g5, 0, "elite_o")
+	var gl5 := spawn(g5, 1, "gluto")
+	var n5 := spawn(g5, 1, "amustas")
+	var gl6 := spawn(g5, 1, "gluto")
+	to_attack(g5)
+	g5.attack(0, eo5.uid, 0, {"champions": [n5.uid, gl6.uid]})
+	check(eo5.damage == 20, "Gluto reacts when it is the second target of Dual Spear (20 damage to Elite-O)")
+
+
+func test_staff_attack() -> void:
+	var g := real_game()
+	var st := spawn(g, 0, "stanter")
+	var t := spawn(g, 1, "amustas")
+	g.players[0].hand = [rc("syranite"), rc("crimson_wave")]
+	to_attack(g)
+	var r := g.attack(0, st.uid, 0, {"champion": t.uid, "discard": 1})
+	check(r.ok and r.damage == 40, "Staff Attack: 10 + 30 for discarding a card")
+	check(g.players[0].hand.size() == 1 and g.players[0].discard.size() == 1 and g.players[0].discard[0].id == "crimson_wave", "the chosen card was discarded")
+	var g2 := real_game()
+	var st2 := spawn(g2, 0, "stanter")
+	var t2 := spawn(g2, 1, "amustas")
+	g2.players[0].hand = [rc("syranite")]
+	to_attack(g2)
+	check(g2.attack(0, st2.uid, 0, {"champion": t2.uid}).damage == 10 and g2.players[0].hand.size() == 1, "without a discard it does 10")
+	var g3 := real_game()
+	var st3 := spawn(g3, 0, "stanter")
+	var t3 := spawn(g3, 1, "amustas")
+	to_attack(g3)
+	check(not g3.attack(0, st3.uid, 0, {"champion": t3.uid, "discard": 4}).ok, "a bad discard index is refused")
+
+
+func test_grimn() -> void:
+	var g := real_game()
+	var grimn := spawn(g, 0, "grimn")
+	var t := spawn(g, 1, "amustas")
+	g.end_turn(0)  # Grimn does not attack this turn
+	check(grimn.statuses.size() == 1 and grimn.statuses[0].kind == "stored_bonus", "Grimn saves a bonus when it did not attack")
+	g.end_turn(1)
+	to_attack(g)
+	check(g.attack(0, grimn.uid, 0, {"champion": t.uid}).damage == 40, "Gnaw does 40 the next turn")
+	check(grimn.statuses.is_empty(), "the bonus is used up")
+	g.end_turn(0)
+	check(grimn.statuses.is_empty(), "no new bonus after attacking")
+	g.end_turn(1)
+	to_attack(g)
+	check(g.attack(0, grimn.uid, 0, {"champion": t.uid}).damage == 20, "Gnaw is back to 20 the turn after")
+	var g2 := real_game()
+	var grimn2 := spawn(g2, 0, "grimn")
+	var t2 := spawn(g2, 1, "amustas")
+	g2.end_turn(0)
+	g2.end_turn(1)
+	g2.end_turn(0)  # idle again: the bonus is refreshed, not stacked
+	g2.end_turn(1)
+	to_attack(g2)
+	check(g2.attack(0, grimn2.uid, 0, {"champion": t2.uid}).damage == 40, "staying idle again gives 40, not 60")

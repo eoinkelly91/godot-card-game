@@ -38,6 +38,9 @@ static func calc(g: Game, attacker: Champion, atk: Dictionary, target: Champion,
 				total += float(ab.bonus_damage)
 		if trigger == "on_attack" and ab.has("bonus_per"):
 			total += float(int(ab.bonus_per.amount) * _count_for(g, attacker, str(ab.bonus_per.count)))
+	for sst in attacker.statuses:
+		if str(sst.kind) == "stored_bonus":
+			total += float(sst.amount)
 	total += float(spell_bonus) + float(StatusRules.attack_bonus(g.players[attacker.owner]))
 	total = apply_enchantments(total, g.players[attacker.owner], enchant_order, attacker.color(), false)
 	return round_down_10(total)
@@ -141,7 +144,8 @@ static func destruction_prevented(_g: Game, _champion: Champion) -> bool:
 
 
 ## credit_player gets an Annihilation point; pass -1 when no enemy caused it (sacrifice, carried-over damage).
-static func destroy_champion(g: Game, champion: Champion, credit_player: int) -> void:
+## counts_as_loss is false for carried-over sacrifice damage (Mist of Grief ignores those deaths).
+static func destroy_champion(g: Game, champion: Champion, credit_player: int, counts_as_loss: bool = true) -> void:
 	var ps: PlayerState = g.players[champion.owner]
 	ps.champions.erase(champion)
 	ps.discard.append(champion.card)
@@ -150,4 +154,11 @@ static func destroy_champion(g: Game, champion: Champion, credit_player: int) ->
 	if credit_player >= 0 and credit_player != champion.owner:
 		g.players[credit_player].kills += 1
 	g._log("%s is destroyed." % champion.describe())
+	# Mist of Grief: any champion you lose (attacks, poison, spells, recoil) except sacrifices and carried-over damage.
+	if counts_as_loss:
+		for ench in ps.enchantments:
+			if typeof(ench.get("on_champion_lost_to_attack")) == TYPE_DICTIONARY:
+				var gain: int = int(ench.on_champion_lost_to_attack.get("gain_mana", 0))
+				ps.mana += gain
+				g._log("%s gives P%d %d mana." % [ench.get("name", "An enchantment"), champion.owner, gain])
 	g._check_win()

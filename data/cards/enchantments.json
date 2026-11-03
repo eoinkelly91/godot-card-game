@@ -1,48 +1,66 @@
 [
  {
-  "id": "war_banner",
-  "name": "War Banner",
-  "kind": "enchantment",
-  "cost": 2,
-  "damage_percent": 50,
-  "affects_spell_damage": false
- },
- {
-  "id": "spellfire_sigil",
-  "name": "Spellfire Sigil",
-  "kind": "enchantment",
-  "cost": 2,
-  "damage_percent": 50,
-  "affects_spell_damage": true
- },
- {
-  "id": "ward_of_reprisal",
-  "name": "Ward of Reprisal",
+  "id": "field_medics",
+  "name": "Field Medics",
   "kind": "enchantment",
   "cost": 3,
-  "reaction": {
-   "when": {
-    "attacker_color": "Red"
-   },
-   "effect": {
-    "op": "negate_attack"
-   },
-   "one_shot": true
+  "text": [
+   "At the start of your turn heal each of your champions by 10HP"
+  ],
+  "start_of_turn": {
+   "op": "heal_all",
+   "amount": 10
   }
  },
  {
-  "id": "thorn_aura",
-  "name": "Thorn Aura",
+  "id": "enchanted_forest",
+  "name": "Enchanted Forest",
+  "kind": "enchantment",
+  "cost": 3,
+  "text": [
+   "At the start of your turn gain 1 mana for each of your champions."
+  ],
+  "start_of_turn": {
+   "op": "gain_mana_per_champion",
+   "amount": 1
+  }
+ },
+ {
+  "id": "battlements",
+  "name": "Battlements",
+  "kind": "enchantment",
+  "cost": 3,
+  "text": [
+   "If your fortress is attacked prevent 20 damage and do 20 damage to the attacking Champion."
+  ],
+  "fortress_defense": {
+   "prevent": 20,
+   "damage_attacker": 20
+  }
+ },
+ {
+  "id": "siege_works",
+  "name": "Siege Works",
+  "kind": "enchantment",
+  "cost": 3,
+  "text": [
+   "At the start of your turn do 10 damage to the enemy fortress for each of your active champions"
+  ],
+  "start_of_turn": {
+   "op": "fortress_damage_per_active_champion",
+   "amount": 10
+  }
+ },
+ {
+  "id": "mist_of_grief",
+  "name": "Mist of Grief",
   "kind": "enchantment",
   "cost": 2,
-  "reaction": {
-   "when": {
-    "deals_damage": true
-   },
-   "effect": {
-    "op": "damage_attacker",
-    "amount": 10
-   }
+  "text": [
+   "For every champion you lose to an attack gain 1 mana"
+  ],
+  "on_champion_lost_to_attack": {
+   "gain_mana": 1
   }
  }
 ]

@@ -1,112 +1,219 @@
 [
  {
-  "id": "fire_bolt",
-  "name": "Fire Bolt",
+  "id": "heal",
+  "name": "Heal",
   "kind": "spell",
-  "effects": [
-   {
-    "op": "damage",
-    "amount": 20
-   },
-   {
-    "op": "bonus_damage",
-    "amount": 10
-   }
-  ]
- },
- {
-  "id": "mend",
-  "name": "Mend",
-  "kind": "spell",
+  "cost": 0,
+  "text": [
+   "Heal one of your champions by 50HP",
+   "Remove all status effects"
+  ],
   "effects": [
    {
     "op": "heal",
-    "amount": 20
+    "amount": 50
    },
    {
-    "op": "draw",
-    "amount": 1
+    "op": "cleanse"
    }
   ]
  },
  {
-  "id": "surge",
-  "name": "Surge",
+  "id": "mist_of_despair",
+  "name": "Mist of Despair",
   "kind": "spell",
+  "cost": 2,
+  "text": [
+   "Take 3 damage counters from your champions and move them to enemy champions"
+  ],
+  "effects": [
+   {
+    "op": "move_counters",
+    "count": 3
+   }
+  ]
+ },
+ {
+  "id": "crimson_wave",
+  "name": "Crimson Wave",
+  "kind": "spell",
+  "cost": 0,
+  "text": [
+   "Reduce your opponents mana by 3"
+  ],
+  "effects": [
+   {
+    "op": "drain_mana",
+    "amount": 3
+   }
+  ]
+ },
+ {
+  "id": "ancient_script",
+  "name": "Ancient Script",
+  "kind": "spell",
+  "cost": 0,
+  "text": [
+   "Remove an opponets enchantment"
+  ],
+  "effects": [
+   {
+    "op": "remove_enchantment"
+   }
+  ]
+ },
+ {
+  "id": "treason",
+  "name": "Treason",
+  "kind": "spell",
+  "cost": 3,
+  "text": [
+   "Move all damage counters from one of your champions to another of your champions"
+  ],
+  "effects": [
+   {
+    "op": "move_all_damage"
+   }
+  ]
+ },
+ {
+  "id": "battle_axe",
+  "name": "Battle Axe",
+  "kind": "spell",
+  "cost": 1,
+  "text": [
+   "Add plus 30 damage to one of your champions attacks",
+   "Do 10 damage to three of your opponents champions"
+  ],
   "effects": [
    {
     "op": "bonus_damage",
-    "amount": 20
+    "amount": 30
    },
    {
-    "op": "gain_mana",
-    "amount": 1
-   }
-  ]
- },
- {
-  "id": "binding_seal",
-  "name": "Binding Seal",
-  "kind": "spell",
-  "effects": [
-   {
-    "op": "lock",
-    "what": "enchantment",
-    "turns": 5
-   },
-   {
-    "op": "lock",
-    "what": "spell",
-    "turns": 2
-   }
-  ]
- },
- {
-  "id": "venom_dart",
-  "name": "Venom Dart",
-  "kind": "spell",
-  "effects": [
-   {
-    "op": "poison",
+    "op": "damage_many",
     "amount": 10,
-    "turns": 3
-   },
-   {
-    "op": "draw",
-    "amount": 1
+    "targets": 3
    }
   ]
  },
  {
-  "id": "battle_cry",
-  "name": "Battle Cry",
+  "id": "reconstruction",
+  "name": "Reconstruction",
   "kind": "spell",
+  "cost": 0,
+  "text": [
+   "Discard as many cards as you want from your hand, for each one repair your fortress by 50HP"
+  ],
   "effects": [
    {
-    "op": "buff_attack",
-    "amount": 10,
-    "turns": 1
-   },
-   {
-    "op": "draw",
-    "amount": 1
+    "op": "repair_fortress",
+    "per_card": 50
    }
   ]
  },
  {
-  "id": "stillness",
-  "name": "Stillness",
+  "id": "spirit_chain",
+  "name": "Spirit Chain",
   "kind": "spell",
+  "cost": 2,
+  "text": [
+   "Choose an opponents champion, this champion cannot attck next turn."
+  ],
   "effects": [
    {
-    "op": "lock",
-    "what": "summon",
+    "op": "no_attack",
     "turns": 1
+   }
+  ]
+ },
+ {
+  "id": "wizardry",
+  "name": "Wizardry",
+  "kind": "spell",
+  "cost": 2,
+  "text": [
+   "Draw 3 cards and discard one of them",
+   "Look at the next 5 cards of your deck and rearrange them as you like."
+  ],
+  "effects": [
+   {
+    "op": "wizardry_draw",
+    "draw": 3,
+    "discard": 1
    },
    {
-    "op": "lock",
-    "what": "fortress",
-    "turns": 2
+    "op": "rearrange_top",
+    "count": 5
+   }
+  ]
+ },
+ {
+  "id": "archaeology",
+  "name": "Archaeology",
+  "kind": "spell",
+  "cost": 3,
+  "text": [
+   "Put a champion from your discard pile into your hand"
+  ],
+  "effects": [
+   {
+    "op": "return_champion"
+   }
+  ]
+ },
+ {
+  "id": "parasite",
+  "name": "Parasite",
+  "kind": "spell",
+  "cost": 2,
+  "text": [
+   "Your opponent loses 1 mana for every card in their hand.",
+   "Your opponent must discard two cards from their hand."
+  ],
+  "effects": [
+   {
+    "op": "drain_mana_per_card",
+    "per_card": 1
+   },
+   {
+    "op": "opponent_discards",
+    "amount": 2
+   }
+  ]
+ },
+ {
+  "id": "decoder",
+  "name": "Decoder",
+  "kind": "spell",
+  "cost": 0,
+  "text": [
+   "Discard as many spell cards from your hand as you wish, gain 2 mana for each one.",
+   "Discard one enchantment that\u2019s in play or in your hand and gain 5 mana"
+  ],
+  "effects": [
+   {
+    "op": "discard_spells_for_mana",
+    "per_card": 2
+   },
+   {
+    "op": "discard_enchantment_for_mana",
+    "amount": 5
+   }
+  ]
+ },
+ {
+  "id": "mumified",
+  "name": "Mumified",
+  "kind": "spell",
+  "cost": 2,
+  "text": [
+   "Reduces the cost of sacrificing a champion by one this turn."
+  ],
+  "effects": [
+   {
+    "op": "summon_discount",
+    "amount": 1
    }
   ]
  }

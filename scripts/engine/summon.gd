@@ -23,7 +23,9 @@ static func fortress_heal(g: Game, p: int, champion_uid: int) -> Dictionary:
 
 
 ## sacrifice_uids: the champions to sacrifice, for cards whose summon requires sacrifices.
-static func summon(g: Game, p: int, hand_index: int, sacrifice_uids: Array = []) -> Dictionary:
+## discount_on: "sacrifice" or "mana" says what Mumified takes one off; by default it is the sacrifices if the
+## card needs any, otherwise the mana.
+static func summon(g: Game, p: int, hand_index: int, sacrifice_uids: Array = [], discount_on: String = "") -> Dictionary:
 	var chk: Dictionary = TurnRules.require_step(g, p, Game.Step.SUMMON)
 	if not chk.ok:
 		return chk
@@ -40,10 +42,16 @@ static func summon(g: Game, p: int, hand_index: int, sacrifice_uids: Array = [])
 
 	var req: Dictionary = card.get("summon", {})
 	var mana_cost: int = int(req.get("mana", 0))
+	var sac_count: int = int(req.get("sacrifice", 0))
+	if ps.summon_discount > 0:
+		var on: String = discount_on if discount_on != "" else ("sacrifice" if sac_count > 0 else "mana")
+		if on == "sacrifice":
+			sac_count = maxi(0, sac_count - ps.summon_discount)
+		else:
+			mana_cost = maxi(0, mana_cost - ps.summon_discount)
 	if ps.mana < mana_cost:
 		return g._fail("Not enough banked mana (%d needed)." % mana_cost)
 
-	var sac_count: int = int(req.get("sacrifice", 0))
 	var sacrificed: Array[Champion] = []
 	if sac_count > 0:
 		if sacrifice_uids.size() != sac_count:
@@ -80,7 +88,7 @@ static func summon(g: Game, p: int, hand_index: int, sacrifice_uids: Array = [])
 	g._log("P%d summons %s into %s." % [p, champion.describe(), where])
 	if champion.is_destroyed():
 		g._log("Carried-over damage destroys %s immediately." % champion.card_name())
-		DamageRules.destroy_champion(g, champion, 1 - p)  # carried-over damage still scores a point for the opponent
+		DamageRules.destroy_champion(g, champion, 1 - p, false)  # carried-over damage still scores a point for the opponent
 	return g._ok({"uid": champion.uid})
 
 

@@ -26,6 +26,21 @@ static func end_of_turn(_g: Game, p: int) -> void:
 		b.turns_left = int(b.turns_left) - 1
 		if int(b.turns_left) <= 0:
 			ps.buffs.erase(b)
+	for champion in ps.champions:
+		for st in champion.statuses.duplicate():
+			var kind: String = str(st.kind)
+			if kind == "next_attack_bonus":  # unused bonuses do not carry over
+				champion.statuses.erase(st)
+			elif kind == "stored_bonus":  # Grimn: a saved bonus lasts one turn
+				champion.statuses.erase(st)
+			elif kind == "no_attack" or kind == "duel":  # count their owner's own turns
+				st.turns_left = int(st.turns_left) - 1
+				if int(st.turns_left) <= 0:
+					champion.statuses.erase(st)
+		# Grimn: a champion that did not attack this turn saves a bonus for its next attack.
+		if champion.has_ability() and champion.card.ability.has("stored_bonus_if_idle") and not champion.attacked_this_turn:
+			champion.statuses.append({"kind": "stored_bonus", "amount": int(champion.card.ability.stored_bonus_if_idle)})
+			_g._log("%s did not attack: its next attack does +%d damage." % [champion.card_name(), int(champion.card.ability.stored_bonus_if_idle)])
 
 
 static func apply_poison(g: Game, target: Champion, amount: int, turns: int, source: int) -> void:
@@ -73,6 +88,16 @@ static func _apply_simple_effect(g: Game, p: int, champion: Champion, eff: Dicti
 					g._finish(1 - p, "Decking out")
 					return
 				ps.hand.append(ps.deck.pop_back())
+		"heal_all":  # heal every champion you control (active and encamped)
+			for c in ps.champions:
+				c.damage = maxi(0, c.damage - int(eff.get("amount", 0)))
+			g._log("P%d's champions are healed by %d." % [p, int(eff.get("amount", 0))])
+		"gain_mana_per_champion":
+			var gained: int = ps.champions.size() * int(eff.get("amount", 1))
+			ps.mana += gained
+			g._log("P%d gains %d mana." % [p, gained])
+		"fortress_damage_per_active_champion":  # not an attack, so it ignores the Fortress's immunity
+			DamageRules.damage_fortress(g, 1 - p, ps.active_champions().size() * int(eff.get("amount", 10)))
 		"coin_protect":  # flip a coin; heads: prevent all damage to this champion until your next turn
 			if champion != null and g.flip_coin():
 				champion.statuses.append({"kind": "protected"})

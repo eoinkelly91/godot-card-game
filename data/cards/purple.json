@@ -246,7 +246,7 @@
    {
     "name": "Staff Attack",
     "damage": 10,
-    "unimplemented": "Staff Attack: the optional discard for +30 is missing (10 damage for now)",
+    "optional_discard_bonus": 30,
     "text": "10 + discard a card to do plus 30 damage"
    },
    {
@@ -282,7 +282,7 @@
     "requires": {
      "self_hp_at_least": 60
     },
-    "unimplemented": "Vanish: return an enemy champion and its attached cards to hand on heads",
+    "coin_return_target_to_hand": true,
     "text": "Flip a coin if heads return one of your opponents champions and all cards attached to it back into their hand"
    }
   ]

@@ -9,6 +9,7 @@ var card: Dictionary
 var owner: int
 var damage: int = 0
 var attached: Array = []  # cards attached to this champion (future decision; nothing uses it yet)
+var attacked_this_turn: bool = false  # Grimn: did this champion attack during its owner's turn
 var statuses: Array = []  # ongoing effects, e.g. {"kind": "poison", "amount": 10, "turns_left": 3, "source": 0}
 
 

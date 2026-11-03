@@ -25,6 +25,8 @@ var buffs: Array = []         # duration effects on this player, e.g. {"kind": "
 var summoned_this_turn: bool = false
 var colors_used: Array = []   # colors that have attacked this turn
 var heal_pending: bool = false
+var extra_attacks: Array = []  # Volcanic Horn tokens: uid of the champion that granted each extra attack
+var summon_discount: int = 0   # Mumified: sacrifices or mana taken off this turn's summon
 
 
 func _init(p_index: int) -> void:
@@ -34,6 +36,10 @@ func _init(p_index: int) -> void:
 func reset_for_turn() -> void:
 	summoned_this_turn = false
 	colors_used.clear()
+	summon_discount = 0
+	extra_attacks.clear()
+	for c in champions:
+		c.attacked_this_turn = false
 	heal_pending = false
 
 
