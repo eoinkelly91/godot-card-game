@@ -10,6 +10,8 @@ const COLORS := {
 	"White": Color(0.78, 0.78, 0.74), "Purple": Color(0.42, 0.2, 0.58),
 }
 const NEUTRAL := Color(0.25, 0.3, 0.28)
+const HAND_CARD_W := 210.0
+const BOARD_CARD_W := 165.0
 
 var game: Game
 var cards: Dictionary = {}
@@ -104,7 +106,7 @@ func _build_ui() -> void:
 	_hand_label = Label.new()
 	left.add_child(_hand_label)
 	var scroll := ScrollContainer.new()
-	scroll.custom_minimum_size = Vector2(0, 200)
+	scroll.custom_minimum_size = Vector2(0, HAND_CARD_W * 650.0 / 490.0 + 24.0)
 	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	left.add_child(scroll)
 	_hand_row = HBoxContainer.new()
@@ -237,7 +239,7 @@ func _build_overlays() -> void:
 	_mull_label.add_theme_font_size_override("font_size", 20)
 	mb.add_child(_mull_label)
 	var ms := ScrollContainer.new()
-	ms.custom_minimum_size = Vector2(0, 210)
+	ms.custom_minimum_size = Vector2(0, HAND_CARD_W * 650.0 / 490.0 + 24.0)
 	ms.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	mb.add_child(ms)
 	_mull_hand = HBoxContainer.new()
@@ -371,7 +373,7 @@ func _show_mulligan_hand() -> void:
 	for c in _mull_hand.get_children():
 		c.queue_free()
 	for card in ps.hand:
-		_mull_hand.add_child(_card_button(card, false, Vector2(170, 190), Callable()))
+		_mull_hand.add_child(CardView.create(card, HAND_CARD_W))
 
 
 func _on_keep() -> void:
@@ -588,15 +590,10 @@ func _render_player(box: VBoxContainer, p: int, is_active: bool) -> void:
 		none.text = "(no champions)"
 		flow.add_child(none)
 	for c in ps.champions:
-		var b := Button.new()
-		b.custom_minimum_size = Vector2(210, 130)
-		b.text = _champion_text(c)
-		b.tooltip_text = _card_full_text(c.card)
-		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
-		_style(b, _card_color(c.card), c.attacked_this_turn and is_active)
+		var v := CardView.create(c.card, BOARD_CARD_W, c, true, c.attacked_this_turn and is_active, ps.castled)
 		if is_active:
-			b.pressed.connect(_on_own_champion.bind(c.uid))
-		flow.add_child(b)
+			v.pressed.connect(_on_own_champion.bind(c.uid))
+		flow.add_child(v)
 
 
 func _render_hand() -> void:
@@ -608,7 +605,9 @@ func _render_hand() -> void:
 	var ps: PlayerState = game.players[p]
 	_hand_label.text = "Your hand (%d cards) · Mana %d · Colors that attacked this turn: %s" % [ps.hand.size(), ps.mana, ", ".join(ps.colors_used) if not ps.colors_used.is_empty() else "none"]
 	for i in ps.hand.size():
-		_hand_row.add_child(_card_button(ps.hand[i], false, Vector2(180, 180), _on_hand_card.bind(i)))
+		var v := CardView.create(ps.hand[i], HAND_CARD_W)
+		v.pressed.connect(_on_hand_card.bind(i))
+		_hand_row.add_child(v)
 
 
 # ================================================================ actions

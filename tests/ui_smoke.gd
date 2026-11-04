@@ -46,6 +46,7 @@ func _run() -> void:
 	await _test_every_spell_flow()
 	await _test_attack_flows()
 	await _test_hand_and_champion_clicks()
+	_test_card_views()
 	print("\n%d UI checks passed, %d failed" % [passed, failed])
 	quit(1 if failed > 0 else 0)
 
@@ -208,3 +209,24 @@ func _test_hand_and_champion_clicks() -> void:
 	check(ui._btn_heal.visible, "the Fortress heal button shows in the Summon step")
 	ui._on_fortress_heal()
 	check(not heal_g.players[0].heal_pending, "using it heals a champion")
+
+
+func _test_card_views() -> void:
+	var made: int = 0
+	for id in cards:
+		var card: Dictionary = cards[id]
+		for width in [210.0, 165.0, 340.0]:
+			var v := CardView.create(card, width, null, width < 200.0)
+			check(v.size.x == width and v.get_child_count() > 5, "%s draws at width %d" % [id, int(width)])
+			v.free()
+			made += 1
+	check(made == cards.size() * 3, "every card draws in the three sizes")
+	var g := _fresh_state()
+	var c: Champion = g.players[0].champions[0]
+	c.statuses.append({"kind": "poison", "amount": 10})
+	var live := CardView.create(c.card, 165.0, c, true, true, true)
+	check(live.get_child_count() > 5, "a live board card with statuses draws")
+	live.free()
+	check(CardView.image_path("gluto") != "", "art is found for Gluto")
+	check(CardView.image_path("big_troll") == "", "Big Troll has no art yet and gets a placeholder")
+	check(CardView.image_path("elite_o") != "" and CardView.image_path("lava_titan") != "", "Elite-O and Lava Titan art was renamed to match")
