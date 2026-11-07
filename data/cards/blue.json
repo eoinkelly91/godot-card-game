@@ -181,6 +181,7 @@
     "name": "Infest",
     "damage": 0,
     "mana_cost": 1,
+    "no_target": true,
     "coin_opponent_discards": 1,
     "text": "Flip a coin if heads your opponent must discard a card"
    }

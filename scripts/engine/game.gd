@@ -27,6 +27,8 @@ const DEFAULT_RULES := {
 	"annihilation_goal": 10,
 	"economic_goal": 30,
 	"castles_per_game": 1,
+	"castle_active_champions": 1,            # you may only castle with exactly this many champions in the active play area
+	"castled_draws": 2,                      # cards drawn at the start of a turn while castled (1 otherwise)
 	"max_castled_turns": 3,                  # own turns, counting the turn you castle on
 	"first_player_skips_first_draw": false,
 	"max_turns": 400,                        # safety net for simulations (counts every player's turn)
@@ -42,6 +44,8 @@ var first_player: int = 0
 var phase: int = Phase.SETUP
 var step: int = Step.CASTLE
 var spells_this_turn: int = 0
+var start_summary: Array = []      # log lines from the start-of-turn triggers of the current turn
+var start_summary_turn: int = -1
 var finished: bool = false
 var winner: int = -1            # 0 or 1; 2 = draw
 var win_reason: String = ""

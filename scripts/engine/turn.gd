@@ -35,11 +35,13 @@ static func begin(g: Game) -> void:
 		skip_draw = true
 		g._log("P%d cannot draw this turn." % p)
 	if not skip_draw:
-		if ps.deck.is_empty():
-			g._finish(1 - p, "Decking out")
-			return
-		ps.hand.append(ps.deck.pop_back())
-		g._log("P%d draws a card." % p)
+		var draws: int = int(g.rules.castled_draws) if ps.castled else 1  # castled players draw extra cards
+		for i in draws:
+			if ps.deck.is_empty():
+				g._finish(1 - p, "Decking out")
+				return
+			ps.hand.append(ps.deck.pop_back())
+		g._log("P%d draws %s." % [p, "a card" if draws == 1 else "%d cards (castled)" % draws])
 
 
 # ---------------------------------------------------------------- castling (step 2)
@@ -55,6 +57,9 @@ static func castle(g: Game, p: int) -> Dictionary:
 		return g._fail("You are already castled.")
 	if ps.castles_used >= int(g.rules.castles_per_game):
 		return g._fail("You have already used your castle this game.")
+	var active: int = ps.active_champions().size()
+	if active != int(g.rules.castle_active_champions):
+		return g._fail("You can only castle with exactly %d champion in the active play area (you have %d)." % [int(g.rules.castle_active_champions), active])
 	ps.castled = true
 	ps.castles_used += 1
 	ps.castled_turns = 1
@@ -98,8 +103,12 @@ static func next_step(g: Game, p: int) -> Dictionary:
 static func _enter_summon_step(g: Game, p: int) -> void:
 	g.step = Game.Step.SUMMON
 	var ps: PlayerState = g.players[p]
+	var mark: int = g.log_lines.size()
+	g.start_summary_turn = g.turn
+	g.start_summary = []
 	if ps.is_first_turn():
 		g._log("First turn: the Fortress does not trigger.")
+		g.start_summary = g.log_lines.slice(mark)
 		return
 	if not LockRules.is_locked(g, p, "fortress"):
 		ps.mana += int(ps.fortress_def.get("mana_per_turn", 1))
@@ -107,6 +116,7 @@ static func _enter_summon_step(g: Game, p: int) -> void:
 	StatusRules.run_start_of_turn(g, p)
 	g._check_win()
 	g._log("P%d start of turn: mana %d, hand %d." % [p, ps.mana, ps.hand.size()])
+	g.start_summary = g.log_lines.slice(mark)
 
 
 static func _enter_attack_step(g: Game, p: int) -> void:

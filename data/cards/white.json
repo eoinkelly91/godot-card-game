@@ -120,6 +120,7 @@
     "name": "Ring of Greed",
     "damage": 0,
     "mana_cost": 1,
+    "no_target": true,
     "coin_draw_or_discard": {
      "draw": 2,
      "discard": 1

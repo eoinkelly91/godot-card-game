@@ -44,20 +44,20 @@ static func after_damage(g: Game, p: int, attacker: Champion, atk: Dictionary, t
 	if atk.has("coin_each_enemy"):
 		for c in foe.champions.duplicate():
 			if g.flip_coin():
-				DamageRules.damage_champion(g, c, int(atk.coin_each_enemy), p)
+				_hit(g, p, attacker, c, int(atk.coin_each_enemy))
 	if atk.has("damage_each_enemy"):
 		for c in foe.champions.duplicate():
-			DamageRules.damage_champion(g, c, int(atk.damage_each_enemy), p)
+			_hit(g, p, attacker, c, int(atk.damage_each_enemy))
 	if atk.has("splash_enemies"):  # every OTHER enemy champion; the target already took the attack's damage
 		for c in foe.champions.duplicate():
 			if c != target:
-				DamageRules.damage_champion(g, c, int(atk.splash_enemies), p)
+				_hit(g, p, attacker, c, int(atk.splash_enemies))
 	if atk.has("splash_all"):  # every champion in play, your own included, but not the attacker itself
 		var everyone: Array = foe.champions.duplicate()
 		everyone.append_array(me.champions)
 		for c in everyone:
 			if c != attacker:
-				DamageRules.damage_champion(g, c, int(atk.splash_all), p)
+				_hit(g, p, attacker, c, int(atk.splash_all))
 
 	if atk.has("poison") and target != null and foe.champions.has(target):
 		if not bool(atk.get("coin_gated", false)) or g.flip_coin():
@@ -104,6 +104,15 @@ static func after_damage(g: Game, p: int, attacker: Champion, atk: Dictionary, t
 	# Self damage comes last. A champion destroyed by its own recoil scores a point for the opponent.
 	if atk.has("self_damage") and me.champions.has(attacker):
 		DamageRules.damage_champion(g, attacker, int(atk.self_damage), 1 - p)
+
+
+## Damage from an attack's side effect (splash and so on); Gnome ignores champions with too much max HP.
+static func _hit(g: Game, p: int, attacker: Champion, c: Champion, amount: int) -> void:
+	if c.has_ability() and c.card.ability.has("immune_to_attackers_max_hp_over") \
+			and attacker.max_hp() > int(c.card.ability.immune_to_attackers_max_hp_over):
+		g._log("%s cannot be damaged by a champion with over %d HP." % [c.card_name(), int(c.card.ability.immune_to_attackers_max_hp_over)])
+		return
+	DamageRules.damage_champion(g, c, amount, p)
 
 
 static func _draw(g: Game, p: int, n: int) -> void:

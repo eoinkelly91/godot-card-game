@@ -46,6 +46,12 @@ static func calc(g: Game, attacker: Champion, atk: Dictionary, target: Champion,
 	return round_down_10(total)
 
 
+## The damage an attack would do right now against an unknown target (fixed bonuses, abilities, saved bonuses and
+## enchantments included, coin flips and target-dependent bonuses not). The screen shows this on cards and menus.
+static func preview(g: Game, attacker: Champion, atk: Dictionary) -> int:
+	return calc(g, attacker, atk, null, 0, [], 0)
+
+
 ## Counts used by "+N damage for each ..." abilities.
 static func _count_for(g: Game, attacker: Champion, what: String) -> int:
 	var n: int = 0

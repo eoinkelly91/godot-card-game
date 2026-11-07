@@ -10,8 +10,8 @@ const COLORS := {
 	"White": Color(0.78, 0.78, 0.74), "Purple": Color(0.42, 0.2, 0.58),
 }
 const NEUTRAL := Color(0.25, 0.3, 0.28)
-const HAND_CARD_W := 210.0
-const BOARD_CARD_W := 165.0
+const HAND_CARD_W := 195.0
+const BOARD_CARD_W := 150.0
 
 var game: Game
 var cards: Dictionary = {}
@@ -27,8 +27,12 @@ signal _choice_done(result)
 var _opp_box: VBoxContainer
 var _me_box: VBoxContainer
 var _hand_row: HBoxContainer
+var _hand_scroll: ScrollContainer
 var _hand_label: Label
 var _status: Label
+var _attack_hint: Label
+var _heal_prompted_turn: int = -1
+var _start_shown_turn: int = -1
 var _turn_label: Label
 var _log: RichTextLabel
 var _btn_castle: Button
@@ -36,6 +40,7 @@ var _btn_uncastle: Button
 var _btn_next: Button
 var _btn_heal: Button
 var _btn_end: Button
+var _btn_new: Button
 var _setup: Control
 var _cover: Control
 var _cover_label: Label
@@ -50,6 +55,7 @@ var _choice_list: ItemList
 var _choice_ok: Button
 var _choice_min: int = 1
 var _choice_max: int = 1
+var _choice_none_row: bool = false
 var _end: Control
 var _end_label: Label
 var _deck0: OptionButton
@@ -62,6 +68,27 @@ func _ready() -> void:
 	decks = CardDB.load_decks()
 	_build_ui()
 	_show_setup()
+	_fit_window()
+
+
+## Opens the window as big as the screen allows (the layout is designed at 1740 x 980 and scaled up; a 4K screen gets ~2x).
+## F11 switches full screen on and off.
+func _fit_window() -> void:
+	if DisplayServer.get_name() == "headless":
+		return
+	var base := Vector2(1740, 980)
+	var screen: int = DisplayServer.window_get_current_screen()
+	var area: Rect2i = DisplayServer.screen_get_usable_rect(screen)
+	var factor: float = minf(3.0, minf(float(area.size.x) / base.x, float(area.size.y) / base.y) * 0.95)  # as big as the screen allows
+	var win: Window = get_window()
+	win.size = Vector2i(base * factor)
+	win.position = area.position + (area.size - win.size) / 2
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed and event.keycode == KEY_F11:
+		var win: Window = get_window()
+		win.mode = Window.MODE_WINDOWED if win.mode == Window.MODE_FULLSCREEN else Window.MODE_FULLSCREEN
 
 
 # ================================================================ building the interface
@@ -86,29 +113,38 @@ func _build_ui() -> void:
 	left.add_theme_constant_override("separation", 6)
 	cols.add_child(left)
 
-	var bar := HBoxContainer.new()
-	left.add_child(bar)
 	_turn_label = Label.new()
-	_turn_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_turn_label.add_theme_font_size_override("font_size", 18)
-	bar.add_child(_turn_label)
+	_turn_label.add_theme_font_size_override("font_size", 20)
+	left.add_child(_turn_label)
+	var bar := HFlowContainer.new()  # wraps instead of running under the log panel
+	bar.add_theme_constant_override("h_separation", 8)
+	left.add_child(bar)
 	_btn_castle = _button("Castle", _on_castle)
 	_btn_uncastle = _button("Uncastle", _on_uncastle)
 	_btn_next = _button("Next step", _on_next_step)
 	_btn_heal = _button("Fortress heal", _on_fortress_heal)
 	_btn_end = _button("End turn", _on_end_turn)
-	for b in [_btn_castle, _btn_uncastle, _btn_heal, _btn_next, _btn_end]:
+	_btn_new = _button("New game", _show_setup)
+	for b in [_btn_castle, _btn_uncastle, _btn_heal, _btn_next, _btn_end, _btn_new]:
 		bar.add_child(b)
 
 	_opp_box = _board_panel(left, 1.0)
 	_me_box = _board_panel(left, 1.0)
 
+	_attack_hint = Label.new()
+	_attack_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_attack_hint.add_theme_color_override("font_color", Color(0.6, 0.85, 1.0))
+	left.add_child(_attack_hint)
 	_hand_label = Label.new()
 	left.add_child(_hand_label)
-	var scroll := ScrollContainer.new()
-	scroll.custom_minimum_size = Vector2(0, HAND_CARD_W * 650.0 / 490.0 + 24.0)
-	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	left.add_child(scroll)
+	_hand_scroll = ScrollContainer.new()
+	_hand_scroll.custom_minimum_size = Vector2(0, HAND_CARD_W * 650.0 / 490.0 + 24.0)
+	_hand_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_hand_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_ALWAYS  # the bar stays, even when the hand fits
+	_hand_scroll.gui_input.connect(_on_hand_gui_input)
+	_hand_scroll.resized.connect(_fix_hand_scroll)
+	left.add_child(_hand_scroll)
+	var scroll := _hand_scroll
 	_hand_row = HBoxContainer.new()
 	_hand_row.add_theme_constant_override("separation", 6)
 	scroll.add_child(_hand_row)
@@ -234,7 +270,7 @@ func _build_overlays() -> void:
 
 	# Mulligan
 	_mull = _overlay(self, 1.0)
-	var mb := _centered_box(_mull, 1100)
+	var mb := _centered_box(_mull, 1560)  # 7 cards fit without scrolling
 	_mull_label = Label.new()
 	_mull_label.add_theme_font_size_override("font_size", 20)
 	mb.add_child(_mull_label)
@@ -293,6 +329,12 @@ func choose(title: String, options: Array, min_n: int = 1, max_n: int = 1) -> Va
 	_choice_max = max_n
 	_choice_list.clear()
 	_choice_list.select_mode = ItemList.SELECT_MULTI if max_n > 1 else ItemList.SELECT_SINGLE
+	# When choosing is optional (min 0), add an explicit "None" row at the top (index shift handled on return).
+	var none_row: bool = min_n == 0 and max_n > 0
+	_choice_none_row = none_row
+	if none_row:
+		_choice_list.add_item("None (skip)")
+		_choice_list.select(0)
 	for o in options:
 		var idx: int = _choice_list.add_item(str(o.label))
 		_choice_list.set_item_disabled(idx, bool(o.get("disabled", false)))
@@ -312,12 +354,19 @@ func choose(title: String, options: Array, min_n: int = 1, max_n: int = 1) -> Va
 		return null
 	var out: Array = []
 	for i in res:
-		out.append(options[i].value)
+		if none_row:
+			if int(i) == 0:
+				continue  # the "None" row means nothing chosen
+			out.append(options[int(i) - 1].value)
+		else:
+			out.append(options[i].value)
 	return out
 
 
 func _on_choice_ok() -> void:
 	var sel: Array = Array(_choice_list.get_selected_items())
+	if _choice_none_row:
+		sel = sel.filter(func(i: int) -> bool: return i != 0)  # the "None" row is not a real choice
 	if _choice_max == 0:
 		_choice_done.emit([])
 		return
@@ -348,6 +397,7 @@ func start_new_game(deck0: String, deck1: String, seed_value: int = 0) -> void:
 	flows = TargetFlows.new(game, self)
 	viewer = -1
 	_status.text = ""
+	_start_shown_turn = -1
 	_log.clear()
 	_log_seen = 0
 	_next_mulligan(0)
@@ -404,7 +454,9 @@ func _begin_turn_cover() -> void:
 	if game.finished:
 		refresh()
 		return
-	_show_cover("Turn %d\nPlayer %d, take the device." % [game.turn, game.active])
+	# No "take the device" screen between turns: the next player's turn starts immediately.
+	_cover_for_mulligan = false
+	_on_reveal()
 
 
 func _on_reveal() -> void:
@@ -413,7 +465,27 @@ func _on_reveal() -> void:
 		_show_mulligan_hand()
 		return
 	viewer = game.active
+	var p: int = game.active
+	var ps: PlayerState = game.players[p]
+	if game.step == Game.Step.CASTLE and not ps.castled and Preflight.castle_problem(game, p) != "":
+		# Nothing to decide in the Castle step: the start-of-turn triggers (Fortress, poison, abilities) happen now.
+		game.next_step(p)
+		_show_start_of_turn()
+	elif game.step == Game.Step.CASTLE:
+		_status.text = "Castle step: castle or uncastle if you want, then press To Summon step (the Fortress, poison and start-of-turn abilities trigger then)."
 	refresh()
+	call_deferred("_prompt_heal_if_needed")
+
+
+## Shows what the start-of-turn triggers did (poison damage, coin flips, Fortress mana...) in the status line.
+func _show_start_of_turn() -> void:
+	if game.start_summary_turn != game.turn or _start_shown_turn == game.turn:
+		return
+	_start_shown_turn = game.turn
+	var lines: Array = []
+	for line in game.start_summary:
+		lines.append(str(line))
+	_status.text = "Start of turn:  " + "  •  ".join(lines)
 
 
 # ================================================================ drawing the board
@@ -455,7 +527,10 @@ func _style(b: Button, base: Color, selected: bool) -> void:
 
 
 func _atk_label(atk: Dictionary) -> String:
-	var s: String = "%s %d" % [atk.get("name", "?"), int(atk.get("damage", 0))]
+	var dmg_text: String = str(int(atk.get("damage", 0))) if int(atk.get("damage", 0)) > 0 else "-"
+	if atk.has("coins"):
+		dmg_text = "%dX%d" % [int(atk.coins.count), int(atk.coins.per_heads_damage)]
+	var s: String = "%s %s" % [atk.get("name", "?"), dmg_text]
 	if int(atk.get("mana_cost", 0)) > 0:
 		s += " (%d mana)" % int(atk.mana_cost)
 	if atk.has("requires"):
@@ -544,12 +619,18 @@ func refresh() -> void:
 	_render_hand()
 	var mine: bool = viewer == p and not game.finished and not _cover.visible
 	var ps: PlayerState = game.players[p]
-	_btn_castle.disabled = not mine or game.step != Game.Step.CASTLE or ps.castled
+	var castle_why: String = Preflight.castle_problem(game, p)
+	_btn_castle.disabled = not mine or castle_why != ""
+	_btn_castle.tooltip_text = castle_why if castle_why != "" else "Swap your champions with your Fortress (once per game). Castled players draw 2 cards a turn."
 	_btn_uncastle.disabled = not mine or game.step != Game.Step.CASTLE or not ps.castled
-	_btn_next.disabled = not mine or game.step == Game.Step.ATTACK
+	var first_turn: bool = ps.is_first_turn()  # a player's first turn is only draw and summon: no attack step
+	_btn_next.disabled = not mine or game.step == Game.Step.ATTACK or (game.step == Game.Step.SUMMON and first_turn)
 	_btn_next.text = "To Summon step" if game.step == Game.Step.CASTLE else "To Attack step"
-	_btn_heal.visible = mine and ps.heal_pending and game.step == Game.Step.SUMMON
+	_btn_next.visible = not (game.step == Game.Step.SUMMON and first_turn)
+	_btn_new.visible = game.finished
+	_btn_heal.visible = mine and ps.heal_pending and game.step == Game.Step.SUMMON and _has_damaged_champion(ps)
 	_btn_end.disabled = not mine
+	_attack_hint.text = Preflight.attackers_text(game, p) if mine and game.step != Game.Step.CASTLE else ""
 	while _log_seen < game.log_lines.size():
 		_log.append_text(game.log_lines[_log_seen] + "\n")
 		_log_seen += 1
@@ -581,16 +662,23 @@ func _render_player(box: VBoxContainer, p: int, is_active: bool) -> void:
 	ench.text = "Enchantments (%d/%d): %s" % [ps.enchantments.size(), int(game.rules.enchantment_limit), ", ".join(names) if not names.is_empty() else "none"]
 	ench.add_theme_font_size_override("font_size", 13)
 	box.add_child(ench)
+	# The champions sit in their own scroll area: if a board ever gets too tall it scrolls instead of pushing
+	# the hand and status line off the bottom of the window.
+	var board_scroll := ScrollContainer.new()
+	board_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	board_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	box.add_child(board_scroll)
 	var flow := HFlowContainer.new()
+	flow.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	flow.add_theme_constant_override("h_separation", 6)
 	flow.add_theme_constant_override("v_separation", 6)
-	box.add_child(flow)
+	board_scroll.add_child(flow)
 	if ps.champions.is_empty():
 		var none := Label.new()
 		none.text = "(no champions)"
 		flow.add_child(none)
 	for c in ps.champions:
-		var v := CardView.create(c.card, BOARD_CARD_W, c, true, c.attacked_this_turn and is_active, ps.castled)
+		var v := CardView.create(c.card, BOARD_CARD_W, c, true, c.attacked_this_turn and is_active, ps.castled, game)
 		if is_active:
 			v.pressed.connect(_on_own_champion.bind(c.uid))
 		flow.add_child(v)
@@ -608,6 +696,44 @@ func _render_hand() -> void:
 		var v := CardView.create(ps.hand[i], HAND_CARD_W)
 		v.pressed.connect(_on_hand_card.bind(i))
 		_hand_row.add_child(v)
+	call_deferred("_fix_hand_scroll")
+
+
+## After the hand changes: the scroll bar only shows when the hand is wider than the window (its space stays
+## reserved, so the layout never jumps), and a hand that fits starts at the left edge.
+func _fix_hand_scroll() -> void:
+	if _hand_scroll == null or not is_instance_valid(_hand_row) or not is_inside_tree():
+		return
+	await get_tree().process_frame  # let the old (freed) cards leave the row before measuring it
+	if not is_instance_valid(_hand_row):
+		return
+	var content: float = _hand_row.get_combined_minimum_size().x
+	var bar: HScrollBar = _hand_scroll.get_h_scroll_bar()
+	if content <= _hand_scroll.size.x:
+		_hand_scroll.scroll_horizontal = 0
+		bar.modulate.a = 0.0
+		bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	else:
+		_hand_scroll.scroll_horizontal = mini(_hand_scroll.scroll_horizontal, int(content - _hand_scroll.size.x))
+		bar.modulate.a = 1.0
+		bar.mouse_filter = Control.MOUSE_FILTER_STOP
+
+
+## The mouse wheel scrolls the hand sideways (a plain wheel normally only scrolls up and down).
+func _on_hand_gui_input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.pressed:
+		var step: int = int(HAND_CARD_W)
+		if event.button_index == MOUSE_BUTTON_WHEEL_DOWN or event.button_index == MOUSE_BUTTON_WHEEL_RIGHT:
+			_hand_scroll.scroll_horizontal += step
+			_hand_scroll.accept_event()
+		elif event.button_index == MOUSE_BUTTON_WHEEL_UP or event.button_index == MOUSE_BUTTON_WHEEL_LEFT:
+			_hand_scroll.scroll_horizontal -= step
+			_hand_scroll.accept_event()
+
+
+func ps_hand_width() -> float:
+	var n: int = game.players[game.active].hand.size() if game != null else 0
+	return float(n) * (HAND_CARD_W + 6.0)
 
 
 # ================================================================ actions
@@ -619,10 +745,23 @@ func _my_turn() -> bool:
 func _report(res: Dictionary) -> bool:
 	if res.ok:
 		_status.text = ""
+		_show_start_of_turn()  # an action that moved the turn on from the Castle step ran the start-of-turn triggers
 	else:
 		_status.text = str(res.error)
 	refresh()
+	call_deferred("_prompt_heal_if_needed")
 	return bool(res.ok)
+
+
+## The Fortress heals one champion at the start of the Summon step: ask once per turn (the button stays if skipped).
+func _prompt_heal_if_needed() -> void:
+	if game == null or not _my_turn() or auto_chooser.is_valid():
+		return
+	var ps: PlayerState = game.players[game.active]
+	if ps.heal_pending and game.step == Game.Step.SUMMON and _has_damaged_champion(ps) and _heal_prompted_turn != game.turn:
+		_heal_prompted_turn = game.turn
+		await _on_fortress_heal()
+
 
 
 func _on_castle() -> void:
@@ -649,12 +788,26 @@ func _on_end_turn() -> void:
 		_begin_turn_cover()
 
 
+func _has_damaged_champion(ps: PlayerState) -> bool:
+	for c in ps.champions:
+		if c.damage > 0:
+			return true
+	return false
+
+
 func _on_fortress_heal() -> void:
 	if not _my_turn():
 		return
-	busy = true
 	var p: int = game.active
-	var uid: Variant = await _pick_champion("Fortress heals which champion? (%d HP)" % int(game.players[p].fortress_def.get("heal", 20)), game.players[p].champions)
+	var damaged: Array = []
+	for c in game.players[p].champions:
+		if c.damage > 0:
+			damaged.append(c)
+	if damaged.is_empty():
+		_status.text = "None of your champions is damaged, so the Fortress heal is not needed."
+		return
+	busy = true
+	var uid: Variant = await _pick_champion("Fortress heals which champion? (%d HP)" % int(game.players[p].fortress_def.get("heal", 20)), damaged)
 	busy = false
 	if uid != null:
 		_report(game.fortress_heal(p, int(uid)))
@@ -697,6 +850,17 @@ func play_hand_card(i: int) -> Dictionary:
 	var card: Dictionary = ps.hand[i]
 	var kind: String = str(card.get("kind", ""))
 	var res: Dictionary = {"ok": false, "error": "Nothing happened."}
+	var problem: String = ""  # say no BEFORE any menus
+	match kind:
+		"champion":
+			problem = Preflight.summon_problem(game, p, i)
+		"enchantment":
+			problem = Preflight.enchantment_problem(game, p, i)
+		"spell":
+			problem = Preflight.spell_problem(game, p, i)
+	if problem != "":
+		_status.text = problem
+		return {"ok": false, "error": problem}
 	if kind == "champion":
 		var sc: Dictionary = await flows.summon_choices(p, i)
 		if sc.has("error"):
@@ -738,25 +902,41 @@ func _on_own_champion(uid: int) -> void:
 	refresh()
 
 
+func _atk_menu_label(c: Champion, atk: Dictionary) -> String:
+	var shown: Dictionary = atk.duplicate()
+	if not atk.has("coins"):
+		var now: int = DamageRules.preview(game, c, atk)  # includes saved bonuses, so Grimn's Gnaw reads 40
+		if now > 0:
+			shown["damage"] = now
+	return _atk_label(shown)
+
+
 func attack_with(uid: int) -> Dictionary:
 	var p: int = game.active
 	var c: Champion = game._champion_of(game.players[p], uid)
 	if c == null:
 		return {"ok": false, "error": "No such champion."}
-	if c.card.attacks.is_empty():
-		_status.text = "%s has no attack (only an ability)." % c.card_name()
-		return {"ok": false, "error": _status.text}
+	var problem: String = Preflight.attack_problem(game, p, c, -1)  # no menus if this champion cannot attack at all
+	if problem != "":
+		_status.text = problem
+		return {"ok": false, "error": problem}
 	var opts: Array = []
 	for ai in c.card.attacks.size():
 		var atk: Dictionary = c.card.attacks[ai]
-		opts.append({"label": _atk_label(atk), "value": ai, "tooltip": str(atk.get("text", ""))})
+		var why: String = Preflight.attack_problem(game, p, c, ai)
+		var tip: String = str(atk.get("text", ""))
+		opts.append({"label": _atk_menu_label(c, atk) + ("   ✗ " + why if why != "" else ""), "value": ai,
+				"tooltip": why if why != "" else tip, "disabled": why != ""})
 	var pick: Variant = await choose("%s: which attack?" % c.card_name(), opts, 1, 1)
 	if pick == null or (pick as Array).is_empty():
 		return {"ok": false, "error": ""}
-	var ai: int = int((pick as Array)[0])
-	var tf: Dictionary = await flows.attack_target(p, c, ai)
+	var ai2: int = int((pick as Array)[0])
+	var tf: Dictionary = await flows.attack_target(p, c, ai2)
+	if tf.has("error"):
+		_status.text = str(tf.error)
+		return {"ok": false, "error": tf.error}
 	if tf.has("cancelled"):
 		return {"ok": false, "error": ""}
-	var res: Dictionary = game.attack(p, uid, ai, tf.target)
+	var res: Dictionary = game.attack(p, uid, ai2, tf.target)
 	_report(res)
 	return res

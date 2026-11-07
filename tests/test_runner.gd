@@ -91,6 +91,10 @@ func _init() -> void:
 		test_dual_spear,
 		test_staff_attack,
 		test_grimn,
+		test_gnome_cannot_be_attacked,
+		test_castle_needs_exactly_one_active_champion,
+		test_castled_players_draw_two,
+		test_start_of_turn_summary_and_poison,
 	]
 	for t in tests:
 		var before_failed := failed
@@ -667,9 +671,10 @@ func test_start_of_turn_ability_triggers_while_encamped() -> void:
 
 func test_encampment_limit_and_elite_while_castled() -> void:
 	var g := new_game()
-	for i in 6:
-		g.spawn_champion(0, card("ember_scout"))
-	g.castle(0)
+	g.spawn_champion(0, card("ember_scout"))
+	g.castle(0)  # only possible with exactly one active champion
+	for i in 5:
+		g.spawn_champion(0, card("ember_scout"))  # spawned while castled: encamped
 	g.players[0].hand = [card("ember_scout"), card("sunblade_champion")]
 	check(not g.summon(0, 0).ok, "the encampment area holds 6 champions, like the active play area")
 	var sac := g.players[0].champions[0].uid
@@ -1737,15 +1742,19 @@ func test_dual_spear() -> void:
 	var gnome := spawn(g3, 1, "gnome")
 	var norm := spawn(g3, 1, "amustas")
 	to_attack(g3)
-	g3.attack(0, eo3.uid, 0, {"champions": [gnome.uid, norm.uid]})
-	check(norm.damage == 10 and gnome.damage == 0, "Gnome is immune to Elite-O (80 HP) as the first target, the other target is hit")
+	var r3: Dictionary = g3.attack(0, eo3.uid, 0, {"champions": [gnome.uid, norm.uid]})
+	check(not r3.ok and norm.damage == 0 and gnome.damage == 0, "Elite-O (80 HP) cannot attack Gnome at all, so Dual Spear with Gnome is refused (%s)" % str(r3.get("error", "")))
 	var g4 := real_game()
 	var eo4 := spawn(g4, 0, "elite_o")
 	var gnome4 := spawn(g4, 1, "gnome")
 	var norm4 := spawn(g4, 1, "amustas")
 	to_attack(g4)
-	g4.attack(0, eo4.uid, 0, {"champions": [norm4.uid, gnome4.uid]})
-	check(norm4.damage == 10 and gnome4.damage == 0, "Gnome's immunity also works when it is the second target")
+	check(not g4.attack(0, eo4.uid, 0, {"champions": [norm4.uid, gnome4.uid]}).ok, "Gnome cannot be the second target either")
+	var g4b := real_game()
+	var eo4b := spawn(g4b, 0, "elite_o")
+	var gnome4b := spawn(g4b, 1, "gnome")
+	to_attack(g4b)
+	check(g4b.attack(0, eo4b.uid, 0, {"champion": gnome4b.uid}).ok == false, "a single Gnome target is refused too")
 	var g5 := real_game()
 	var eo5 := spawn(g5, 0, "elite_o")
 	var gl5 := spawn(g5, 1, "gluto")
@@ -1802,3 +1811,104 @@ func test_grimn() -> void:
 	g2.end_turn(1)
 	to_attack(g2)
 	check(g2.attack(0, grimn2.uid, 0, {"champion": t2.uid}).damage == 40, "staying idle again gives 40, not 60")
+
+
+func test_gnome_cannot_be_attacked() -> void:
+	var g := real_game()
+	var gnome := spawn(g, 1, "gnome")
+	var big := spawn(g, 0, "amustas")   # 150 HP: over Gnome's 60
+	var small := spawn(g, 0, "gob")     # 40 HP
+	to_attack(g)
+	var r := g.attack(0, big.uid, 0, {"champion": gnome.uid})
+	check(not r.ok and "cannot attack" in str(r.error), "a champion over the limit cannot attack Gnome (%s)" % str(r.get("error", "")))
+	check(not g.players[0].colors_used.has(big.color()), "the refused attack does not use up the color")
+	check(g.attack(0, small.uid, 0, {"champion": gnome.uid}).ok and gnome.damage == 10, "a champion at or under the limit can attack Gnome")
+	var g2 := real_game()
+	var gnome2 := spawn(g2, 1, "gnome")
+	var other := spawn(g2, 1, "amustas")
+	var gronk := spawn(g2, 0, "gronk")  # splash 20 to every other enemy champion
+	g2.players[0].mana = 2
+	to_attack(g2)
+	g2.players[0].mana = 2
+	g2.attack(0, gronk.uid, 1, {"champion": other.uid})
+	check(other.damage == 50 and gnome2.damage == 0, "side-effect damage from a champion over the limit does not hurt Gnome")
+
+
+func test_castle_needs_exactly_one_active_champion() -> void:
+	var g := new_game()
+	check(not g.castle(0).ok and "exactly 1" in str(g.castle(0).error), "you cannot castle with no champions")
+	var g2 := new_game()
+	g2.spawn_champion(0, card("ember_scout"))
+	g2.spawn_champion(0, card("ember_scout"))
+	var r2 := g2.castle(0)
+	check(not r2.ok and "you have 2" in str(r2.error), "you cannot castle with two champions (%s)" % str(r2.get("error", "")))
+	check(Preflight.castle_problem(g2, 0) != "", "the screen can say so up front")
+	var g3 := new_game()
+	g3.spawn_champion(0, card("ember_scout"))
+	check(Preflight.castle_problem(g3, 0) == "" and g3.castle(0).ok, "with exactly one champion you can castle")
+	check(g3.players[0].castles_used == 1, "and it uses your castle")
+	var g4 := new_game()
+	g4.spawn_champion(0, card("ember_scout"))
+	g4.spawn_champion(0, card("ember_scout"))
+	check(not g4.castle(0).ok and g4.players[0].castles_used == 0, "a refused castle does not use up your castle")
+
+
+func test_castled_players_draw_two() -> void:
+	var g := new_game()
+	g.spawn_champion(0, card("ember_scout"))
+	g.spawn_champion(1, card("tide_guard"))
+	g.castle(0)
+	g.end_turn(0)
+	g.end_turn(1)
+	var hand_before: int = g.players[0].hand.size()
+	# It is P0's next turn: the draw already happened at its start.
+	check(g.players[0].castled, "P0 is still castled at the start of the next turn")
+	g.players[0].hand.clear()
+	g.end_turn(0)
+	g.end_turn(1)
+	check(g.players[0].hand.size() == 2, "a castled player draws 2 cards at the start of their turn (got %d)" % g.players[0].hand.size())
+	var g2 := new_game()
+	g2.spawn_champion(0, card("ember_scout"))
+	g2.end_turn(0)
+	g2.end_turn(1)
+	g2.players[0].hand.clear()
+	g2.end_turn(0)
+	g2.end_turn(1)
+	check(g2.players[0].hand.size() == 1, "an uncastled player draws 1")
+	var g3 := new_game()
+	g3.spawn_champion(0, card("ember_scout"))
+	g3.castle(0)
+	g3.players[0].castled_turns = int(g3.rules.max_castled_turns)  # the castle runs out at the start of the next turn
+	g3.end_turn(0)
+	g3.end_turn(1)
+	check(not g3.players[0].castled, "the castle ran out")
+	var g4 := new_game()
+	g4.spawn_champion(0, card("ember_scout"))
+	g4.castle(0)
+	g4.end_turn(0)
+	LockRules.add(g4, 0, "draw", 1)
+	g4.players[0].hand.clear()
+	g4.end_turn(1)
+	check(g4.players[0].hand.is_empty(), "a draw lock stops both draws")
+	var g5 := new_game()
+	g5.spawn_champion(0, card("ember_scout"))
+	g5.castle(0)
+	g5.players[0].deck = [card("ember_scout")]
+	g5.end_turn(0)
+	g5.end_turn(1)
+	check(g5.finished and g5.winner == 1, "needing 2 cards from a 1-card deck means decking out")
+
+
+func test_start_of_turn_summary_and_poison() -> void:
+	var g := real_game()
+	var t := spawn(g, 0, "amustas")
+	StatusRules.apply_poison(g, t, 10, -1, 1)
+	g.next_step(0)
+	check(t.damage == 10, "poison ticks 10 when the start-of-turn triggers run")
+	check(g.start_summary_turn == g.turn and not g.start_summary.is_empty(), "the start-of-turn lines are remembered")
+	check(g.start_summary.any(func(l: String) -> bool: return "10 damage" in l or "takes 10" in l), "and mention the poison damage")
+	var g2 := real_game()
+	var t2 := spawn(g2, 0, "amustas")
+	StatusRules.apply_poison(g2, t2, 10, -1, 1)
+	g2.end_turn(0)  # never left the castle step
+	check(t2.damage == 10, "ending the turn straight from the Castle step still triggers the poison")

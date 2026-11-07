@@ -238,20 +238,27 @@ func attack_target(p: int, attacker: Champion, atk_index: int) -> Dictionary:
 	if foe.castled or foe.champions.is_empty():
 		target = {"fortress": 1 - p}
 	else:
+		var legal: Array = []  # champions this attacker is allowed to attack (not Gnome if it has too much HP)
+		for fc in foe.champions:
+			if not (fc.has_ability() and fc.card.ability.has("immune_to_attackers_max_hp_over") \
+					and attacker.max_hp() > int(fc.card.ability.immune_to_attackers_max_hp_over)):
+				legal.append(fc)
+		if legal.is_empty():
+			return _err("%s cannot attack the opponent's champions (it has too many HP for Gnome)." % attacker.card_name())
 		var forced: Champion = null  # Duel: the dueled champion must attack its duelist
 		for st in attacker.statuses:
 			if str(st.kind) == "duel":
 				forced = g._champion_of(foe, int(st.duelist))
 		if forced != null:
 			target = {"champion": forced.uid}
-		elif int(atk.get("multi_target", 0)) > 1 and foe.champions.size() >= 2:
-			var need: int = mini(int(atk.multi_target), foe.champions.size())
-			var picked: Variant = await _many("%s: pick %d different champions" % [atk.get("name", "Attack"), need], _champs(foe.champions), need, need)
+		elif int(atk.get("multi_target", 0)) > 1 and legal.size() >= 2:
+			var need: int = mini(int(atk.multi_target), legal.size())
+			var picked: Variant = await _many("%s: pick %d different champions" % [atk.get("name", "Attack"), need], _champs(legal), need, need)
 			if picked == null:
 				return _cancel()
 			target = {"champions": picked}
 		else:
-			var one: Variant = await _one("Attack which champion?", _champs(foe.champions))
+			var one: Variant = await _one("Attack which champion?", _champs(legal))
 			if one == null:
 				return _cancel()
 			target = {"champion": one}

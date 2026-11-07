@@ -13,8 +13,8 @@ static func take_turn(g: Game, p: int) -> void:
 	if ps.castled:
 		if ps.castled_turns >= 2:
 			g.uncastle(p)
-	elif ps.castles_used == 0 and not ps.is_first_turn() and foe.champions.size() >= ps.champions.size() + 3:
-		g.castle(p)
+	elif ps.castles_used == 0 and not ps.is_first_turn() and ps.champions.size() == 1 and foe.champions.size() >= 3:
+		g.castle(p)  # only possible with exactly one champion in the active play area
 
 	# Step 3 and the Summon step.
 	g.next_step(p)
@@ -128,15 +128,24 @@ static func _target_for(g: Game, p: int, attacker: Champion, atk: Dictionary) ->
 	var me: PlayerState = g.players[p]
 	var foe: PlayerState = g.players[1 - p]
 	var target: Dictionary = {"fortress": 1 - p}
-	if not foe.castled and not foe.champions.is_empty():
-		target = {"champion": _weakest(foe).uid}
+	var legal: Array = []
+	for fc in foe.champions:
+		if not (fc.has_ability() and fc.card.ability.has("immune_to_attackers_max_hp_over") \
+				and attacker.max_hp() > int(fc.card.ability.immune_to_attackers_max_hp_over)):
+			legal.append(fc)
+	if not foe.castled and not legal.is_empty():
+		var weakest_legal: Champion = legal[0]
+		for fc in legal:
+			if fc.current_hp() < weakest_legal.current_hp():
+				weakest_legal = fc
+		target = {"champion": weakest_legal.uid}
 		for st in attacker.statuses:
 			if str(st.kind) == "duel":
 				var duelist: Champion = g._champion_of(foe, int(st.duelist))
 				if duelist != null:
 					target = {"champion": duelist.uid}
-		if int(atk.get("multi_target", 0)) > 1 and foe.champions.size() >= 2:
-			var sorted: Array = foe.champions.duplicate()
+		if int(atk.get("multi_target", 0)) > 1 and legal.size() >= 2:
+			var sorted: Array = legal.duplicate()
 			sorted.sort_custom(func(a: Champion, b: Champion) -> bool: return a.current_hp() < b.current_hp())
 			target = {"champions": [sorted[0].uid, sorted[1].uid]}
 	if atk.has("optional_discard_bonus") and me.hand.size() >= 3:

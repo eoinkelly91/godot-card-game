@@ -49,9 +49,8 @@ func _run() -> void:
 	ui._on_keep()
 	ui._on_reveal()
 	ui._on_keep()
-	ui._on_reveal()
 	var g: Game = ui.game
-	for i in 13:
+	for i in 9:
 		SimpleBot.take_turn(g, g.active)
 	ui.viewer = g.active
 	ui._cover.visible = false

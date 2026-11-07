@@ -187,6 +187,11 @@ static func attack(g: Game, p: int, attacker_uid: int, attack_index: int, target
 	# Validate attached spells.
 	var picked: Array = []   # [{card, hand_index}]
 	var seen: Array = []
+	# Gnome cannot be attacked by a champion with more max HP than its limit: such an attack is not allowed.
+	for tc in [target_champion] + extra_targets:
+		if tc != null and tc.has_ability() and tc.card.ability.has("immune_to_attackers_max_hp_over") \
+				and attacker.max_hp() > int(tc.card.ability.immune_to_attackers_max_hp_over):
+			return g._fail("%s cannot attack %s (it has more than %d HP)." % [attacker.card_name(), tc.card_name(), int(tc.card.ability.immune_to_attackers_max_hp_over)])
 	# Duel: the champion that was dueled must attack its duelist while that champion can be targeted.
 	if not bool(atk.get("no_target", false)):
 		for dst in attacker.statuses:
