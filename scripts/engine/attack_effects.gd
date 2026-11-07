@@ -26,10 +26,10 @@ static func coin_damage(g: Game, atk: Dictionary) -> Dictionary:
 			g._log("Coin: Tails.")
 	if bool(atk.get("coin_fizzle", false)):
 		if g.flip_coin():
-			fizzle = true
-			g._log("Coin: Heads, the attack does nothing.")
+			g._log("Coin: Heads, the attack goes ahead.")
 		else:
-			g._log("Coin: Tails.")
+			fizzle = true
+			g._log("Coin: Tails, the attack does nothing.")
 	return {"extra": extra, "fizzle": fizzle}
 
 
@@ -68,6 +68,11 @@ static func after_damage(g: Game, p: int, attacker: Champion, atk: Dictionary, t
 	if atk.has("coin_opponent_discards"):
 		if g.flip_coin():
 			_discard_random(g, 1 - p, int(atk.coin_opponent_discards))
+		else:
+			g._log("Coin: Tails.")
+	if atk.has("coin_draw"):  # Predict: heads draws cards, tails does nothing
+		if g.flip_coin():
+			_draw(g, p, int(atk.coin_draw))
 		else:
 			g._log("Coin: Tails.")
 	if atk.has("coin_draw_or_discard"):

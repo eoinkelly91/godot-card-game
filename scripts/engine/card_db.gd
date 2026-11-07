@@ -7,7 +7,7 @@ class_name CardDB
 extends RefCounted
 
 const CARD_DIR := "res://data/cards/"
-const CARD_FILES := ["red", "blue", "white", "purple", "spells", "enchantments"]
+const CARD_FILES := ["red", "blue", "white", "purple", "spells", "enchantments", "fortresses"]
 
 
 static func load_cards(dir: String = CARD_DIR) -> Dictionary:
@@ -37,6 +37,11 @@ static func load_cards(dir: String = CARD_DIR) -> Dictionary:
 						push_error("%s: attack '%s' combines a mana cost with an HP threshold" % [id, atk.get("name", "?")])
 			cards[id] = card
 	return cards
+
+
+## The Fortress card a player starts with (there is only "castle" for now; more can be added to the sheet).
+static func default_fortress(cards: Dictionary) -> Dictionary:
+	return (cards.get("castle", {}) as Dictionary).duplicate()
 
 
 ## Basic = no sacrifice and no mana cost to play. Elite = one or more sacrifices, a mana cost, or both.

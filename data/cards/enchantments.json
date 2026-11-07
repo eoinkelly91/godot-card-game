@@ -5,7 +5,7 @@
   "kind": "enchantment",
   "cost": 3,
   "text": [
-   "At the start of your turn heal each of your champions by 10HP"
+   "At the start of your turn heal each of your champions in play by 10HP"
   ],
   "start_of_turn": {
    "op": "heal_all",
@@ -18,7 +18,7 @@
   "kind": "enchantment",
   "cost": 3,
   "text": [
-   "At the start of your turn gain 1 mana for each of your champions."
+   "At the start of your turn gain 1 Mana for each one of your champions in play."
   ],
   "start_of_turn": {
    "op": "gain_mana_per_champion",
@@ -31,7 +31,7 @@
   "kind": "enchantment",
   "cost": 3,
   "text": [
-   "If your fortress is attacked prevent 20 damage and do 20 damage to the attacking Champion."
+   "If your fortress is attacked by a champion prevent 20 damage being done to the fortress and do 20 damage to that attacking champion."
   ],
   "fortress_defense": {
    "prevent": 20,
@@ -44,7 +44,7 @@
   "kind": "enchantment",
   "cost": 3,
   "text": [
-   "At the start of your turn do 10 damage to the enemy fortress for each of your active champions"
+   "At the start of your turn do 10 damage to the enemy fortress for each of your champions in play."
   ],
   "start_of_turn": {
    "op": "fortress_damage_per_active_champion",
@@ -57,7 +57,7 @@
   "kind": "enchantment",
   "cost": 2,
   "text": [
-   "For every champion you lose to an attack gain 1 mana"
+   "For every champion you lose (to an attack, poison, a spell or recoil) gain 1 mana. Sacrificed champions do not count."
   ],
   "on_champion_lost_to_attack": {
    "gain_mana": 1

@@ -45,7 +45,7 @@
    }
   ],
   "ability": {
-   "text": "Opponent cannot play spell cards while this champion is in play (active or encamped)",
+   "text": "Your opponent cannot play spell cards while this champion is in play (active or encamped)",
    "trigger": "passive",
    "lock_enemy": "spell"
   }
@@ -72,7 +72,7 @@
     "damage": 90,
     "mana_cost": 2,
     "self_damage": 30,
-    "text": "90+ this champion does 30 damage to itself."
+    "text": "90+ This champion does 30 damage to itself."
    }
   ]
  },
@@ -94,7 +94,7 @@
    }
   ],
   "ability": {
-   "text": "At the start of your turn draw a card",
+   "text": "At the start of your turn draw a card.",
    "trigger": "start_of_turn",
    "op": "draw",
    "amount": 1
@@ -125,7 +125,7 @@
      "draw": 2,
      "discard": 1
     },
-    "text": "Flip a coin if heads draw 2 cards. If tails discard a card from your hand"
+    "text": "Flip a coin if heads draw 2 cards. If tails discard a card from your hand."
    }
   ]
  },
@@ -142,6 +142,14 @@
    {
     "name": "Puff",
     "damage": 10
+   },
+   {
+    "name": "Predict",
+    "damage": 0,
+    "mana_cost": 1,
+    "no_target": true,
+    "coin_draw": 1,
+    "text": "Flip a coin, if heads draw a card."
    }
   ]
  },
@@ -161,7 +169,7 @@
    }
   ],
   "ability": {
-   "text": "If Grimn does not attack this turn Gnaw does 40 damage next turn",
+   "text": "If Grimn does not attack this turn Gnaw does 40 damage next turn.",
    "trigger": "passive",
    "stored_bonus_if_idle": 20
   }
@@ -182,7 +190,7 @@
    }
   ],
   "ability": {
-   "text": "No champion with over 60 HP can do damage to Gnome",
+   "text": "No champion with over 60 HP can do damage to Gnome.",
    "trigger": "passive",
    "immune_to_attackers_max_hp_over": 60
   }
@@ -205,7 +213,7 @@
    }
   ],
   "ability": {
-   "text": "Add +10 damage to this champoins attack for each of your active champions",
+   "text": "Add +10 damage to this champoins attack for each of your active champions.",
    "trigger": "on_attack",
    "bonus_per": {
     "count": "own_champions",
@@ -231,7 +239,7 @@
    }
   ],
   "ability": {
-   "text": "Add +10 damage to this champoins attack for every spirit champions in play",
+   "text": "Add +10 damage to this champoins attack for each of your and your opponents active Spirit champions.",
    "trigger": "on_attack",
    "bonus_per": {
     "count": "spirits_in_play",
@@ -255,7 +263,7 @@
    }
   ],
   "ability": {
-   "text": "Add +10 damage to this champoins attack for each of your spirit champions in play",
+   "text": "Add +10 damage to this champoins attack for each of your  active Spirit champions.",
    "trigger": "on_attack",
    "bonus_per": {
     "count": "own_spirits",

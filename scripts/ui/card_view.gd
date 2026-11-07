@@ -101,7 +101,7 @@ func _base_color() -> Color:
 	match _kind():
 		"enchantment":
 			return ENCHANTMENT_COLOR
-		"spell":
+		"spell", "fortress":  # a Fortress card has the same background as a spell
 			return SPELL_COLOR
 	return CHAMPION_COLORS.get(str(card.get("color", "")), SPELL_COLOR)
 
@@ -194,17 +194,30 @@ func _build() -> void:
 	var is_champion: bool = _kind() == "champion"
 	_box(0, 0, DW, DH, base, 2.0)
 
-	# Top bar: cost / B and the name
-	var num_text: String = _top_left_text()
-	_label(num_text, 0, 0, NUM_W, TOP_H, 38 if num_text.length() < 3 else 28, on_base)
-	var line := ColorRect.new()
-	line.color = DARK
-	line.position = Vector2(NUM_W - 1.0, 4.0) * k
-	line.size = Vector2(2.0 * k, (TOP_H - 8.0) * k)
-	line.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(line)
+	# Top bar: cost / B and the name (a Fortress has its name on the left and its HP on the right)
 	var name_text: String = str(card.get("name", "?")).to_upper()
-	_label(name_text, NUM_W + 6.0, 0, DW - NUM_W - 12.0, TOP_H, clampf(46.0 - maxf(0.0, name_text.length() - 12.0) * 2.4, 22.0, 40.0), on_base)
+	if _kind() == "fortress":
+		var hp_w: float = 150.0
+		var max_hp: int = int(card.get("hp", 500))
+		var hp_text: String = "%d/%d" % [int(card.get("hp_now", max_hp)), max_hp]
+		_label(name_text, 6.0, 0, DW - hp_w - 12.0, TOP_H, clampf(46.0 - maxf(0.0, name_text.length() - 12.0) * 2.4, 22.0, 40.0), on_base)
+		_label(hp_text, DW - hp_w, 0, hp_w, TOP_H, 34, on_base)
+		var hp_line := ColorRect.new()
+		hp_line.color = DARK
+		hp_line.position = Vector2(DW - hp_w - 1.0, 4.0) * k
+		hp_line.size = Vector2(2.0 * k, (TOP_H - 8.0) * k)
+		hp_line.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		add_child(hp_line)
+	else:
+		var num_text: String = _top_left_text()
+		_label(num_text, 0, 0, NUM_W, TOP_H, 38 if num_text.length() < 3 else 28, on_base)
+		var line := ColorRect.new()
+		line.color = DARK
+		line.position = Vector2(NUM_W - 1.0, 4.0) * k
+		line.size = Vector2(2.0 * k, (TOP_H - 8.0) * k)
+		line.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		add_child(line)
+		_label(name_text, NUM_W + 6.0, 0, DW - NUM_W - 12.0, TOP_H, clampf(46.0 - maxf(0.0, name_text.length() - 12.0) * 2.4, 22.0, 40.0), on_base)
 
 	_draw_image(IMG_Y, IMG_H)
 
@@ -387,7 +400,7 @@ func _draw_description_boxes(texts: Array, with_labels: bool) -> void:
 	var on_base: Color = _on_base()
 	var top: float = IMG_Y + IMG_H
 	var n: int = maxi(1, texts.size())
-	var strip: float = 30.0 if with_labels and n > 1 else 0.0   # the OR divider between two effects
+	var strip: float = 30.0 if with_labels and n > 1 and _kind() != "fortress" else 0.0   # the OR divider between two effects (a Fortress has both effects)
 	var h: float = (DH - top - strip * float(n - 1)) / float(n)
 	var y: float = top
 	for i in n:

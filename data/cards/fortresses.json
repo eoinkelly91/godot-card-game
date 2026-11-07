@@ -1,0 +1,14 @@
+[
+ {
+  "id": "castle",
+  "name": "Castle",
+  "kind": "fortress",
+  "text": [
+   "Heal one of your champions by 20HP",
+   "The player recieves 1 Mana at the start of their turn."
+  ],
+  "hp": 500,
+  "heal": 20,
+  "mana_per_turn": 1
+ }
+]

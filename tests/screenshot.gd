@@ -59,5 +59,15 @@ func _run() -> void:
 	await process_frame
 	await process_frame
 	root.get_texture().get_image().save_png("user://shot_board.png")
+	# castled: the Fortress group moves to the active row and the champions are encamped
+	var me: PlayerState = g.players[g.active]
+	while me.champions.size() > 1:
+		me.champions.pop_back()
+	me.castled = true
+	ui.refresh()
+	await process_frame
+	await process_frame
+	await process_frame
+	root.get_texture().get_image().save_png("user://shot_castled.png")
 	print("saved to ", OS.get_user_data_dir())
 	quit()

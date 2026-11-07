@@ -34,7 +34,7 @@ static func validate(g: Game, p: int, hand_index: int, effect: Dictionary, targe
 				total += n
 			if total > int(effect.get("count", 3)):
 				return "You can move at most %d counters." % int(effect.get("count", 3))
-		"drain_mana", "drain_mana_per_card", "opponent_discards", "summon_discount", "wizardry_draw", "rearrange_top":
+		"drain_mana", "drain_mana_per_card", "gain_mana_per_enchantment", "opponent_discards", "summon_discount", "wizardry_draw", "rearrange_top":
 			pass
 		"remove_enchantment":  # target {"enchantment": index into the opponent's enchantments}
 			var ei: int = int(target.get("enchantment", -1))
@@ -136,6 +136,10 @@ static func apply(g: Game, p: int, hand_index: int, effect: Dictionary, target: 
 		"drain_mana":
 			foe.mana = maxi(0, foe.mana - int(effect.amount))
 			g._log("P%d loses %d mana (%d left)." % [1 - p, int(effect.amount), foe.mana])
+		"gain_mana_per_enchantment":  # Crimson Wave, effect 2
+			var gain: int = int(effect.get("per_card", 1)) * me.enchantments.size()
+			me.mana += gain
+			g._log("P%d gains %d mana for the enchantments in play (%d now)." % [p, gain, me.mana])
 		"drain_mana_per_card":
 			var loss: int = int(effect.get("per_card", 1)) * foe.hand.size()
 			foe.mana = maxi(0, foe.mana - loss)

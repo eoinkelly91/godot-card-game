@@ -68,7 +68,7 @@ func spell_target(p: int, hand_index: int, effect_index: int) -> Dictionary:
 	var effect: Dictionary = card.effects[effect_index]
 	var op: String = str(effect.get("op", ""))
 	match op:
-		"lock", "draw", "gain_mana", "buff_attack", "drain_mana", "drain_mana_per_card", "opponent_discards", \
+		"lock", "draw", "gain_mana", "buff_attack", "drain_mana", "drain_mana_per_card", "gain_mana_per_enchantment", "opponent_discards", \
 		"summon_discount", "wizardry_draw":
 			return _t({})
 		"damage":

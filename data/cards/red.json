@@ -18,9 +18,7 @@
    {
     "name": "Armageddon",
     "damage": 100,
-    "requires": {
-     "self_hp_at_least": 80
-    }
+    "mana_cost": 3
    }
   ]
  },
@@ -37,6 +35,11 @@
    {
     "name": "Jab",
     "damage": 20
+   },
+   {
+    "name": "Harpoon",
+    "damage": 40,
+    "mana_cost": 1
    }
   ]
  },
@@ -60,7 +63,7 @@
     "name": "Shadow Blade",
     "damage": 60,
     "requires": {
-     "self_hp_at_least": 50
+     "self_hp_at_least": 60
     }
    }
   ]
@@ -86,7 +89,7 @@
     "damage": 70,
     "mana_cost": 1,
     "self_damage": 20,
-    "text": "70 + this champion does 20 damage to itself."
+    "text": "70 + This champion does 20 damage to itself."
    }
   ]
  },
@@ -99,7 +102,7 @@
   "type": "Creature",
   "hp": 100,
   "summon": {
-   "sacrifice": 1
+   "sacrifice": 2
   },
   "attacks": [
    {
@@ -108,7 +111,7 @@
    }
   ],
   "ability": {
-   "text": "Flip a coin if heads prevent all damage to Blackthorn Dragon including damage done through spells and enchantments",
+   "text": "Flip a coin if heads prevent all damage to Blackthorn Dragon including damage done through spells and enchantments.",
    "trigger": "start_of_turn",
    "op": "coin_protect"
   }
@@ -160,7 +163,7 @@
      "self_hp_at_least": 30
     },
     "duel": true,
-    "text": "30 + the champion being attacked must attack Capatsar next turn"
+    "text": "30 + The defending champion is not forced to attack next turn, but if it does it must attack Capatsar."
    }
   ]
  },
@@ -189,7 +192,7 @@
     "mana_cost": 2,
     "no_target": true,
     "coin_extra_attack": true,
-    "text": "Flip a coin if heads one of your other champion can attack again this turn"
+    "text": "Flip a coin if heads one of your other active champions can attack again this turn."
    }
   ]
  },
@@ -216,7 +219,7 @@
      "self_hp_at_least": 50
     },
     "coin_fizzle": true,
-    "text": "50 + flip a coin if heads this attack does nothing"
+    "text": "50 + Flip a coin if tails this attack does nothing."
    }
   ]
  },
@@ -234,7 +237,7 @@
     "name": "Air Claw",
     "damage": 10,
     "coin_bonus": 20,
-    "text": "10 + 20X1CoinFlip"
+    "text": "10 + Flip a coin if heads deal an additional 20 damage."
    }
   ]
  },
@@ -254,7 +257,7 @@
    }
   ],
   "ability": {
-   "text": "If an attack does over 30 damage to Small Troll prevent that attack from happening and all its effects",
+   "text": "If an attack does over 30 damage to Small Troll prevent that attack from happening and all its effects.",
    "trigger": "passive",
    "negate_if_damage_over": 30
   }
@@ -277,7 +280,7 @@
    }
   ],
   "ability": {
-   "text": "If an attack does over 60 damage to Big  Troll prevent that attack from happening and all its effects",
+   "text": "If an attack does over 60 damage to Big  Troll prevent that attack from happening and all its effects.",
    "trigger": "passive",
    "negate_if_damage_over": 60
   }
@@ -301,7 +304,7 @@
      "amount": 10,
      "turns": -1
     },
-    "text": "20 + the defending champion is now poisoned."
+    "text": "20 + The defending champion is now poisoned."
    }
   ]
  },
@@ -319,7 +322,7 @@
     "name": "Savage",
     "damage": 50,
     "self_damage": 10,
-    "text": "50  + this champion does 10 damage to itself."
+    "text": "50  + This champion does 10 damage to itself."
    }
   ]
  },
@@ -339,11 +342,11 @@
     "name": "Eruption",
     "damage": 30,
     "self_damage": 10,
-    "text": "30  + this champion does 10 damage to itself."
+    "text": "30  + This champion does 10 damage to itself."
    }
   ],
   "ability": {
-   "text": "Add 10 damage to this champions attack for every 5 damage counters on Lava Titan",
+   "text": "Add 10 damage to this champions attack for every 5 damage counters on Lava Titan.",
    "trigger": "on_attack",
    "bonus_per": {
     "count": "own_damage_per_5_counters",

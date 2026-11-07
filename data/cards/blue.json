@@ -13,7 +13,12 @@
     "name": "Spike",
     "damage": 20
    }
-  ]
+  ],
+  "ability": {
+   "text": "Do 30 damage to any champion that destroys Fu.",
+   "trigger": "passive",
+   "when_destroyed_damage_attacker": 30
+  }
  },
  {
   "id": "deep_peed",
@@ -76,7 +81,7 @@
     "damage": 20,
     "mana_cost": 2,
     "coin_bonus": 20,
-    "text": "20 + Flip a coin, if Heads this attack does plus 20 damage"
+    "text": "20+ Flip a coin if Heads, this attack does plus 20 damage."
    }
   ]
  },
@@ -99,14 +104,14 @@
      "class": "basic",
      "amount": 20
     },
-    "text": "20 + this attack does plus 20 versus basic champions"
+    "text": "20 + This attack does plus 20 versus basic champions."
    },
    {
     "name": "Path of Destruction",
     "damage": 50,
     "mana_cost": 2,
     "splash_enemies": 20,
-    "text": "50 + this attack does 20 damage to every enemy champion"
+    "text": "50 + This attack does 20 damage to every other enemy champion."
    }
   ]
  },
@@ -134,7 +139,7 @@
      "self_hp_at_least": 80
     },
     "splash_all": 10,
-    "text": "70 + this attack does 10 damage to every champion including your own"
+    "text": "70 + This attack does 10 damage to every champion including your own."
    }
   ]
  },
@@ -154,7 +159,7 @@
     "name": "Dual Spear",
     "damage": 10,
     "multi_target": 2,
-    "text": "Do 10 damage to 2 opponents"
+    "text": "Do 10 damage to 2 opponents."
    },
    {
     "name": "Sword Spear",
@@ -183,7 +188,7 @@
     "mana_cost": 1,
     "no_target": true,
     "coin_opponent_discards": 1,
-    "text": "Flip a coin if heads your opponent must discard a card"
+    "text": "Flip a coin if heads your opponent must discard a card."
    }
   ]
  },
@@ -206,7 +211,7 @@
    }
   ],
   "ability": {
-   "text": "If this champion has 50 or more damage on him remove it all",
+   "text": "If this champion has 50 or more damage on him remove it all.",
    "trigger": "passive",
    "clear_damage_at": 50
   }
@@ -218,7 +223,7 @@
   "class": "elite",
   "color": "Blue",
   "type": "Human",
-  "hp": 60,
+  "hp": 80,
   "summon": {
    "sacrifice": 1
   },
@@ -229,9 +234,9 @@
    },
    {
     "name": "Dark Wing",
-    "damage": 30,
+    "damage": 40,
     "requires": {
-     "self_hp_at_least": 30
+     "self_hp_at_least": 40
     }
    }
   ]
@@ -250,7 +255,7 @@
     "name": "Mist",
     "damage": 10,
     "coin_protect_self": true,
-    "text": "10 + flip a coin if heads prevent all damage done to misley next turn"
+    "text": "10 + Flip a coin if heads prevent all damage done to Misley next turn."
    }
   ]
  },
@@ -271,7 +276,7 @@
      "count": 3,
      "per_heads_damage": 10
     },
-    "text": "Flip 3 coins, this attack does 10 damage for each Heads."
+    "text": "Flip 3 coins, this attack does 10 damage for each heads."
    }
   ]
  },
@@ -307,7 +312,7 @@
     "name": "Jaguar Spear",
     "damage": 30,
     "self_damage": 10,
-    "text": "30  + this champion does 10 damage to itself."
+    "text": "30  + This champion does 10 damage to itself."
    }
   ]
  }

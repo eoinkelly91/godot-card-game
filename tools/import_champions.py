@@ -26,6 +26,8 @@ ATTACK_EFFECTS = {
     ("War Bear", 1): {"damage": 0, "coins": {"count": 3, "per_heads_damage": 20}},
     ("Mersoilder", 1): {"coin_bonus": 20},
     ("Tigrodon", 1): {"self_damage": 30},
+    ("Pog", 1): {"damage": 0, "no_target": True, "coin_draw": 1},
+    ("Gob", 1): {"damage": 0, "damage_equals_own_hp": True},
     ("Poglass", 1): {"damage": 0, "no_target": True, "coin_draw_or_discard": {"draw": 2, "discard": 1}},
     ("Gronk", 0): {"bonus_vs_class": {"class": "basic", "amount": 20}},
     ("Gronk", 1): {"splash_enemies": 20},
@@ -76,6 +78,7 @@ ABILITIES = {
     "Big Troll": {"trigger": "passive", "negate_if_damage_over": 60},
     "Lava Titan": {"trigger": "on_attack", "bonus_per": {"count": "own_damage_per_5_counters", "amount": 10}},
     "Spike": {"trigger": "passive", "sacrifice_as_any_color": True},
+    "Fu": {"trigger": "passive", "when_destroyed_damage_attacker": 30},
 }
 
 

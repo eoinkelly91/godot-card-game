@@ -20,7 +20,7 @@ OUT = ROOT / "data" / "cards"
 SPELLS = {
     "Heal": [{"op": "heal", "amount": 50}, {"op": "cleanse"}],
     "Mist of Despair": [{"op": "move_counters", "count": 3}],
-    "Crimson Wave": [{"op": "drain_mana", "amount": 3}],
+    "Crimson Wave": [{"op": "drain_mana", "amount": 2}, {"op": "gain_mana_per_enchantment", "per_card": 1}],
     "Ancient Script": [{"op": "remove_enchantment"}],
     "Treason": [{"op": "move_all_damage"}],
     "Battle Axe": [{"op": "bonus_damage", "amount": 30}, {"op": "damage_many", "amount": 10, "targets": 3}],
@@ -42,6 +42,13 @@ ENCHANTMENTS = {
 }
 
 
+# Fortress cards (class "fortress" in the sheet). The numbers are read by the engine: hp, heal (effect 1),
+# mana_per_turn (effect 2). An optional "hp" column in the sheet overrides the hp here.
+FORTRESSES = {
+    "Castle": {"hp": 500, "heal": 20, "mana_per_turn": 1},
+}
+
+
 def snake(name):
     return re.sub(r"[^a-z0-9]+", "_", name.lower()).strip("_")
 
@@ -49,7 +56,7 @@ def snake(name):
 def main():
     ws = openpyxl.load_workbook(SHEET).active
     header = [c.value for c in ws[1]]
-    spells, enchants, seen = [], [], set()
+    spells, enchants, fortresses, seen = [], [], [], set()
     for row in ws.iter_rows(min_row=2, values_only=True):
         d = dict(zip(header, row))
         if not d["name"]:
@@ -65,15 +72,22 @@ def main():
         if d["class"] == "spell":
             card["effects"] = SPELLS[d["name"]]
             spells.append(card)
+        elif d["class"] == "fortress":
+            card.update(FORTRESSES[d["name"]])
+            if d.get("hp"):
+                card["hp"] = int(d["hp"])
+            card.pop("cost", None)
+            fortresses.append(card)
         else:
             card.update(ENCHANTMENTS[d["name"]])
             enchants.append(card)
-    missing = (set(SPELLS) | set(ENCHANTMENTS)) - seen
+    missing = (set(SPELLS) | set(ENCHANTMENTS) | set(FORTRESSES)) - seen
     if missing:
         raise SystemExit(f"Tagged cards not in the sheet: {missing}")
     (OUT / "spells.json").write_text(json.dumps(spells, indent=1) + "\n")
     (OUT / "enchantments.json").write_text(json.dumps(enchants, indent=1) + "\n")
-    print(f"{len(spells)} spells, {len(enchants)} enchantments")
+    (OUT / "fortresses.json").write_text(json.dumps(fortresses, indent=1) + "\n")
+    print(f"{len(spells)} spells, {len(enchants)} enchantments, {len(fortresses)} fortresses")
 
 
 if __name__ == "__main__":

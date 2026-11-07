@@ -10,8 +10,9 @@ const COLORS := {
 	"White": Color(0.78, 0.78, 0.74), "Purple": Color(0.42, 0.2, 0.58),
 }
 const NEUTRAL := Color(0.25, 0.3, 0.28)
-const HAND_CARD_W := 195.0
-const BOARD_CARD_W := 150.0
+const HAND_CARD_W := 140.0
+const BOARD_CARD_W := 108.0
+const BOARD_CARD_H := BOARD_CARD_W * 650.0 / 490.0
 
 var game: Game
 var cards: Dictionary = {}
@@ -35,10 +36,9 @@ var _heal_prompted_turn: int = -1
 var _start_shown_turn: int = -1
 var _turn_label: Label
 var _log: RichTextLabel
-var _btn_castle: Button
-var _btn_uncastle: Button
+var _opp_info: Label
+var _me_info: Label
 var _btn_next: Button
-var _btn_heal: Button
 var _btn_end: Button
 var _btn_new: Button
 var _setup: Control
@@ -102,64 +102,64 @@ func _build_ui() -> void:
 	var margin := MarginContainer.new()
 	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
 	for side in ["left", "right", "top", "bottom"]:
-		margin.add_theme_constant_override("margin_" + side, 8)
+		margin.add_theme_constant_override("margin_" + side, 6)
 	add_child(margin)
+	var outer := VBoxContainer.new()  # the board and the events column, with the messages bar along the bottom
+	outer.add_theme_constant_override("separation", 3)
+	margin.add_child(outer)
 	var cols := HBoxContainer.new()
+	cols.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	cols.add_theme_constant_override("separation", 8)
-	margin.add_child(cols)
+	outer.add_child(cols)
 
 	var left := VBoxContainer.new()
 	left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	left.add_theme_constant_override("separation", 6)
+	left.add_theme_constant_override("separation", 3)
 	cols.add_child(left)
 
 	_turn_label = Label.new()
-	_turn_label.add_theme_font_size_override("font_size", 20)
+	_turn_label.add_theme_font_size_override("font_size", 18)
 	left.add_child(_turn_label)
-	var bar := HFlowContainer.new()  # wraps instead of running under the log panel
-	bar.add_theme_constant_override("h_separation", 8)
-	left.add_child(bar)
-	_btn_castle = _button("Castle", _on_castle)
-	_btn_uncastle = _button("Uncastle", _on_uncastle)
-	_btn_next = _button("Next step", _on_next_step)
-	_btn_heal = _button("Fortress heal", _on_fortress_heal)
-	_btn_end = _button("End turn", _on_end_turn)
-	_btn_new = _button("New game", _show_setup)
-	for b in [_btn_castle, _btn_uncastle, _btn_heal, _btn_next, _btn_end, _btn_new]:
-		bar.add_child(b)
-
-	_opp_box = _board_panel(left, 1.0)
-	_me_box = _board_panel(left, 1.0)
+	# Board, like the mock-up: opponent's two rows on top, yours below. Each player has an ACTIVE row and an
+	# ENCAMPED row; the champions and the Fortress group (discard pile, Fortress, enchantments) swap when castled.
+	_opp_info = _info_label()
+	left.add_child(_opp_info)
+	_opp_box = VBoxContainer.new()
+	_opp_box.add_theme_constant_override("separation", 3)
+	left.add_child(_opp_box)
+	_me_box = VBoxContainer.new()
+	_me_box.add_theme_constant_override("separation", 3)
+	left.add_child(_me_box)
+	_me_info = _info_label()
+	left.add_child(_me_info)
 
 	_attack_hint = Label.new()
 	_attack_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_attack_hint.add_theme_font_size_override("font_size", 13)
 	_attack_hint.add_theme_color_override("font_color", Color(0.6, 0.85, 1.0))
 	left.add_child(_attack_hint)
 	_hand_label = Label.new()
+	_hand_label.add_theme_font_size_override("font_size", 14)
 	left.add_child(_hand_label)
 	_hand_scroll = ScrollContainer.new()
 	_hand_scroll.custom_minimum_size = Vector2(0, HAND_CARD_W * 650.0 / 490.0 + 24.0)
 	_hand_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	_hand_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_ALWAYS  # the bar stays, even when the hand fits
+	_hand_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_ALWAYS  # the bar stays (hidden when not needed)
 	_hand_scroll.gui_input.connect(_on_hand_gui_input)
 	_hand_scroll.resized.connect(_fix_hand_scroll)
 	left.add_child(_hand_scroll)
-	var scroll := _hand_scroll
 	_hand_row = HBoxContainer.new()
 	_hand_row.add_theme_constant_override("separation", 6)
-	scroll.add_child(_hand_row)
-	_status = Label.new()
-	_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_status.add_theme_color_override("font_color", Color(1.0, 0.8, 0.4))
-	left.add_child(_status)
+	_hand_scroll.add_child(_hand_row)
 
 	var right := PanelContainer.new()
-	right.custom_minimum_size = Vector2(380, 0)
+	right.custom_minimum_size = Vector2(300, 0)
 	cols.add_child(right)
 	var rv := VBoxContainer.new()
 	right.add_child(rv)
 	var lt := Label.new()
-	lt.text = "Game log"
+	lt.text = "Events"
+	lt.add_theme_font_size_override("font_size", 16)
 	rv.add_child(lt)
 	_log = RichTextLabel.new()
 	_log.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -167,22 +167,30 @@ func _build_ui() -> void:
 	_log.fit_content = false
 	rv.add_child(_log)
 	var legend := Label.new()
-	legend.text = "Hover a card for its full text.\nClick your champion to attack,\nyour hand card to play it."
-	legend.add_theme_font_size_override("font_size", 12)
+	legend.text = "Hover a card for its full text. Click your Fortress at the start of your turn to castle or heal; click a champion to attack, a hand card to play it."
+	legend.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	legend.add_theme_font_size_override("font_size", 11)
 	rv.add_child(legend)
+	_btn_next = _button("To Attack step", _on_next_step)
+	_btn_end = _button("END TURN", _on_end_turn)
+	_btn_end.custom_minimum_size = Vector2(0, 44)
+	_btn_new = _button("New game", _show_setup)
+	for b in [_btn_next, _btn_end, _btn_new]:
+		rv.add_child(b)
+
+	_status = Label.new()  # the messages bar
+	_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_status.add_theme_font_size_override("font_size", 15)
+	_status.add_theme_color_override("font_color", Color(1.0, 0.8, 0.4))
+	outer.add_child(_status)
 
 	_build_overlays()
 
 
-func _board_panel(parent: Control, stretch: float) -> VBoxContainer:
-	var panel := PanelContainer.new()
-	panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	panel.size_flags_stretch_ratio = stretch
-	parent.add_child(panel)
-	var box := VBoxContainer.new()
-	box.add_theme_constant_override("separation", 4)
-	panel.add_child(box)
-	return box
+func _info_label() -> Label:
+	var l := Label.new()
+	l.add_theme_font_size_override("font_size", 13)
+	return l
 
 
 func _button(text: String, handler: Callable) -> Button:
@@ -393,7 +401,8 @@ func _on_start_pressed() -> void:
 func start_new_game(deck0: String, deck1: String, seed_value: int = 0) -> void:
 	_setup.visible = false
 	game = Game.new()
-	game.setup([CardDB.build_deck(cards, decks[deck0]), CardDB.build_deck(cards, decks[deck1])], seed_value, -1)
+	var fort: Dictionary = CardDB.default_fortress(cards)
+	game.setup([CardDB.build_deck(cards, decks[deck0]), CardDB.build_deck(cards, decks[deck1])], seed_value, -1, [fort, fort])
 	flows = TargetFlows.new(game, self)
 	viewer = -1
 	_status.text = ""
@@ -472,7 +481,7 @@ func _on_reveal() -> void:
 		game.next_step(p)
 		_show_start_of_turn()
 	elif game.step == Game.Step.CASTLE:
-		_status.text = "Castle step: castle or uncastle if you want, then press To Summon step (the Fortress, poison and start-of-turn abilities trigger then)."
+		_status.text = "Castle step: click your Fortress to castle or uncastle, or just play a card or attack to carry on (the Fortress, poison and start-of-turn abilities trigger then)."
 	refresh()
 	call_deferred("_prompt_heal_if_needed")
 
@@ -614,21 +623,15 @@ func refresh() -> void:
 		return
 	var p: int = game.active
 	_turn_label.text = "Turn %d · Player %d · %s step%s" % [game.turn, p, ["Castle", "Summon", "Attack"][game.step], "  (game over)" if game.finished else ""]
-	_render_player(_opp_box, 1 - p, false)
-	_render_player(_me_box, p, true)
-	_render_hand()
 	var mine: bool = viewer == p and not game.finished and not _cover.visible
+	_render_board(_opp_box, _opp_info, 1 - p, false, true)
+	_render_board(_me_box, _me_info, p, true, false)
+	_render_hand()
 	var ps: PlayerState = game.players[p]
-	var castle_why: String = Preflight.castle_problem(game, p)
-	_btn_castle.disabled = not mine or castle_why != ""
-	_btn_castle.tooltip_text = castle_why if castle_why != "" else "Swap your champions with your Fortress (once per game). Castled players draw 2 cards a turn."
-	_btn_uncastle.disabled = not mine or game.step != Game.Step.CASTLE or not ps.castled
 	var first_turn: bool = ps.is_first_turn()  # a player's first turn is only draw and summon: no attack step
-	_btn_next.disabled = not mine or game.step == Game.Step.ATTACK or (game.step == Game.Step.SUMMON and first_turn)
-	_btn_next.text = "To Summon step" if game.step == Game.Step.CASTLE else "To Attack step"
-	_btn_next.visible = not (game.step == Game.Step.SUMMON and first_turn)
+	_btn_next.visible = mine and game.step == Game.Step.SUMMON and not first_turn
+	_btn_next.disabled = not mine
 	_btn_new.visible = game.finished
-	_btn_heal.visible = mine and ps.heal_pending and game.step == Game.Step.SUMMON and _has_damaged_champion(ps)
 	_btn_end.disabled = not mine
 	_attack_hint.text = Preflight.attackers_text(game, p) if mine and game.step != Game.Step.CASTLE else ""
 	while _log_seen < game.log_lines.size():
@@ -639,49 +642,135 @@ func refresh() -> void:
 		_end.visible = true
 
 
-func _render_player(box: VBoxContainer, p: int, is_active: bool) -> void:
+## One player's two rows. Not castled: champions in the ACTIVE row, the Fortress group (discard pile, Fortress,
+## enchantments) in the ENCAMPED row. Castled: they swap. The opponent's encamped row is on top, yours is at the bottom.
+func _render_board(box: VBoxContainer, info: Label, p: int, is_active: bool, top_is_encamped: bool) -> void:
 	_clear(box)
 	var ps: PlayerState = game.players[p]
-	var head := HBoxContainer.new()
-	var l := Label.new()
-	l.text = "Player %d%s   Fortress %d/%d%s   Mana %d   Deck %d   Hand %d   Kills %d/%d   Castles used %d/%d" % [
-		p, "  (YOUR TURN)" if is_active else "", ps.fortress_hp, int(ps.fortress_def.get("hp", 500)),
-		"  [FORTRESS IN FRONT, champions encamped]" if ps.castled else "", ps.mana, ps.deck.size(), ps.hand.size(),
-		ps.kills, int(game.rules.annihilation_goal), ps.castles_used, int(game.rules.castles_per_game)]
-	l.add_theme_font_size_override("font_size", 15)
-	head.add_child(l)
-	var spacer := Control.new()
-	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	head.add_child(spacer)
-	head.add_child(_button("Discard (%d)" % ps.discard.size(), _on_view_discard.bind(p)))
-	box.add_child(head)
-	var ench := Label.new()
-	var names: Array = []
-	for e in ps.enchantments:
-		names.append(str(e.get("name", "?")))
-	ench.text = "Enchantments (%d/%d): %s" % [ps.enchantments.size(), int(game.rules.enchantment_limit), ", ".join(names) if not names.is_empty() else "none"]
-	ench.add_theme_font_size_override("font_size", 13)
-	box.add_child(ench)
-	# The champions sit in their own scroll area: if a board ever gets too tall it scrolls instead of pushing
-	# the hand and status line off the bottom of the window.
-	var board_scroll := ScrollContainer.new()
-	board_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	board_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	box.add_child(board_scroll)
+	info.text = "Player %d%s   Mana %d   Deck %d   Hand %d   Kills %d/%d   Castles used %d/%d   Enchantments %d/%d%s" % [
+		p, "  (YOUR TURN)" if is_active else "", ps.mana, ps.deck.size(), ps.hand.size(), ps.kills,
+		int(game.rules.annihilation_goal), ps.castles_used, int(game.rules.castles_per_game),
+		ps.enchantments.size(), int(game.rules.enchantment_limit),
+		"   [CASTLED: Fortress in front, champions encamped]" if ps.castled else ""]
+	var champs_row: PanelContainer = _zone_row(_champion_flow(ps, is_active), ps.castled)
+	var fort_row: PanelContainer = _zone_row(_fortress_group(ps, p, is_active), not ps.castled)
+	var active_row: PanelContainer = fort_row if ps.castled else champs_row
+	var encamped_row: PanelContainer = champs_row if ps.castled else fort_row
+	if top_is_encamped:
+		box.add_child(encamped_row)
+		box.add_child(active_row)
+	else:
+		box.add_child(active_row)
+		box.add_child(encamped_row)
+
+
+func _zone_row(content: Control, encamped: bool) -> PanelContainer:
+	var panel := PanelContainer.new()
+	panel.custom_minimum_size = Vector2(0, BOARD_CARD_H + 10.0)
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.06, 0.06, 0.09) if encamped else Color(0.11, 0.12, 0.18)
+	sb.set_content_margin_all(3)
+	panel.add_theme_stylebox_override("panel", sb)
+	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	panel.add_child(content)
+	return panel
+
+
+func _champion_flow(ps: PlayerState, is_active: bool) -> Control:
+	# Own scroll area: a crowded row scrolls instead of pushing the hand off the bottom of the window.
+	var scroll := ScrollContainer.new()
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	var flow := HFlowContainer.new()
 	flow.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	flow.add_theme_constant_override("h_separation", 6)
 	flow.add_theme_constant_override("v_separation", 6)
-	board_scroll.add_child(flow)
+	scroll.add_child(flow)
 	if ps.champions.is_empty():
 		var none := Label.new()
 		none.text = "(no champions)"
+		none.add_theme_color_override("font_color", Color(0.6, 0.6, 0.65))
 		flow.add_child(none)
 	for c in ps.champions:
 		var v := CardView.create(c.card, BOARD_CARD_W, c, true, c.attacked_this_turn and is_active, ps.castled, game)
 		if is_active:
 			v.pressed.connect(_on_own_champion.bind(c.uid))
 		flow.add_child(v)
+	return scroll
+
+
+## Discard pile, a gap (where the encamped champions could sit later), the Fortress card and the enchantments.
+func _fortress_group(ps: PlayerState, p: int, is_active: bool) -> Control:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 10)
+	row.add_child(_discard_pile(ps, p))
+	var gap := Control.new()
+	gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(gap)
+	var mine: bool = is_active and viewer == p and not game.finished and not _cover.visible
+	var glow: bool = mine and not _fortress_options().is_empty()  # yellow border: the Fortress has something to offer
+	var fv := CardView.create(fortress_card(ps), BOARD_CARD_W, null, true, glow, false, game)
+	if is_active:  # clicking the enemy Fortress does nothing
+		fv.pressed.connect(_on_fortress_clicked)
+	row.add_child(fv)
+	row.add_child(_enchantment_area(ps))
+	return row
+
+
+## The Fortress as a card: its definition plus the HP it has right now.
+func fortress_card(ps: PlayerState) -> Dictionary:
+	var f: Dictionary = ps.fortress_def.duplicate()
+	f["kind"] = "fortress"
+	if not f.has("name"):
+		f["name"] = "Fortress"
+	if not f.has("id"):
+		f["id"] = "fortress"
+	if not f.has("text"):
+		f["text"] = ["Heal one of your champions by %d HP" % int(f.get("heal", 20)), "The player receives %d Mana at the start of their turn." % int(f.get("mana_per_turn", 1))]
+	f["hp"] = int(f.get("hp", 500))
+	f["hp_now"] = ps.fortress_hp
+	return f
+
+
+## The discard pile: the top card faded, so it is not mistaken for anything in play. Click to browse it.
+func _discard_pile(ps: PlayerState, p: int) -> Control:
+	var holder := Control.new()
+	holder.custom_minimum_size = Vector2(BOARD_CARD_W, BOARD_CARD_H)
+	if ps.discard.is_empty():
+		var empty := Panel.new()
+		empty.set_anchors_preset(Control.PRESET_FULL_RECT)
+		empty.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		holder.add_child(empty)
+	else:
+		var top := CardView.create(ps.discard[ps.discard.size() - 1], BOARD_CARD_W, null, true)
+		top.modulate = Color(1, 1, 1, 0.3)
+		top.tooltip_text = ""
+		top.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		holder.add_child(top)
+	var b := Button.new()
+	b.flat = true
+	b.text = "Discard\n(%d)" % ps.discard.size()
+	b.add_theme_font_size_override("font_size", 16)
+	b.set_anchors_preset(Control.PRESET_FULL_RECT)
+	b.pressed.connect(_on_view_discard.bind(p))
+	holder.add_child(b)
+	return holder
+
+
+func _enchantment_area(ps: PlayerState) -> Control:
+	var panel := PanelContainer.new()
+	var limit: int = int(game.rules.enchantment_limit)
+	panel.custom_minimum_size = Vector2(limit * (BOARD_CARD_W + 6.0), BOARD_CARD_H)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 6)
+	panel.add_child(row)
+	if ps.enchantments.is_empty():
+		var l := Label.new()
+		l.text = "Enchantments (0/%d)" % limit
+		l.add_theme_color_override("font_color", Color(0.6, 0.6, 0.65))
+		row.add_child(l)
+	for e in ps.enchantments:
+		row.add_child(CardView.create(e, BOARD_CARD_W, null, true))
+	return panel
 
 
 func _render_hand() -> void:
@@ -762,6 +851,52 @@ func _prompt_heal_if_needed() -> void:
 		_heal_prompted_turn = game.turn
 		await _on_fortress_heal()
 
+
+
+## What clicking your own Fortress offers right now: castle / uncastle / carry on in the Castle step, and the
+## Fortress heal once the start-of-turn triggers have run. (The mana is added automatically.)
+func _fortress_options() -> Array:
+	var opts: Array = []
+	if game == null or game.finished:
+		return opts
+	var p: int = game.active
+	var ps: PlayerState = game.players[p]
+	if game.step == Game.Step.CASTLE:
+		if ps.castled:
+			opts.append({"label": "Uncastle: bring your champions back into play", "value": "uncastle"})
+		elif Preflight.castle_problem(game, p) == "":
+			opts.append({"label": "Castle: your champions are encamped, you draw 2 cards a turn", "value": "castle"})
+		if not opts.is_empty():
+			opts.append({"label": "Carry on without changing anything", "value": "continue"})
+	elif game.step == Game.Step.SUMMON and ps.heal_pending and _has_damaged_champion(ps):
+		opts.append({"label": "Fortress heal: heal one champion by %d HP" % int(ps.fortress_def.get("heal", 20)), "value": "heal"})
+	return opts
+
+
+func _on_fortress_clicked() -> void:
+	if not _my_turn():
+		return
+	var opts: Array = _fortress_options()
+	if opts.is_empty():
+		var why: String = Preflight.castle_problem(game, game.active) if game.step == Game.Step.CASTLE else ""
+		_status.text = "Nothing to do with your Fortress right now." + ("  Castling: " + why if why != "" else "")
+		return
+	busy = true
+	var res: Variant = await choose("Your Fortress", opts, 1, 1)
+	busy = false
+	if res == null or (res as Array).is_empty():
+		return
+	match str((res as Array)[0]):
+		"castle":
+			if _report(game.castle(game.active)):
+				_report(game.next_step(game.active))  # nothing else to decide in the Castle step
+		"uncastle":
+			if _report(game.uncastle(game.active)):
+				_report(game.next_step(game.active))
+		"continue":
+			_report(game.next_step(game.active))
+		"heal":
+			await _on_fortress_heal()
 
 
 func _on_castle() -> void:

@@ -19,6 +19,8 @@ static func calc(g: Game, attacker: Champion, atk: Dictionary, target: Champion,
 	if atk.has("bonus_vs_class") and target != null and target.champion_class() == str(atk.bonus_vs_class["class"]):
 		total += float(atk.bonus_vs_class.amount)
 	total += float(int(atk.get("per_own_enchantment", 0)) * me.enchantments.size())
+	if bool(atk.get("damage_equals_own_hp", false)):  # Gob's Vortex: damage equal to the attacker's current HP
+		total += float(attacker.current_hp())
 	total += float(int(atk.get("per_opponent_hand_card", 0)) * foe.hand.size())
 	if atk.has("per_champion_in_own_discard"):
 		var n: int = 0
@@ -59,12 +61,12 @@ static func _count_for(g: Game, attacker: Champion, what: String) -> int:
 		"own_champions":  # your other champions; the attacker itself is not counted
 			n = g.players[attacker.owner].champions.size() - 1
 		"own_spirits":  # your other Spirits
-			for c in g.players[attacker.owner].champions:
+			for c in g.players[attacker.owner].active_champions():
 				if c.champion_type() == "Spirit" and c != attacker:
 					n += 1
-		"spirits_in_play":  # both players, active or encamped, not counting the attacker
+		"spirits_in_play":  # both players' active Spirits, not counting the attacker
 			for ps in g.players:
-				for c in ps.champions:
+				for c in ps.active_champions():
 					if c.champion_type() == "Spirit" and c != attacker:
 						n += 1
 		"own_damage_per_5_counters":

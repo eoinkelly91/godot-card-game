@@ -5,8 +5,8 @@
   "kind": "spell",
   "cost": 0,
   "text": [
-   "Heal one of your champions by 50HP",
-   "Remove all status effects"
+   "Heal one of your champions in play by 50HP",
+   "Remove all status effects."
   ],
   "effects": [
    {
@@ -24,7 +24,7 @@
   "kind": "spell",
   "cost": 2,
   "text": [
-   "Take 3 damage counters from your champions and move them to enemy champions"
+   "Take 3 damage counters from any of your champions and distribute them to enemy champions."
   ],
   "effects": [
    {
@@ -39,12 +39,17 @@
   "kind": "spell",
   "cost": 0,
   "text": [
-   "Reduce your opponents mana by 3"
+   "Reduce your opponents Mana by 2",
+   "You receive 1 mana for every enchantment you have in play."
   ],
   "effects": [
    {
     "op": "drain_mana",
-    "amount": 3
+    "amount": 2
+   },
+   {
+    "op": "gain_mana_per_enchantment",
+    "per_card": 1
    }
   ]
  },
@@ -52,9 +57,9 @@
   "id": "ancient_script",
   "name": "Ancient Script",
   "kind": "spell",
-  "cost": 0,
+  "cost": 3,
   "text": [
-   "Remove an opponets enchantment"
+   "Remove an opponents enchantment."
   ],
   "effects": [
    {
@@ -68,7 +73,7 @@
   "kind": "spell",
   "cost": 3,
   "text": [
-   "Move all damage counters from one of your champions to another of your champions"
+   "Move all damage counters from one of your champions to another of your champions in play. Note this will count towards your opponets kill score if that destroys the champion."
   ],
   "effects": [
    {
@@ -82,8 +87,8 @@
   "kind": "spell",
   "cost": 1,
   "text": [
-   "Add plus 30 damage to one of your champions attacks",
-   "Do 10 damage to three of your opponents champions"
+   "Add plus 30 damage to one of your champions attacks.",
+   "Do 10 damage to three of your opponents champions."
   ],
   "effects": [
    {
@@ -133,7 +138,7 @@
   "kind": "spell",
   "cost": 2,
   "text": [
-   "Draw 3 cards and discard one of them",
+   "Draw 3 cards and discard one of them.",
    "Look at the next 5 cards of your deck and rearrange them as you like."
   ],
   "effects": [
@@ -154,7 +159,7 @@
   "kind": "spell",
   "cost": 3,
   "text": [
-   "Put a champion from your discard pile into your hand"
+   "Put a champion from your discard pile into your hand."
   ],
   "effects": [
    {

@@ -306,6 +306,7 @@ static func attack(g: Game, p: int, attacker_uid: int, attack_index: int, target
 			dmg = 0
 	if target_champion != null:
 		DamageRules.damage_champion(g, target_champion, dmg, p)
+		_when_destroyed_reaction(g, attacker, target_champion, p)
 	elif not bool(atk.get("no_target", false)):
 		if fortress_prevent > 0 and dmg > 0:
 			dmg = maxi(0, dmg - fortress_prevent)
@@ -320,6 +321,7 @@ static func attack(g: Game, p: int, attacker_uid: int, attack_index: int, target
 			d2 = _after_defences(g, attacker, ex, d2)
 			if d2 >= 0:
 				DamageRules.damage_champion(g, ex, d2, p)
+				_when_destroyed_reaction(g, attacker, ex, p)
 				if xab.has("when_hit_over_damage_attacker") and d2 > int(xab.when_hit_over_damage_attacker.over) and me.champions.has(attacker):
 					DamageRules.damage_champion(g, attacker, int(xab.when_hit_over_damage_attacker.amount), 1 - p)  # Gyptjeous
 	if target_champion != null and target_champion.has_ability() and me.champions.has(attacker):
@@ -330,6 +332,14 @@ static func attack(g: Game, p: int, attacker_uid: int, attack_index: int, target
 		AttackEffects.after_damage(g, p, attacker, atk, target_champion)
 	g._check_win()
 	return g._ok({"damage": dmg, "fizzled": false})
+
+
+## Fu: "Do 30 damage to any champion that destroys Fu." Only an attacking champion that is still in play is hit.
+static func _when_destroyed_reaction(g: Game, attacker: Champion, victim: Champion, p: int) -> void:
+	if victim.has_ability() and victim.card.ability.has("when_destroyed_damage_attacker") \
+			and not g.players[1 - p].champions.has(victim) and g.players[p].champions.has(attacker):
+		g._log("%s hits back at the champion that destroyed it." % victim.card_name())
+		DamageRules.damage_champion(g, attacker, int(victim.card.ability.when_destroyed_damage_attacker), 1 - p)
 
 
 ## Defensive abilities (Gnome, Trolls) applied to one target. Returns the damage, or -1 if the attack is prevented.

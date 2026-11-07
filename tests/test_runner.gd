@@ -36,6 +36,7 @@ func _init() -> void:
 		test_summon_lock_one_turn,
 		test_self_buff_one_turn,
 		test_reaction_negate_fizzles_but_color_used,
+		test_sheet_update_round,
 		test_reaction_destroys_attacker,
 		test_reaction_spell_played_earlier_in_turn,
 		test_annihilation_points,
@@ -847,10 +848,10 @@ func test_coin_attacks() -> void:
 	var g4 := real_game()
 	var cw := spawn(g4, 0, "cwelen")
 	var t4 := spawn(g4, 1, "amustas")
-	g4.forced_coins = [true]
+	g4.forced_coins = [false]
 	to_attack(g4)
 	var r4 := g4.attack(0, cw.uid, 1, {"champion": t4.uid})
-	check(r4.fizzled and t4.damage == 0, "Risky Move on Heads does nothing")
+	check(r4.fizzled and t4.damage == 0, "Risky Move on Tails does nothing")
 	check(g4.players[0].colors_used.has("Red"), "Risky Move still uses the color")
 	var g5 := real_game()
 	var sa := spawn(g5, 0, "saisen")
@@ -1296,7 +1297,7 @@ func test_mana_and_hand_spells() -> void:
 	g.players[1].mana = 5
 	g.players[0].hand = [rc("crimson_wave")]
 	g.play_spell(0, 0, 0)
-	check(g.players[1].mana == 2, "Crimson Wave takes 3 mana")
+	check(g.players[1].mana == 3, "Crimson Wave takes 2 mana")
 	var g2 := real_game()
 	g2.players[1].mana = 1
 	g2.players[0].hand = [rc("crimson_wave")]
@@ -1912,3 +1913,41 @@ func test_start_of_turn_summary_and_poison() -> void:
 	StatusRules.apply_poison(g2, t2, 10, -1, 1)
 	g2.end_turn(0)  # never left the castle step
 	check(t2.damage == 10, "ending the turn straight from the Castle step still triggers the poison")
+
+
+# ---------------------------------------------------------------- sheet update: Fu, Vortex, Predict, Crimson Wave, Castle
+
+func test_sheet_update_round() -> void:
+	var g := real_game()
+	var fu := spawn(g, 1, "fu")
+	var atk := spawn(g, 0, "syranite")
+	fu.damage = 20
+	to_attack(g)
+	g.attack(0, atk.uid, 0, {"champion": fu.uid})  # Jab 20 destroys Fu (30 HP, 20 damage already)
+	check(not g.players[1].champions.has(fu) and atk.damage == 30, "Fu does 30 damage to the champion that destroys it")
+	var g2 := real_game()
+	var gob := spawn(g2, 0, "gob")
+	var tgt := spawn(g2, 1, "amustas")
+	gob.damage = 10
+	g2.players[0].mana = 1
+	to_attack(g2)
+	check(g2.attack(0, gob.uid, 1, {"champion": tgt.uid}).damage == 30, "Vortex does damage equal to Gob's current HP (40 - 10)")
+	var g3 := real_game()
+	var pog := spawn(g3, 0, "pog")
+	g3.players[0].mana = 1
+	g3.forced_coins = [true]
+	var hand_before: int = g3.players[0].hand.size()
+	to_attack(g3)
+	g3.attack(0, pog.uid, 1, {})
+	check(g3.players[0].hand.size() == hand_before + 1, "Predict: heads draws a card")
+	var g4 := real_game()
+	g4.players[0].enchantments = [rc("field_medics"), rc("siege_works")]
+	g4.players[0].hand = [rc("crimson_wave")]
+	g4.next_step(0)  # the Fortress's start-of-turn mana comes first
+	var mana: int = g4.players[0].mana
+	var r5: Dictionary = g4.play_spell(0, 0, 1)
+	check(r5.ok and g4.players[0].mana == mana + 2, "Crimson Wave effect 2 gives 1 mana per enchantment")
+	var cards: Dictionary = CardDB.load_cards()
+	var f: Dictionary = CardDB.default_fortress(cards)
+	check(str(f.get("name", "")) == "Castle" and int(f.get("hp", 0)) == 500 and str(f.get("kind", "")) == "fortress", "the Castle fortress card loads")
+	check(int(cards.ancient_script.cost) == 3, "Ancient Script costs 3 mana")

@@ -51,6 +51,7 @@ func _run() -> void:
 	await _test_early_messages_and_previews()
 	await _test_castle_reveal_scroll_and_tags()
 	_test_optional_none_row()
+	await _test_fortress_card_and_board()
 	_test_art_fits_box()
 	print("\n%d UI checks passed, %d failed" % [passed, failed])
 	quit(1 if failed > 0 else 0)
@@ -128,7 +129,7 @@ func _test_every_spell_flow() -> void:
 				var res: Dictionary = g.play_spell(0, 0, ei, tf.target)
 				check(res.ok, "%s effect %d: the engine accepts it (%s)" % [id, ei, str(res.get("error", ""))])
 				count += 1
-	check(count == 18, "all 18 spell effects went through (%d)" % count)
+	check(count == 19, "all 19 spell effects went through (%d)" % count)
 	# A flow reports problems instead of crashing: no damaged champion for Mist of Despair.
 	var g2 := _fresh_state()
 	for c in g2.players[0].champions:
@@ -207,7 +208,7 @@ func _test_hand_and_champion_clicks() -> void:
 	ui.viewer = 0
 	heal_g.next_step(0)
 	ui.refresh()
-	check(ui._btn_heal.visible, "the Fortress heal button shows in the Summon step")
+	check(ui._fortress_options().size() == 1 and ui._fortress_options()[0].value == "heal", "clicking the Fortress offers the heal in the Summon step")
 	ui._on_fortress_heal()
 	check(not heal_g.players[0].heal_pending, "using it heals a champion")
 	# Nothing damaged: no heal button and no prompt
@@ -219,7 +220,7 @@ func _test_hand_and_champion_clicks() -> void:
 	for c in full_g.players[0].champions:
 		c.damage = 0
 	ui.refresh()
-	check(not ui._btn_heal.visible, "no Fortress heal button when no champion is damaged")
+	check(ui._fortress_options().is_empty(), "the Fortress offers no heal when no champion is damaged")
 	check(not ui._has_damaged_champion(full_g.players[0]), "undamaged champions are not heal targets")
 
 
@@ -387,10 +388,11 @@ func _test_castle_reveal_scroll_and_tags() -> void:
 	ui.viewer = 0
 	ui._cover.visible = false
 	ui.refresh()
-	check(ui._btn_castle.disabled and "exactly 1" in ui._btn_castle.tooltip_text, "the Castle button is off with 3 champions and says why")
+	check(ui._fortress_options().is_empty() and "exactly 1" in Preflight.castle_problem(g, 0), "the Fortress offers no castling with 3 champions, and says why")
 	g.players[0].champions.resize(1)
 	ui.refresh()
-	check(not ui._btn_castle.disabled, "the Castle button is on with exactly one champion")
+	var copts: Array = ui._fortress_options()
+	check(copts.size() == 2 and copts[0].value == "castle" and copts[1].value == "continue", "the Fortress offers Castle or carry on with exactly one champion")
 	# Revealing a turn with nothing to decide runs the start-of-turn triggers (poison!) straight away
 	var g2 := _fresh_state()
 	var t: Champion = g2.players[0].champions[0]
@@ -427,3 +429,29 @@ func _test_castle_reveal_scroll_and_tags() -> void:
 	check(texts.any(func(x: String) -> bool: return "POISONED: 10 DMG PER TURN" in x and "GNAW +20 DMG" in x), "the card says 'Poisoned: 10 DMG per turn' and 'Gnaw +20 DMG' (%s)" % str(texts.filter(func(x): return "POISONED" in x)))
 	check(not texts.any(func(x: String) -> bool: return x.begins_with("DMG ")), "the confusing 'DMG 10' tag is gone")
 	v.free()
+
+
+func _test_fortress_card_and_board() -> void:
+	var g := _fresh_state()
+	g.players[0].champions.resize(1)
+	ui.game = g
+	ui.flows = TargetFlows.new(g, ui)
+	ui.viewer = 0
+	ui._cover.visible = false
+	ui.refresh()
+	check(not ui.has_node("NoSuchButton") and ui._btn_next != null, "the top bar no longer has Castle / Uncastle buttons")
+	var fc: Dictionary = ui.fortress_card(g.players[0])
+	check(str(fc.kind) == "fortress" and int(fc.hp) == 500 and int(fc.hp_now) == 500, "the Fortress card knows its name and HP")
+	var view := CardView.create(fc, 340.0, null, false)
+	check(view != null and CardView.SPELL_COLOR == view._base_color(), "a Fortress card has the same background colour as a spell")
+	# Clicking the Fortress and choosing Castle castles, then carries on to the Summon step
+	ui.auto_chooser = func(_t: String, o: Array, _mn: int, _mx: int) -> Variant: return [o[0].value]
+	await ui._on_fortress_clicked()
+	check(g.players[0].castled and g.step == Game.Step.SUMMON, "choosing Castle from the Fortress menu castles and starts the turn")
+	# Castled: the Fortress group is the active row and the champions are in the encamped row (the rows swap)
+	var rows: Array = ui._me_box.get_children().filter(func(n: Node) -> bool: return not n.is_queued_for_deletion())
+	check(rows.size() == 2, "each player has two rows")
+	ui.auto_chooser = Callable(self, "auto")
+	# The enemy Fortress does nothing when clicked: no handler is connected for the inactive player
+	var fv := CardView.create(ui.fortress_card(g.players[1]), 108.0, null, true)
+	check(fv.pressed.get_connections().is_empty(), "an enemy Fortress card has no click action")
