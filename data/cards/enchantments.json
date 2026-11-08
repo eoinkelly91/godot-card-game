@@ -18,7 +18,7 @@
   "kind": "enchantment",
   "cost": 3,
   "text": [
-   "At the start of your turn gain 1 Mana for each one of your champions in play."
+   "At the start of your turn gain 1 Mana for each one of your active champions."
   ],
   "start_of_turn": {
    "op": "gain_mana_per_champion",
@@ -44,7 +44,7 @@
   "kind": "enchantment",
   "cost": 3,
   "text": [
-   "At the start of your turn do 10 damage to the enemy fortress for each of your champions in play."
+   "At the start of your turn do 10 damage to the enemy fortress for each of your active champions."
   ],
   "start_of_turn": {
    "op": "fortress_damage_per_active_champion",

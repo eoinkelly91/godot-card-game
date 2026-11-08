@@ -24,7 +24,7 @@ SPELLS = {
     "Ancient Script": [{"op": "remove_enchantment"}],
     "Treason": [{"op": "move_all_damage"}],
     "Battle Axe": [{"op": "bonus_damage", "amount": 30}, {"op": "damage_many", "amount": 10, "targets": 3}],
-    "Reconstruction": [{"op": "repair_fortress", "per_card": 50}],
+    "Reconstruction": [{"op": "repair_fortress", "per_card": 30}],
     "Spirit Chain": [{"op": "no_attack", "turns": 1}],
     "Wizardry": [{"op": "wizardry_draw", "draw": 3, "discard": 1}, {"op": "rearrange_top", "count": 5}],
     "Archaeology": [{"op": "return_champion"}],
@@ -42,10 +42,15 @@ ENCHANTMENTS = {
 }
 
 
-# Fortress cards (class "fortress" in the sheet). The numbers are read by the engine: hp, heal (effect 1),
-# mana_per_turn (effect 2). An optional "hp" column in the sheet overrides the hp here.
+# Fortress cards (class "fortress" in the sheet; the HP comes from the sheet's HP column). A Fortress ability
+# either triggers at the start of its owner's turn together with the enchantments ("start_of_turn"), or is a
+# passive the engine checks while attacking. Every player always draws a card and gains 1 mana at the start of
+# their turn, so that is not part of a Fortress.
 FORTRESSES = {
-    "Castle": {"hp": 500, "heal": 20, "mana_per_turn": 1},
+    "Castle": {"start_of_turn": {"op": "heal_all_active", "amount": 10}},
+    "Pirate Cove": {"start_of_turn": {"op": "coin_draw", "count": 1}},
+    "Wizards Enclave": {"start_of_turn": {"op": "gain_mana", "amount": 1}},
+    "Beasts Lair": {"creature_bonus_damage": 10},
 }
 
 
@@ -74,8 +79,7 @@ def main():
             spells.append(card)
         elif d["class"] == "fortress":
             card.update(FORTRESSES[d["name"]])
-            if d.get("hp"):
-                card["hp"] = int(d["hp"])
+            card["hp"] = int(d["HP"] if "HP" in d else d["hp"])
             card.pop("cost", None)
             fortresses.append(card)
         else:

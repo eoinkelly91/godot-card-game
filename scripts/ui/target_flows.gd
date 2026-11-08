@@ -88,7 +88,12 @@ func spell_target(p: int, hand_index: int, effect_index: int) -> Dictionary:
 			var title: String = "Which of your champions?"
 			if op == "bonus_damage":
 				title = "Which champion gets +%d on its next attack this turn?" % int(effect.get("amount", 0))
-			var h: Variant = await _one(title, _champs(me.champions))
+			var pool: Array = me.champions
+			if op == "bonus_damage":  # only champions that can attack this turn (not just summoned, chained, encamped)
+				pool = me.champions.filter(func(c: Champion) -> bool: return Preflight.attack_problem(g, p, c) == "")
+				if pool.is_empty():
+					return _err("None of your champions can attack this turn, so the bonus would be wasted.")
+			var h: Variant = await _one(title, _champs(pool))
 			return _cancel() if h == null else _t({"champion": h})
 		"move_counters":
 			return await _move_counters(p, int(effect.get("count", 3)))

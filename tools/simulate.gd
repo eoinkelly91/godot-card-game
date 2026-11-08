@@ -24,7 +24,8 @@ func _init() -> void:
 	var castled_games := 0
 	for n in games:
 		var g := Game.new()
-		g.setup([CardDB.build_deck(cards, decks[names[0]]), CardDB.build_deck(cards, decks[names[1]])], seed_base + n)
+		g.setup([CardDB.build_deck(cards, decks[names[0]]), CardDB.build_deck(cards, decks[names[1]])], seed_base + n, -1,
+			[CardDB.deck_fortress(cards, decks[names[0]]), CardDB.deck_fortress(cards, decks[names[1]])])
 		g.start()
 		var steps := 0
 		while not g.finished and steps < 20000:

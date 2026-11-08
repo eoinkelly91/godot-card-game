@@ -37,13 +37,16 @@ func _init() -> void:
 		test_self_buff_one_turn,
 		test_reaction_negate_fizzles_but_color_used,
 		test_sheet_update_round,
+		test_start_mana_castle_lock_and_poison,
+		test_turn_order_summoning_sickness_hand_limit_and_decks,
+		test_enchantments_anytime_and_battle_axe_target,
 		test_reaction_destroys_attacker,
 		test_reaction_spell_played_earlier_in_turn,
 		test_annihilation_points,
 		test_economic_victory,
 		test_decking_out,
 		test_pass_ends_turn,
-		test_fortress_heal,
+		test_fortress_abilities,
 		test_simultaneous_win_is_draw,
 		test_mulligan_limit,
 		test_castle_basics,
@@ -127,6 +130,7 @@ func new_game(first: int = 0, past_first_turns: bool = true) -> Game:
 		filler.append(card("ember_scout"))
 	var g := Game.new()
 	g.setup([filler.duplicate(), filler.duplicate()], 7, first)
+	_classic_rules(g)
 	g.start()
 	g.players[0].hand.clear()
 	g.players[1].hand.clear()
@@ -177,6 +181,7 @@ func test_setup_and_first_turns() -> void:
 	for i in 60:
 		filler.append(card("ember_scout"))
 	g.setup([filler.duplicate(), filler.duplicate()], 3, 0)
+	_classic_rules(g)
 	check(g.players[0].hand.size() == 7 and g.players[1].hand.size() == 7, "starting hands are 7")
 	check(g.players[0].mana == 5 and g.players[1].mana == 5, "starting mana is 5")
 	check(g.players[0].fortress_hp == 500, "Fortress has 500 HP")
@@ -188,7 +193,7 @@ func test_setup_and_first_turns() -> void:
 	g.end_turn(1)
 	check(g.players[1].mana == 5, "no Fortress mana on the second player's first turn either")
 	g.next_step(0)
-	check(g.players[0].mana == 6, "from their second turn the Fortress adds +1 mana")
+	check(g.players[0].mana == 5, "(these classic-rule tests have no base mana; the +1 per turn is tested separately)")
 
 
 func test_first_turn_restrictions() -> void:
@@ -200,13 +205,21 @@ func test_first_turn_restrictions() -> void:
 	g.next_step(0)
 	check(not g.play_spell(0, 0, 0, {"champion": g.players[0].champions[0].uid}).ok, "no spells on a first turn")
 	check(not g.attack(0, g.players[0].champions[0].uid, 0, {"fortress": 1}).ok, "no attacks on a first turn")
-	check(not g.fortress_heal(0, g.players[0].champions[0].uid).ok, "no Fortress heal on a first turn")
 
 
 func test_fortress_triggers_after_first_turn() -> void:
-	var g := new_game()
-	g.next_step(0)
-	check(g.players[0].mana == 6 and g.players[0].heal_pending, "Fortress adds mana and offers a heal")
+	# Every player always draws a card and gets 1 mana at the start of their turn, the first turn included
+	var filler: Array = []
+	for i in 60:
+		filler.append(card("ember_scout"))
+	var f := Game.new()
+	f.setup([filler.duplicate(), filler.duplicate()], 7, 0)
+	f.start()
+	check(f.players[0].mana == 4 and f.players[0].hand.size() == 8, "first turn: 3 starting mana + 1, and a card is drawn")
+	f.end_turn(0)
+	check(f.players[1].mana == 4 and f.players[1].hand.size() == 8, "the second player gets the same on their first turn")
+	f.end_turn(1)
+	check(f.players[0].mana == 5, "and +1 mana every turn after that")
 
 
 func test_one_summon_per_turn() -> void:
@@ -214,7 +227,7 @@ func test_one_summon_per_turn() -> void:
 	g.players[0].hand = [card("ember_scout"), card("ember_scout")]
 	check(g.summon(0, 0).ok, "first summon works")
 	check(not g.summon(0, 0).ok, "second summon the same turn is refused")
-	check(g.players[0].mana == 5, "5 + 1 Fortress - 1 cost = 5")
+	check(g.players[0].mana == 4, "5 - 1 cost = 4 (the Fortress already triggered at the start of the turn)")
 
 
 func test_play_area_limit_and_sacrifice_on_full_board() -> void:
@@ -278,7 +291,8 @@ func test_class_rules() -> void:
 	check(CardDB.expected_class({"summon": {}}) == "basic", "no sacrifice and no mana = basic")
 	check(CardDB.expected_class({"summon": {"mana": 1}}) == "elite", "a mana cost = elite")
 	check(CardDB.expected_class({"summon": {"sacrifice": 1}}) == "elite", "one sacrifice = elite")
-	check(CardDB.expected_class({"summon": {"sacrifice": 2, "mana": 1}}) == "elite", "sacrifices and mana = elite")
+	check(CardDB.expected_class({"summon": {"sacrifice": 2}}) == "heroic", "two summons = heroic")
+	check(CardDB.expected_class({"summon": {"mana": 3}}) == "legendary", "three summons = legendary")
 	for id in cards:
 		var c: Dictionary = cards[id]
 		if str(c.kind) != "champion":
@@ -305,7 +319,7 @@ func test_card_and_deck_files() -> void:
 		var total := 0
 		for id in decks[deck_name]:
 			total += int(decks[deck_name][id])
-		check(total == 60, "%s has 60 cards (got %d)" % [deck_name, total])
+		check(total <= 61 and total >= 60, "%s has 60 or 61 cards (got %d; 60 to draw plus its Fortress)" % [deck_name, total])
 
 
 func test_fortress_immunity_and_opening() -> void:
@@ -505,6 +519,7 @@ func test_economic_victory() -> void:
 	for i in 60:
 		filler.append(card("ember_scout"))
 	g.setup([filler.duplicate(), filler.duplicate()], 5, 0)
+	_classic_rules(g)
 	g.players[0].mana = 30
 	g.start()
 	check(g.finished and g.winner == 0 and g.win_reason == "Economic Victory", "30 mana at the start of your turn wins")
@@ -522,15 +537,48 @@ func test_pass_ends_turn() -> void:
 	var turn_before := g.turn
 	g.pass_action(0)
 	check(g.active == 1 and g.turn == turn_before + 1, "passing ends the turn and the other player goes")
-	check(g.players[0].mana == 6, "the Fortress still triggered on a turn that was passed straight away")
+	check(g.players[0].mana == 5, "passing a turn straight away gives no extra mana")
 
 
-func test_fortress_heal() -> void:
+func test_fortress_abilities() -> void:
+	var real: Dictionary = CardDB.load_cards()
+	# Castle: heals every ACTIVE champion by 10 at the start of the turn
 	var g := new_game()
-	var u := g.spawn_champion(0, card("tide_guard"))
-	u.damage = 30
-	check(g.fortress_heal(0, u.uid).ok and u.damage == 10, "Fortress heals 20")
-	check(not g.fortress_heal(0, u.uid).ok, "only once per turn")
+	g.players[0].fortress_def = (real.castle as Dictionary).duplicate()
+	var a := g.spawn_champion(0, card("tide_guard"))
+	var b := g.spawn_champion(0, card("tide_guard"))
+	a.damage = 30
+	b.damage = 20
+	trig(g)
+	check(a.damage == 20 and b.damage == 10, "the Castle heals all active champions by 10 at the start of the turn")
+	var g1 := new_game()
+	g1.players[0].fortress_def = (real.castle as Dictionary).duplicate()
+	var sleeper := g1.spawn_champion(0, card("tide_guard"))
+	sleeper.damage = 30
+	g1.castle(0)
+	trig(g1)
+	check(sleeper.damage == 30, "an encamped champion is not healed by the Castle")
+	# Pirate Cove: a coin flip, heads draws a card
+	var g2 := new_game()
+	g2.players[0].fortress_def = (real.pirate_cove as Dictionary).duplicate()
+	g2.forced_coins = [true, false]
+	trig(g2)
+	check(g2.players[0].hand.size() == 1, "Pirate Cove draws a card on heads")
+	trig(g2)
+	check(g2.players[0].hand.size() == 1, "and nothing on tails")
+	# Wizards Enclave: +1 extra mana every turn
+	var g3 := new_game()
+	g3.players[0].fortress_def = (real.wizards_enclave as Dictionary).duplicate()
+	var before: int = g3.players[0].mana
+	trig(g3)
+	check(g3.players[0].mana == before + 1, "Wizards Enclave gives 1 extra mana")
+	# Beasts Lair: Creatures deal 10 more damage with their attacks
+	var g4 := real_game()
+	g4.players[0].fortress_def = (real.beasts_lair as Dictionary).duplicate()
+	var beast := spawn(g4, 0, "pog")
+	var human := spawn(g4, 0, "syranite")
+	check(DamageRules.preview(g4, beast, beast.card.attacks[0]) == 20 and DamageRules.preview(g4, human, human.card.attacks[0]) == 20, "Beasts Lair: a Creature's Puff does 10 + 10, a Human's Jab is unchanged")
+	check(int((real.beasts_lair as Dictionary).hp) == 400 and int((real.wizards_enclave as Dictionary).hp) == 300 and int((real.pirate_cove as Dictionary).hp) == 450, "each Fortress has its own HP")
 
 
 func test_simultaneous_win_is_draw() -> void:
@@ -547,6 +595,7 @@ func test_mulligan_limit() -> void:
 	for i in 60:
 		filler.append(card("ember_scout"))
 	f.setup([filler.duplicate(), filler.duplicate()], 9, 0)
+	_classic_rules(f)
 	check(f.mulligan(0).ok and f.mulligan(0).ok, "two mulligans allowed")
 	check(not f.mulligan(0).ok, "third hand must be kept")
 	check(f.players[0].hand.size() == 7, "hand size stays 7")
@@ -559,10 +608,11 @@ func test_castle_basics() -> void:
 	var mine := g.spawn_champion(0, card("ember_scout"))
 	g.spawn_champion(1, card("tide_guard"))
 	g.players[0].hand = [card("ember_scout")]
+	trig(g)  # the Fortress and poison trigger first, then you may castle
 	check(g.castle(0).ok, "castle at the start of the turn")
 	check(g.players[0].active_champions().is_empty() and g.players[0].encamped_champions().size() == 1, "champions are encamped")
 	g.next_step(0)
-	check(g.players[0].mana == 6, "the Fortress still triggers while castled")
+	check(g.players[0].mana == 5, "mana is unchanged by castling")
 	check(g.summon(0, 0).ok and g.players[0].encamped_champions().size() == 2, "a champion summoned while castled is encamped")
 	g.next_step(0)
 	check(not g.attack(0, mine.uid, 0, {"fortress": 1}).ok, "encamped champions cannot attack")
@@ -626,11 +676,9 @@ func test_encamped_immunity_and_own_effects() -> void:
 	check(not g.play_spell(0, 0, 0, {"champion": safe.uid}).ok, "damage spells cannot target encamped champions")
 	check(not g.play_spell(0, 1, 0, {"champion": safe.uid}).ok, "poison cannot target encamped champions")
 	g.end_turn(0)
-	# Their own effects still work on encamped champions: the Fortress heal and their own spells.
+	# Their own effects still work on encamped champions: their own spells.
 	g.next_step(1)
-	check(g.fortress_heal(1, safe.uid).ok and safe.damage == 10, "own Fortress heal works on an encamped champion")
-	g.next_step(1)
-	check(g.play_spell(1, 0, 0, {"champion": safe.uid}).ok and safe.damage == 0, "own heal spell works on an encamped champion")
+	check(g.play_spell(1, 0, 0, {"champion": safe.uid}).ok and safe.damage == 10, "own heal spell works on an encamped champion")
 	check(g.players[1].enchantments.is_empty(), "(no enchantments involved)")
 
 
@@ -656,18 +704,19 @@ func test_start_of_turn_ability_triggers_while_encamped() -> void:
 	var g := new_game()
 	var ability := {"trigger": "start_of_turn", "op": "gain_mana", "amount": 1}
 	g.spawn_champion(0, custom_champion("Red", "Human", 30, [{"name": "x", "damage": 10}], ability))
+	trig(g)
 	g.castle(0)
 	g.next_step(0)
-	check(g.players[0].mana == 7, "5 + 1 Fortress + 1 ability, even though the champion is encamped")
+	check(g.players[0].mana == 6, "5 + 1 ability, even though the champion is encamped")
 	# A champion summoned this turn does not trigger until the owner's next turn.
 	var g2 := new_game()
 	g2.players[0].hand = [custom_champion("Red", "Human", 30, [{"name": "x", "damage": 10}], ability)]
 	g2.summon(0, 0)
-	check(g2.players[0].mana == 6, "no ability trigger on the turn it was summoned")
+	check(g2.players[0].mana == 5, "no ability trigger on the turn it was summoned")
 	g2.end_turn(0)
 	g2.end_turn(1)
 	g2.next_step(0)
-	check(g2.players[0].mana == 8, "it triggers on the owner's next turn (6 + 1 Fortress + 1 ability)")
+	check(g2.players[0].mana == 6, "it triggers on the owner's next turn (5 + 1 ability)")
 
 
 func test_encampment_limit_and_elite_while_castled() -> void:
@@ -696,6 +745,7 @@ func real_game(first: int = 0) -> Game:
 		filler.append(rc("syranite"))
 	var g := Game.new()
 	g.setup([filler.duplicate(), filler.duplicate()], 7, first)
+	_classic_rules(g)
 	g.start()
 	g.players[0].hand.clear()
 	g.players[1].hand.clear()
@@ -735,7 +785,7 @@ func test_real_card_data() -> void:
 		for id in decks[deck_name]:
 			total += int(decks[deck_name][id])
 			check(real.has(id), "%s: card %s exists" % [deck_name, id])
-		check(total == 60, "%s has 60 cards (got %d)" % [deck_name, total])
+		check(total <= 61 and total >= 60, "%s has 60 or 61 cards (got %d; 60 to draw plus its Fortress)" % [deck_name, total])
 
 
 func test_real_decks_build_and_play() -> void:
@@ -743,6 +793,7 @@ func test_real_decks_build_and_play() -> void:
 	var names: Array = decks.keys()
 	var g := Game.new()
 	g.setup([CardDB.build_deck(real, decks[names[0]]), CardDB.build_deck(real, decks[names[1]])], 11, 0)
+	_classic_rules(g)
 	g.start()
 	for i in 60:
 		if g.finished:
@@ -1071,12 +1122,12 @@ func test_start_of_turn_champion_abilities() -> void:
 	var g := real_game()
 	spawn(g, 0, "poglasaur")
 	var hand_before: int = g.players[0].hand.size()
-	g.next_step(0)
+	trig(g)
 	check(g.players[0].hand.size() == hand_before + 1, "Poglasaur draws a card at the start of your turn")
 	var g2 := real_game()
 	spawn(g2, 0, "psybar")
 	g2.forced_coins = [true]
-	g2.next_step(0)
+	trig(g2)
 	check(LockRules.is_locked(g2, 1, "draw"), "Psybar on Heads stops the opponent drawing next turn")
 	g2.end_turn(0)
 	check(g2.players[1].hand.size() == 0, "the locked opponent did not draw")
@@ -1389,7 +1440,7 @@ func test_reconstruction_and_ancient_script() -> void:
 	g.players[0].fortress_hp = 300
 	g.players[0].hand = [rc("reconstruction"), rc("syranite"), rc("syranite"), rc("gob")]
 	check(g.play_spell(0, 0, 0, {"discard_indices": [1, 3]}).ok, "Reconstruction resolves")
-	check(g.players[0].fortress_hp == 400 and g.players[0].hand.size() == 1, "two cards discarded repair 100 Fortress HP")
+	check(g.players[0].fortress_hp == 360 and g.players[0].hand.size() == 1, "two cards discarded repair 60 Fortress HP")
 	var g2 := real_game()
 	g2.players[0].fortress_hp = 480
 	g2.players[0].hand = [rc("reconstruction"), rc("syranite"), rc("syranite")]
@@ -1486,7 +1537,7 @@ func test_enchantments_start_of_turn() -> void:
 	a.damage = 50
 	b.damage = 5
 	g.players[0].enchantments = [rc("field_medics"), rc("field_medics")]
-	g.next_step(0)
+	trig(g)
 	check(a.damage == 30 and b.damage == 0, "two Field Medics stack: 20 healing each, never below 0")
 	var g2 := real_game()
 	spawn(g2, 0, "gob")
@@ -1495,15 +1546,15 @@ func test_enchantments_start_of_turn() -> void:
 	g2.players[0].castled = true
 	g2.players[0].enchantments = [rc("enchanted_forest")]
 	var mana: int = g2.players[0].mana
-	g2.next_step(0)
-	check(g2.players[0].mana == mana + 1 + 3, "Enchanted Forest: 1 mana per champion, encamped ones included (plus the Fortress)")
+	trig(g2)
+	check(g2.players[0].mana == mana + 3, "Enchanted Forest: 1 mana per champion, encamped ones included")
 	var g3 := real_game()
 	spawn(g3, 0, "gob")
 	spawn(g3, 0, "gob")
 	spawn(g3, 1, "gob")
 	g3.players[0].enchantments = [rc("siege_works")]
 	var hp: int = g3.players[1].fortress_hp
-	g3.next_step(0)
+	trig(g3)
 	check(g3.players[1].fortress_hp == hp - 20, "Siege Works hits the Fortress for 10 per active champion, even though it is immune to attacks")
 	var g4 := real_game()
 	spawn(g4, 0, "gob")
@@ -1904,15 +1955,15 @@ func test_start_of_turn_summary_and_poison() -> void:
 	var g := real_game()
 	var t := spawn(g, 0, "amustas")
 	StatusRules.apply_poison(g, t, 10, -1, 1)
-	g.next_step(0)
+	trig(g)
 	check(t.damage == 10, "poison ticks 10 when the start-of-turn triggers run")
 	check(g.start_summary_turn == g.turn and not g.start_summary.is_empty(), "the start-of-turn lines are remembered")
 	check(g.start_summary.any(func(l: String) -> bool: return "10 damage" in l or "takes 10" in l), "and mention the poison damage")
 	var g2 := real_game()
 	var t2 := spawn(g2, 0, "amustas")
 	StatusRules.apply_poison(g2, t2, 10, -1, 1)
-	g2.end_turn(0)  # never left the castle step
-	check(t2.damage == 10, "ending the turn straight from the Castle step still triggers the poison")
+	trig(g2)  # poison ticks at the very start of the turn, before any castling decision
+	check(t2.damage == 10 and g2.step == Game.Step.CASTLE, "poison triggers while the turn is still in the Castle step")
 
 
 # ---------------------------------------------------------------- sheet update: Fu, Vortex, Predict, Crimson Wave, Castle
@@ -1951,3 +2002,103 @@ func test_sheet_update_round() -> void:
 	var f: Dictionary = CardDB.default_fortress(cards)
 	check(str(f.get("name", "")) == "Castle" and int(f.get("hp", 0)) == 500 and str(f.get("kind", "")) == "fortress", "the Castle fortress card loads")
 	check(int(cards.ancient_script.cost) == 3, "Ancient Script costs 3 mana")
+
+
+## Most older tests were written for the original numbers: 5 starting mana and no castling lock.
+## (The new defaults, 3 mana and no castling in the first 5 turns, have their own tests.)
+func _classic_rules(g: Game) -> void:
+	g.rules.start_mana = 5
+	g.rules.castle_locked_turns = 0
+	g.rules.mana_per_turn = 0  # the old tests count mana without the new +1 per turn
+	for ps in g.players:
+		ps.mana = 5
+
+
+# ---------------------------------------------------------------- 3 starting mana, castle lock, poison cannot stack
+
+func test_start_mana_castle_lock_and_poison() -> void:
+	var filler: Array = []
+	for i in 60:
+		filler.append(rc("syranite"))
+	var fresh := Game.new()
+	fresh.setup([filler.duplicate(), filler.duplicate()], 7, 0)
+	check(fresh.players[0].mana == 3 and fresh.players[1].mana == 3, "each player starts with 3 mana")
+	var g := real_game()
+	g.rules.castle_locked_turns = 5
+	spawn(g, 0, "syranite")
+	g.players[0].turns_taken = 3
+	check(not g.castle(0).ok and "first 5 turns" in Preflight.castle_problem(g, 0) and "3 turns from now" in Preflight.castle_problem(g, 0), "no castling during your first 5 own turns, and it says how many turns are left")
+	g.players[0].turns_taken = 5
+	check("1 turn from now" in Preflight.castle_problem(g, 0), "on your 5th turn castling is 1 turn away")
+	var g2 := real_game()
+	g2.rules.castle_locked_turns = 5
+	spawn(g2, 0, "syranite")
+	g2.players[0].turns_taken = 6
+	check(Preflight.castle_problem(g2, 0) == "", "castling is allowed from your 6th turn")
+	var g3 := real_game()
+	var victim := spawn(g3, 1, "syranite")
+	StatusRules.apply_poison(g3, victim, 10, -1, 0)
+	StatusRules.apply_poison(g3, victim, 10, 3, 0)
+	check(victim.statuses.filter(func(st: Dictionary) -> bool: return str(st.kind) == "poison").size() == 1, "a poisoned champion cannot be poisoned again")
+
+
+## Runs the start-of-turn triggers by hand (a fresh test game has already begun its turn without them).
+func trig(g: Game) -> void:
+	TurnRules._run_start_triggers(g, g.active)
+
+
+# ---------------------------------------------------------------- triggers first, summoning sickness, hand limit, deck limits
+
+func test_turn_order_summoning_sickness_hand_limit_and_decks() -> void:
+	# Poison ticks at the very start of the turn, before the castle step is over, and the heal is usable then
+	var g := real_game()
+	var t := spawn(g, 1, "amustas")
+	t.damage = 30
+	StatusRules.apply_poison(g, t, 10, -1, 0)
+	g.end_turn(0)  # player 1's turn begins: draw, then triggers
+	check(g.step == Game.Step.CASTLE and t.damage == 40, "poison has already ticked while the turn is in the Castle step")
+	# A champion cannot attack on the turn it was summoned
+	var g2 := real_game()
+	g2.players[0].hand = [rc("syranite")]
+	check(g2.summon(0, 0).ok, "summon works")
+	var fresh: Champion = g2.players[0].champions[0]
+	var foe := spawn(g2, 1, "gob")
+	check(not g2.attack(0, fresh.uid, 0, {"champion": foe.uid}).ok, "a champion summoned this turn cannot attack")
+	check("summoned this turn" in Preflight.attack_problem(g2, 0, fresh), "and the reason is shown")
+	g2.end_turn(0)
+	g2.end_turn(1)
+	g2.next_step(0)
+	check(g2.attack(0, fresh.uid, 0, {"champion": foe.uid}).ok, "it can attack on its owner's next turn")
+	# Hand limit: a player discards chosen cards, the engine discards at random if nobody chose
+	var g3 := real_game()
+	for i in 12:
+		g3.players[0].hand.append(rc("syranite"))
+	check(g3.discard_hand_card(0, 0).ok and g3.players[0].hand.size() == 11, "a chosen card is discarded for the hand limit")
+	g3.end_turn(0)
+	check(g3.players[0].hand.size() == 10, "ending the turn leaves at most 10 cards in hand")
+	# Deck composition limits
+	var real: Dictionary = CardDB.load_cards()
+	var decks: Dictionary = CardDB.load_decks()
+	for name in decks:
+		check(CardDB.deck_problems(real, decks[name]).is_empty(), "deck %s follows the composition limits" % name)
+	var bad: Dictionary = {"amustas": 2, "syranite": 30}
+	check(CardDB.deck_problems(real, bad).size() == 2, "too many Legendary and Basic cards are reported")
+	check(CardDB.expected_class(real.amustas) == "legendary" and CardDB.expected_class(real.blackthorn_dragon) == "heroic", "classes follow the summons needed")
+
+
+func test_enchantments_anytime_and_battle_axe_target() -> void:
+	var g := real_game()
+	g.next_step(0)
+	var a := spawn(g, 0, "syranite")
+	var foe := spawn(g, 1, "gob")
+	g.players[0].hand = [rc("field_medics")]
+	to_attack(g)
+	check(g.attack(0, a.uid, 0, {"champion": foe.uid}).ok, "attack first")
+	check(g.play_enchantment(0, 0).ok, "an enchantment can be played after attacking, like a spell")
+	# Battle Axe cannot be wasted on a champion that cannot attack (just summoned, chained)
+	var g2 := real_game()
+	g2.players[0].hand = [rc("syranite"), rc("battle_axe")]
+	g2.summon(0, 0)
+	var fresh: Champion = g2.players[0].champions[0]
+	var r: Dictionary = g2.play_spell(0, 0, 0, {"champion": fresh.uid})
+	check(not r.ok and "wasted" in str(r.error), "Battle Axe will not name a champion that cannot attack")

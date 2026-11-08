@@ -50,7 +50,7 @@ func _run() -> void:
 	ui._on_reveal()
 	ui._on_keep()
 	var g: Game = ui.game
-	for i in 9:
+	for i in 14:
 		SimpleBot.take_turn(g, g.active)
 	ui.viewer = g.active
 	ui._cover.visible = false
@@ -69,5 +69,9 @@ func _run() -> void:
 	await process_frame
 	await process_frame
 	root.get_texture().get_image().save_png("user://shot_castled.png")
+	ui._toggle_log()
+	await process_frame
+	await process_frame
+	root.get_texture().get_image().save_png("user://shot_log.png")
 	print("saved to ", OS.get_user_data_dir())
 	quit()

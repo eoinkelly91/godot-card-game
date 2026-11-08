@@ -94,6 +94,7 @@ func _fresh_state() -> Game:
 		filler.append(cards["syranite"])
 	var g := Game.new()
 	g.setup([filler.duplicate(), filler.duplicate()], 3, 0)
+	g.rules.castle_locked_turns = 0  # these tests are about the screen, not the 5-turn castling lock
 	g.start()
 	g.players[0].turns_taken = 2
 	g.players[1].turns_taken = 2
@@ -202,16 +203,14 @@ func _test_hand_and_champion_clicks() -> void:
 	check(r4.has("ok"), "clicking a champion starts an attack")
 	ui._on_end_turn()
 	check(g.active == 1 and not ui._cover.visible and ui.viewer == 1, "End turn passes straight to the other player, no hand-over screen")
+	# There is no Fortress heal any more: in the Summon step the Fortress offers nothing
 	var heal_g := _fresh_state()
 	ui.game = heal_g
 	ui.flows = TargetFlows.new(heal_g, ui)
 	ui.viewer = 0
 	heal_g.next_step(0)
 	ui.refresh()
-	check(ui._fortress_options().size() == 1 and ui._fortress_options()[0].value == "heal", "clicking the Fortress offers the heal in the Summon step")
-	ui._on_fortress_heal()
-	check(not heal_g.players[0].heal_pending, "using it heals a champion")
-	# Nothing damaged: no heal button and no prompt
+	check(ui._fortress_options().is_empty(), "the Fortress offers nothing in the Summon step (no Fortress heal)")
 	var full_g := _fresh_state()
 	ui.game = full_g
 	ui.flows = TargetFlows.new(full_g, ui)
@@ -220,8 +219,7 @@ func _test_hand_and_champion_clicks() -> void:
 	for c in full_g.players[0].champions:
 		c.damage = 0
 	ui.refresh()
-	check(ui._fortress_options().is_empty(), "the Fortress offers no heal when no champion is damaged")
-	check(not ui._has_damaged_champion(full_g.players[0]), "undamaged champions are not heal targets")
+	check(ui._fortress_options().is_empty(), "still nothing to click")
 
 
 func _run_choose(out: Array, title: String, opts: Array, mn: int, mx: int) -> void:
@@ -281,13 +279,13 @@ func _test_first_turn_gnome_and_new_game() -> void:
 	ui._cover.visible = false
 	g.next_step(0)
 	ui.refresh()
-	check(not ui._btn_next.visible, "no 'To Attack step' button on a first turn")
+	check(ui._me_info.text.contains("SUMMONING AVAILABLE"), "the info line says summoning is available in the Summon step")
 	ui._status.text = ""
 	await ui._on_own_champion(g.players[0].champions[0].uid)
 	check(ui._status.text.contains("first turn") and not g.players[0].colors_used.has("Red"), "clicking a champion on a first turn only explains why it cannot attack")
 	g.players[0].turns_taken = 2
 	ui.refresh()
-	check(ui._btn_next.visible, "the Attack step button is there on later turns")
+	check(not ui._me_info.text.contains("CASTLED"), "no castled text when not castled")
 	check(not ui._btn_new.visible, "no New game button during a game")
 	g.finished = true
 	ui.refresh()
@@ -399,13 +397,14 @@ func _test_castle_reveal_scroll_and_tags() -> void:
 	g2.players[0].enchantments.clear()  # (the fresh state has Field Medics, which would heal the poison away)
 	StatusRules.apply_poison(g2, t, 10, -1, 1)
 	var dmg_before: int = t.damage
+	TurnRules._run_start_triggers(g2, 0)  # the poison ticks as the turn begins
 	ui.game = g2
 	ui.flows = TargetFlows.new(g2, ui)
 	ui._start_shown_turn = -1
 	ui._cover_for_mulligan = false
 	ui._cover.visible = true
 	ui._on_reveal()
-	check(g2.step == Game.Step.SUMMON and t.damage == dmg_before + 10, "revealing the turn ticks the poison at once")
+	check(g2.step == Game.Step.SUMMON and t.damage == dmg_before + 10, "the poison ticked at the very start of the turn")
 	check(ui._status.text.begins_with("Start of turn:") and "10" in ui._status.text, "and the status line says what happened (%s)" % ui._status.text.left(80))
 	# With a castle choice available the turn waits in the Castle step
 	var g3 := _fresh_state()
@@ -414,7 +413,7 @@ func _test_castle_reveal_scroll_and_tags() -> void:
 	ui.flows = TargetFlows.new(g3, ui)
 	ui._cover.visible = true
 	ui._on_reveal()
-	check(g3.step == Game.Step.CASTLE and "Castle step" in ui._status.text, "with a castle possible, the turn waits in the Castle step")
+	check(g3.step == Game.Step.CASTLE and "Click your Fortress" in ui._status.text, "with a castle possible, the turn waits in the Castle step and says to click the Fortress")
 	# The hand's scroll bar is always shown and a smaller hand starts at the left edge
 	check(ui._hand_scroll.horizontal_scroll_mode == ScrollContainer.SCROLL_MODE_SHOW_ALWAYS, "the hand scroll bar is always shown")
 	# Status tags are spelled out
@@ -439,7 +438,10 @@ func _test_fortress_card_and_board() -> void:
 	ui.viewer = 0
 	ui._cover.visible = false
 	ui.refresh()
-	check(not ui.has_node("NoSuchButton") and ui._btn_next != null, "the top bar no longer has Castle / Uncastle buttons")
+	check(ui._btn_log != null and not ui._log_panel.visible, "the events log starts hidden behind the LOG button")
+	ui._toggle_log()
+	check(ui._log_panel.visible, "LOG opens the events log")
+	ui._toggle_log()
 	var fc: Dictionary = ui.fortress_card(g.players[0])
 	check(str(fc.kind) == "fortress" and int(fc.hp) == 500 and int(fc.hp_now) == 500, "the Fortress card knows its name and HP")
 	var view := CardView.create(fc, 340.0, null, false)
@@ -448,9 +450,60 @@ func _test_fortress_card_and_board() -> void:
 	ui.auto_chooser = func(_t: String, o: Array, _mn: int, _mx: int) -> Variant: return [o[0].value]
 	await ui._on_fortress_clicked()
 	check(g.players[0].castled and g.step == Game.Step.SUMMON, "choosing Castle from the Fortress menu castles and starts the turn")
-	# Castled: the Fortress group is the active row and the champions are in the encamped row (the rows swap)
+	# Castled: one row per player; the champion is asleep (faded) and the Fortress has an orange border
 	var rows: Array = ui._me_box.get_children().filter(func(n: Node) -> bool: return not n.is_queued_for_deletion())
-	check(rows.size() == 2, "each player has two rows")
+	check(rows.size() == 1, "each player has a single row (champions, Fortress, enchantments)")
+	ui.refresh()
+	check(ui._me_info.text.contains("CASTLED: Fortress vulnerable to attack, champions encamped, turns remaining:2"), "a castled player's info line explains the castle and the turns remaining")
+	# Hand limit: ending the turn with 12 cards asks for 2 discards first
+	var hl := _fresh_state()
+	ui.game = hl
+	ui.flows = TargetFlows.new(hl, ui)
+	ui.viewer = 0
+	hl.next_step(0)
+	for i in 12:
+		hl.players[0].hand.append(cards["syranite"])
+	var asked: Array = [0]
+	ui.auto_chooser = func(t: String, o: Array, _mn: int, _mx: int) -> Variant:
+		asked[0] += 1
+		return [0]
+	await ui._on_end_turn()
+	check(asked[0] == 2 and hl.active == 1 and hl.players[0].hand.size() == 10, "ending the turn with 12 cards asks for 2 discards, then ends")
+	ui.auto_chooser = Callable(self, "auto")
+	# END TURN is highlighted when nothing is left to do
+	var nl := _fresh_state()
+	ui.game = nl
+	ui.flows = TargetFlows.new(nl, ui)
+	ui.viewer = 0
+	nl.next_step(0)
+	nl.players[0].hand.clear()
+	for c in nl.players[0].champions:
+		c.attacked_this_turn = true
+	nl.players[0].colors_used = ["Red", "Blue", "White", "Purple"]
+	ui.refresh()
+	check(ui._nothing_left_to_do() and ui._btn_end.has_theme_stylebox_override("normal"), "END TURN gets a yellow border when there is nothing left to do")
+	nl.players[0].colors_used = []
+	ui.refresh()
+	check(not ui._nothing_left_to_do() and not ui._btn_end.has_theme_stylebox_override("normal"), "and loses it when a champion can attack again")
+	# Castle lock message from the Fortress click
+	var lk := _fresh_state()
+	lk.rules.castle_locked_turns = 5
+	lk.players[0].champions.resize(1)
+	lk.players[0].turns_taken = 3
+	ui.game = lk
+	ui.flows = TargetFlows.new(lk, ui)
+	ui.viewer = 0
+	ui.auto_chooser = func(_t: String, _o: Array, _mn: int, _mx: int) -> Variant: return []
+	await ui._on_fortress_clicked()
+	check("3 turns from now" in ui._status.text, "clicking the Fortress says how many turns until you can castle")
+	ui.auto_chooser = Callable(self, "auto")
+	# A champion summoned this turn sleeps (Zzz); the info row says class and type
+	var newbie: Champion = lk.players[0].champions[0]
+	newbie.summoned_turn = lk.turn
+	var nv := CardView.create(newbie.card, 150.0, newbie, true, false, false, lk)
+	check(nv.modulate.a < 0.8, "a champion summoned this turn is faded and asleep")
+	var sleeper := CardView.create(g.players[0].champions[0].card, 128.0, g.players[0].champions[0], true, false, true, g)
+	check(sleeper.modulate.a < 0.8, "an encamped champion is faded")
 	ui.auto_chooser = Callable(self, "auto")
 	# The enemy Fortress does nothing when clicked: no handler is connected for the inactive player
 	var fv := CardView.create(ui.fortress_card(g.players[1]), 108.0, null, true)

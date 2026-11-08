@@ -108,12 +108,12 @@
   "kind": "spell",
   "cost": 0,
   "text": [
-   "Discard as many cards as you want from your hand, for each one repair your fortress by 50HP"
+   "Discard as many cards as you want from your hand, for each one repair your fortress by 30HP"
   ],
   "effects": [
    {
     "op": "repair_fortress",
-    "per_card": 50
+    "per_card": 30
    }
   ]
  },

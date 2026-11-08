@@ -39,17 +39,66 @@ static func load_cards(dir: String = CARD_DIR) -> Dictionary:
 	return cards
 
 
-## The Fortress card a player starts with (there is only "castle" for now; more can be added to the sheet).
+## The Fortress card a deck starts the game with: the one Fortress in its list (Castle if the deck has none).
+static func deck_fortress(cards: Dictionary, spec: Dictionary) -> Dictionary:
+	for id in spec:
+		if cards.has(id) and str(cards[id].get("kind", "")) == "fortress":
+			return (cards[id] as Dictionary).duplicate()
+	return default_fortress(cards)
+
+
 static func default_fortress(cards: Dictionary) -> Dictionary:
 	return (cards.get("castle", {}) as Dictionary).duplicate()
 
 
-## Basic = no sacrifice and no mana cost to play. Elite = one or more sacrifices, a mana cost, or both.
+## A champion's class comes from how many summons (sacrifices or mana) it needs:
+## 0 = Basic, 1 = Elite, 2 = Heroic, 3 or more = Legendary.
 static func expected_class(card: Dictionary) -> String:
 	var req: Dictionary = card.get("summon", {})
-	if int(req.get("sacrifice", 0)) > 0 or int(req.get("mana", 0)) > 0:
+	var n: int = maxi(int(req.get("sacrifice", 0)), int(req.get("mana", 0)))
+	if n >= 3:
+		return "legendary"
+	if n == 2:
+		return "heroic"
+	if n == 1:
 		return "elite"
 	return "basic"
+
+
+## Deck composition: the most cards of each group a deck may hold (and the most cards in total).
+const DECK_LIMITS := {"legendary": 1, "heroic": 6, "elite": 10, "basic": 25, "enchantment": 6, "spell": 12, "fortress": 1}
+const DECK_MAX_CARDS := 61  # 60 cards to draw + the one Fortress, which is played automatically at the start
+
+
+## Which composition group a card belongs to ("basic", "elite", "heroic", "legendary", "enchantment", "spell").
+static func deck_group(card: Dictionary) -> String:
+	var kind: String = str(card.get("kind", ""))
+	if kind == "champion":
+		return expected_class(card)
+	return kind
+
+
+## The reasons a deck spec ({card id: copies}) breaks the composition rules; empty when it is fine.
+static func deck_problems(cards: Dictionary, spec: Dictionary) -> Array:
+	var counts: Dictionary = {}
+	var total: int = 0
+	var problems: Array = []
+	for id in spec:
+		if not cards.has(id):
+			problems.append("Unknown card: %s" % id)
+			continue
+		var group: String = deck_group(cards[id])
+		counts[group] = int(counts.get(group, 0)) + int(spec[id])
+		total += int(spec[id])
+	for group in DECK_LIMITS:
+		if int(counts.get(group, 0)) > int(DECK_LIMITS[group]):
+			problems.append("%d %s cards (at most %d)" % [int(counts[group]), group, int(DECK_LIMITS[group])])
+	for group in counts:
+		if not DECK_LIMITS.has(group):
+			problems.append("%s cards cannot be in a deck" % group)
+	if total > DECK_MAX_CARDS:
+		problems.append("%d cards in total (at most %d)" % [total, DECK_MAX_CARDS])
+	return problems
 
 
 static func load_decks(path: String = "res://data/decks.json") -> Dictionary:
@@ -67,6 +116,8 @@ static func build_deck(cards: Dictionary, spec: Dictionary) -> Array:
 		if not cards.has(id):
 			push_error("Unknown card id in deck: " + str(id))
 			continue
+		if str(cards[id].get("kind", "")) == "fortress":
+			continue  # the Fortress is not drawn: it is played automatically at the start (see deck_fortress)
 		for i in int(spec[id]):
 			deck.append(cards[id])
 	return deck

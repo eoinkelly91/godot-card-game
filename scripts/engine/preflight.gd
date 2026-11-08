@@ -28,6 +28,8 @@ static func attack_problem(g: Game, p: int, attacker: Champion, atk_index: int =
 		return "Your attacks are locked."
 	if me.castled:
 		return "Your champions are encamped and cannot attack."
+	if attacker.summoned_turn == g.turn:
+		return "%s was summoned this turn and cannot attack until your next turn." % attacker.card_name()
 	var attacks: Array = attacker.card.get("attacks", [])
 	if attacks.is_empty():
 		return "%s has no attack (only an ability)." % attacker.card_name()
@@ -127,6 +129,9 @@ static func castle_problem(g: Game, p: int) -> String:
 		return "You can only castle before the start-of-turn triggers (the Castle step)."
 	if me.is_first_turn():
 		return "You cannot castle on your first turn."
+	var lock: String = TurnRules.castle_lock_text(g, me)
+	if lock != "":
+		return lock
 	if me.castled:
 		return "You are already castled."
 	if me.castles_used >= int(g.rules.castles_per_game):

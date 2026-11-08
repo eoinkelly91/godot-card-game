@@ -24,7 +24,6 @@ var castled_turns: int = 0    # own turns spent castled so far, counting the tur
 var buffs: Array = []         # duration effects on this player, e.g. {"kind": "attack", "amount": 10, "turns_left": 1}
 var summoned_this_turn: bool = false
 var colors_used: Array = []   # colors that have attacked this turn
-var heal_pending: bool = false
 var extra_attacks: Array = []  # Volcanic Horn tokens: uid of the champion that granted each extra attack
 var summon_discount: int = 0   # Mumified: sacrifices or mana taken off this turn's summon
 
@@ -40,7 +39,6 @@ func reset_for_turn() -> void:
 	extra_attacks.clear()
 	for c in champions:
 		c.attacked_this_turn = false
-	heal_pending = false
 
 
 func is_first_turn() -> bool:

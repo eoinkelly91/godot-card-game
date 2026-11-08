@@ -4,11 +4,48 @@
   "name": "Castle",
   "kind": "fortress",
   "text": [
-   "Heal one of your champions by 20HP",
-   "The player recieves 1 Mana at the start of their turn."
+   "Heal all your active champions by 10HP"
   ],
-  "hp": 500,
-  "heal": 20,
-  "mana_per_turn": 1
+  "start_of_turn": {
+   "op": "heal_all_active",
+   "amount": 10
+  },
+  "hp": 500
+ },
+ {
+  "id": "pirate_cove",
+  "name": "Pirate Cove",
+  "kind": "fortress",
+  "text": [
+   "Flip a coin if heads, draw a card."
+  ],
+  "start_of_turn": {
+   "op": "coin_draw",
+   "count": 1
+  },
+  "hp": 450
+ },
+ {
+  "id": "wizards_enclave",
+  "name": "Wizards Enclave",
+  "kind": "fortress",
+  "text": [
+   "Gain 1 extra mana at the start of every turn."
+  ],
+  "start_of_turn": {
+   "op": "gain_mana",
+   "amount": 1
+  },
+  "hp": 300
+ },
+ {
+  "id": "beasts_lair",
+  "name": "Beasts Lair",
+  "kind": "fortress",
+  "text": [
+   "Creatures deal an additional 10 damage with their attacks."
+  ],
+  "creature_bonus_damage": 10,
+  "hp": 400
  }
 ]

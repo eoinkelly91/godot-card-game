@@ -18,13 +18,6 @@ static func take_turn(g: Game, p: int) -> void:
 
 	# Step 3 and the Summon step.
 	g.next_step(p)
-	if ps.heal_pending:
-		var worst: Champion = null
-		for c in ps.champions:
-			if c.damage > 0 and (worst == null or c.damage > worst.damage):
-				worst = c
-		if worst != null:
-			g.fortress_heal(p, worst.uid)
 	for i in range(ps.hand.size() - 1, -1, -1):
 		if i < ps.hand.size() and str(ps.hand[i].get("kind", "")) == "enchantment":
 			g.play_enchantment(p, i)

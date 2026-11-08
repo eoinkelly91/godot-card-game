@@ -82,6 +82,12 @@ ABILITIES = {
 }
 
 
+def tier(sac, man):
+    """Class from the summons a champion needs: 0 basic, 1 elite, 2 heroic, 3+ legendary."""
+    n = max(sac, man)
+    return "legendary" if n >= 3 else "heroic" if n == 2 else "elite" if n == 1 else "basic"
+
+
 def snake(name: str) -> str:
     return re.sub(r"[^a-z0-9]+", "_", name.lower()).strip("_")
 
@@ -114,7 +120,7 @@ def main() -> int:
         if man:
             summon["mana"] = man
         card = {"id": snake(d["name"]), "name": d["name"], "kind": "champion",
-                "class": d["class"], "color": d["color"].capitalize(), "type": d["type"].capitalize(),
+                "class": tier(sac, man), "color": d["color"].capitalize(), "type": d["type"].capitalize(),
                 "hp": int(d["hp"]), "summon": summon, "attacks": []}
         for i in (0, 1):
             text = d[f"attack_{i + 1}"]

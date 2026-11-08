@@ -20,19 +20,22 @@ enum Step { CASTLE, SUMMON, ATTACK }
 
 const DEFAULT_RULES := {
 	"start_hand": 7,
-	"start_mana": 5,
+	"start_mana": 3,
 	"max_mulligans": 2,
 	"board_limit": 6,                        # champions in the active play area, and in the encampment area
 	"enchantment_limit": 3,
 	"annihilation_goal": 10,
 	"economic_goal": 30,
+	"max_hand_size": 10,                     # more cards than this at the end of your turn: you discard down to it
 	"castles_per_game": 1,
+	"castle_locked_turns": 5,                # no castling during a player's first N own turns
 	"castle_active_champions": 1,            # you may only castle with exactly this many champions in the active play area
 	"castled_draws": 2,                      # cards drawn at the start of a turn while castled (1 otherwise)
 	"max_castled_turns": 3,                  # own turns, counting the turn you castle on
 	"first_player_skips_first_draw": false,
 	"max_turns": 400,                        # safety net for simulations (counts every player's turn)
-	"fortress": {"hp": 500, "mana_per_turn": 1, "heal": 20},
+	"fortress": {"hp": 500},   # the default Fortress; a deck's Fortress card replaces it (hp and its ability)
+	"mana_per_turn": 1,        # every player always gets this much mana at the start of their turn
 }
 
 var rules: Dictionary = {}
@@ -118,6 +121,10 @@ func castle(p: int) -> Dictionary:
 	return TurnRules.castle(self, p)
 
 
+func discard_hand_card(p: int, index: int) -> Dictionary:
+	return TurnRules.discard_hand_card(self, p, index)
+
+
 func uncastle(p: int) -> Dictionary:
 	return TurnRules.uncastle(self, p)
 
@@ -126,10 +133,6 @@ func uncastle(p: int) -> Dictionary:
 ## Calling a later step's action does this for you.
 func next_step(p: int) -> Dictionary:
 	return TurnRules.next_step(self, p)
-
-
-func fortress_heal(p: int, champion_uid: int) -> Dictionary:
-	return SummonRules.fortress_heal(self, p, champion_uid)
 
 
 func summon(p: int, hand_index: int, sacrifice_uids: Array = [], discount_on: String = "") -> Dictionary:

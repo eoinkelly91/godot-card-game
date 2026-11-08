@@ -44,6 +44,10 @@ static func end_of_turn(_g: Game, p: int) -> void:
 
 
 static func apply_poison(g: Game, target: Champion, amount: int, turns: int, source: int) -> void:
+	for st in target.statuses:  # a poisoned champion cannot be poisoned again
+		if str(st.kind) == "poison":
+			g._log("%s is already poisoned, so it cannot be poisoned again." % target.describe())
+			return
 	target.statuses.append({"kind": "poison", "amount": amount, "turns_left": turns, "source": source})
 	if turns < 0:
 		g._log("%s is poisoned (%d damage every turn until it is removed)." % [target.describe(), amount])
@@ -71,6 +75,9 @@ static func run_start_of_turn(g: Game, p: int) -> void:
 	for champion in ps.champions.duplicate():
 		if champion.has_ability() and str(champion.card.ability.get("trigger", "")) == "start_of_turn":
 			_apply_simple_effect(g, p, champion, champion.card.ability)
+	# The Fortress ability triggers at the same time as the enchantments.
+	if typeof(ps.fortress_def.get("start_of_turn")) == TYPE_DICTIONARY and not LockRules.is_locked(g, p, "fortress"):
+		_apply_simple_effect(g, p, null, ps.fortress_def.start_of_turn)
 	for ench in ps.enchantments.duplicate():
 		if typeof(ench.get("start_of_turn")) == TYPE_DICTIONARY:
 			_apply_simple_effect(g, p, null, ench.start_of_turn)
@@ -88,6 +95,20 @@ static func _apply_simple_effect(g: Game, p: int, champion: Champion, eff: Dicti
 					g._finish(1 - p, "Decking out")
 					return
 				ps.hand.append(ps.deck.pop_back())
+		"heal_all_active":  # the Castle: heal every ACTIVE champion (encamped ones are asleep)
+			for c in ps.active_champions():
+				c.damage = maxi(0, c.damage - int(eff.get("amount", 0)))
+			g._log("P%d's Fortress heals the active champions by %d." % [p, int(eff.get("amount", 0))])
+		"coin_draw":  # Pirate Cove: flip a coin, on heads draw
+			if g.flip_coin():
+				g._log("Coin: Heads, P%d's Fortress draws a card." % p)
+				for i in int(eff.get("count", 1)):
+					if ps.deck.is_empty():
+						g._finish(1 - p, "Decking out")
+						return
+					ps.hand.append(ps.deck.pop_back())
+			else:
+				g._log("Coin: Tails, P%d's Fortress draws nothing." % p)
 		"heal_all":  # heal every champion you control (active and encamped)
 			for c in ps.champions:
 				c.damage = maxi(0, c.damage - int(eff.get("amount", 0)))

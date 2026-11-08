@@ -40,6 +40,7 @@ static var _bold: FontVariation
 var card: Dictionary = {}
 var live: Champion = null        # board version: current HP and statuses
 var selected: bool = false
+var select_color: Color = Color(1.0, 0.9, 0.25)  # yellow; red for a champion that has already attacked
 var compact: bool = false
 var encamped: bool = false
 var game: Game = null            # lets a board card show the damage its attacks would really do now
@@ -48,13 +49,15 @@ var _layer: TextLayer            # all single-line text is drawn here, on top of
 
 
 static func create(p_card: Dictionary, width: float, p_live: Champion = null, p_compact: bool = false,
-		p_selected: bool = false, p_encamped: bool = false, p_game: Game = null) -> CardView:
+		p_selected: bool = false, p_encamped: bool = false, p_game: Game = null,
+		p_select_color: Color = Color(1.0, 0.9, 0.25)) -> CardView:
 	var v := CardView.new()
 	v.game = p_game
 	v.card = p_card
 	v.live = p_live
 	v.compact = p_compact
 	v.selected = p_selected
+	v.select_color = p_select_color
 	v.encamped = p_encamped
 	v.k = width / DW
 	v.custom_minimum_size = Vector2(width, DH * v.k)
@@ -232,16 +235,46 @@ func _build() -> void:
 	if live != null:
 		_draw_live_tags()
 	add_child(_layer)  # last, so the text sits on top of every box
+	if encamped and _kind() == "fortress":  # castled: an orange border around the Fortress
+		var cb := Panel.new()
+		cb.size = size
+		cb.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var cbs := StyleBoxFlat.new()
+		cbs.bg_color = Color(0, 0, 0, 0)
+		cbs.set_border_width_all(maxi(3, int(6.0 * k * 2.0)))
+		cbs.border_color = Color(1.0, 0.5, 0.05)
+		cb.add_theme_stylebox_override("panel", cbs)
+		add_child(cb)
+	if _kind() != "fortress" and _asleep():  # asleep (encamped, just summoned, chained): faded, with Zzz
+		modulate = Color(1, 1, 1, 0.5)
+		_zzz()
 	if selected:
 		var sel := Panel.new()
-		sel.size = size
+		var inset: float = 7.0 * k * 2.0 if (encamped and _kind() == "fortress") else 0.0
+		sel.position = Vector2(inset, inset)
+		sel.size = size - Vector2(inset, inset) * 2.0
 		sel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		var sb := StyleBoxFlat.new()
 		sb.bg_color = Color(0, 0, 0, 0)
 		sb.set_border_width_all(maxi(3, int(5.0 * k * 2.0)))
-		sb.border_color = Color(1.0, 0.9, 0.25)
+		sb.border_color = select_color
 		sel.add_theme_stylebox_override("panel", sb)
 		add_child(sel)
+
+
+## "Zzz" over the art of an encamped (sleeping) champion.
+func _zzz() -> void:
+	var z := Label.new()
+	z.text = "Zzz"
+	z.position = Vector2(DW * 0.52, IMG_Y + 6.0) * k
+	z.size = Vector2(DW * 0.46, 120.0) * k
+	z.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	z.add_theme_font_size_override("font_size", maxi(10, int(80.0 * k)))
+	z.add_theme_color_override("font_color", Color(1, 1, 1))
+	z.add_theme_color_override("font_outline_color", Color(0.1, 0.1, 0.3))
+	z.add_theme_constant_override("outline_size", maxi(2, int(8.0 * k)))
+	z.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(z)
 
 
 func _top_left_text() -> String:
@@ -302,16 +335,36 @@ func _draw_image(y: float, h: float) -> void:
 	holder.add_child(frame)
 
 
+## True when this champion cannot pay for the attack right now (not enough mana, or HP below the threshold).
+func _attack_unmet(atk: Dictionary) -> bool:
+	if live == null or game == null or live.owner >= game.players.size():
+		return false
+	return Preflight._attack_cost_problem(game, game.players[live.owner], live, atk) != ""
+
+
+## A champion that cannot act right now sleeps: encamped, summoned this turn, or chained.
+func _asleep() -> bool:
+	if live == null:
+		return false
+	if encamped:
+		return true
+	if game != null and live.summoned_turn == game.turn:
+		return true
+	for st in live.statuses:
+		if str(st.kind) == "no_attack":
+			return true
+	return false
+
+
 func _draw_stats_row() -> void:
 	var color_name: String = str(card.get("color", ""))
 	var white := Color(1, 1, 1)
-	_box(0, STAT_Y, 135, STAT_H, white)
-	_box(135, STAT_Y, 230, STAT_H, white)
+	_box(0, STAT_Y, 365, STAT_H, white)
 	_box(365, STAT_Y, 125, STAT_H, white)
 	var big: float = 1.2 if compact else 1.0  # board cards are small, so their stats are drawn larger
-	_label(color_name, 0, STAT_Y, 135, STAT_H, 24 * big, COLOR_WORD.get(color_name, DARK))
-	var type_text: String = str(card.get("type", ""))
-	_label(type_text, 135, STAT_Y, 230, STAT_H, (24 if type_text.length() < 18 else 17) * big, DARK)
+	# Class and type together ("Legendary Creature"), in the champion's colour instead of a colour word
+	var class_type: String = ("%s %s" % [str(card.get("class", "")).capitalize(), str(card.get("type", ""))]).strip_edges()
+	_label(class_type, 0, STAT_Y, 365, STAT_H, (26 if class_type.length() < 18 else 20) * big, COLOR_WORD.get(color_name, DARK))
 	var hp_text: String = "%dHP" % int(card.get("hp", 0))
 	if live != null:
 		hp_text = "%d/%dHP" % [live.current_hp(), live.max_hp()]
@@ -341,7 +394,8 @@ func _draw_champion_body() -> void:
 func _draw_ability_box(y: float, h: float, text: String) -> void:
 	_box(0, y, DW, h, ABILITY_COLOR)
 	if compact:
-		_label("ABILITY", 0, y, DW, h, 30, DARK)
+		_label("ABILITY", 0, y + h * 0.06, DW, h * 0.55, 30, DARK)
+		_label("(hover for info)", 0, y + h * 0.58, DW, h * 0.36, 20, DARK, HORIZONTAL_ALIGNMENT_CENTER, false)
 	else:
 		_rich("Ability:", text, 0, y, DW, h, DARK)
 
@@ -361,12 +415,14 @@ func _draw_attack_box(y: float, h: float, atk: Dictionary) -> void:
 	elif atk.has("requires"):
 		number = str(int(atk.requires.get("self_hp_at_least", 0)))
 		caption = "HP"
+	var unmet: bool = _attack_unmet(atk)  # red until the condition (mana or HP) is met again
+	var req_color: Color = Color(0.85, 0.1, 0.1) if unmet else DARK
 	if number != "":
-		_label(number, 0, y + h * 0.5 - 34.0, SIDE_W, 38.0, 32, DARK)
-		_label(caption, 0, y + h * 0.5 + 4.0, SIDE_W, 24.0, 12, DARK)
+		_label(number, 0, y + h * 0.5 - 34.0, SIDE_W, 38.0, 32, req_color)
+		_label(caption, 0, y + h * 0.5 + 4.0, SIDE_W, 24.0, 12, req_color)
 	# damage (right): a fixed number, "3X10" for coin attacks, or a dash
 	var dmg: int = int(atk.get("damage", 0))
-	var dmg_color: Color = DARK
+	var dmg_color: Color = req_color
 	if live != null and game != null and not atk.has("coins") and live.owner < game.players.size():
 		var now: int = DamageRules.preview(game, live, atk)  # what the attack would do right now
 		if now != dmg and now > 0:
@@ -379,7 +435,11 @@ func _draw_attack_box(y: float, h: float, atk: Dictionary) -> void:
 	var on_base: Color = _on_base()
 	var name_text: String = str(atk.get("name", "")).to_upper()
 	if compact:
-		_label(name_text, SIDE_W, y, DW - SIDE_W * 2.0, h, 28, on_base)
+		if _attack_description(atk) != "":  # an extra effect: say so, the details are in the hover card
+			_label(name_text, SIDE_W, y + h * 0.06, DW - SIDE_W * 2.0, h * 0.55, 28, on_base)
+			_label("(hover for info)", SIDE_W, y + h * 0.58, DW - SIDE_W * 2.0, h * 0.36, 20, on_base, HORIZONTAL_ALIGNMENT_CENTER, false)
+		else:
+			_label(name_text, SIDE_W, y, DW - SIDE_W * 2.0, h, 28, on_base)
 	else:
 		var desc: String = _attack_description(atk)
 		if desc == "":  # just a name: centred in the box
@@ -400,14 +460,19 @@ func _draw_description_boxes(texts: Array, with_labels: bool) -> void:
 	var on_base: Color = _on_base()
 	var top: float = IMG_Y + IMG_H
 	var n: int = maxi(1, texts.size())
-	var strip: float = 30.0 if with_labels and n > 1 and _kind() != "fortress" else 0.0   # the OR divider between two effects (a Fortress has both effects)
+	var strip: float = 30.0 if with_labels and n > 1 and _kind() != "fortress" else 0.0   # the OR divider between two effects (a Fortress has a single ability)
 	var h: float = (DH - top - strip * float(n - 1)) / float(n)
 	var y: float = top
 	for i in n:
 		_box(0, y, DW, h, _base_color())
 		var text: String = str(texts[i]) if i < texts.size() else ""
 		var label: String = "Effect %d:" % (i + 1) if with_labels and n > 1 else ("Effect:" if with_labels else "")
-		if compact:
+		if _kind() == "fortress":
+			label = "Ability:"
+		if compact and _kind() == "fortress":  # the ability text is in the hover card
+			_label("ABILITY", 0, y + h * 0.1, DW, h * 0.5, 30, on_base)
+			_label("(hover for info)", 0, y + h * 0.58, DW, h * 0.3, 20, on_base, HORIZONTAL_ALIGNMENT_CENTER, false)
+		elif compact:
 			_label(("EFFECT %d" % (i + 1)) if with_labels and n > 1 else ("SPELL" if with_labels else "ENCHANTMENT"), 0, y, DW, h, 30, on_base)
 		else:
 			_rich(label, text, 0, y, DW, h, on_base)
@@ -422,10 +487,14 @@ func _draw_live_tags() -> void:
 	var tags: Array = []
 	if encamped:
 		tags.append("ENCAMPED")
+	elif game != null and live.summoned_turn == game.turn:
+		tags.append("SUMMONED: CANNOT ATTACK THIS TURN")
 	for st in live.statuses:
 		match str(st.kind):
 			"poison":
-				tags.append("POISONED: %d DMG PER TURN" % int(st.get("amount", 10)))
+				var ptag: String = "POISONED: %d DMG PER TURN" % int(st.get("amount", 10))
+				if not tags.has(ptag):
+					tags.append(ptag)
 			"protected":
 				tags.append("PROTECTED FROM ALL DAMAGE")
 			"no_attack":

@@ -44,6 +44,9 @@ static func calc(g: Game, attacker: Champion, atk: Dictionary, target: Champion,
 		if str(sst.kind) == "stored_bonus":
 			total += float(sst.amount)
 	total += float(spell_bonus) + float(StatusRules.attack_bonus(g.players[attacker.owner]))
+	var lair: int = int(g.players[attacker.owner].fortress_def.get("creature_bonus_damage", 0))  # Beasts Lair
+	if lair > 0 and total > 0.0 and attacker.champion_type() == "Creature":
+		total += float(lair)
 	total = apply_enchantments(total, g.players[attacker.owner], enchant_order, attacker.color(), false)
 	return round_down_10(total)
 

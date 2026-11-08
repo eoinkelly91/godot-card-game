@@ -6,25 +6,6 @@ class_name SummonRules
 extends RefCounted
 
 
-static func fortress_heal(g: Game, p: int, champion_uid: int) -> Dictionary:
-	var chk: Dictionary = TurnRules.require_step(g, p, Game.Step.SUMMON)
-	if not chk.ok:
-		return chk
-	var ps: PlayerState = g.players[p]
-	if not ps.heal_pending:
-		return g._fail("Your Fortress has no heal available.")
-	var champion: Champion = g._champion_of(ps, champion_uid)  # encamped champions can be healed too
-	if champion == null:
-		return g._fail("Pick one of your own champions.")
-	champion.damage = maxi(0, champion.damage - int(ps.fortress_def.get("heal", 20)))
-	ps.heal_pending = false
-	g._log("P%d Fortress heals %s." % [p, champion.describe()])
-	return g._ok()
-
-
-## sacrifice_uids: the champions to sacrifice, for cards whose summon requires sacrifices.
-## discount_on: "sacrifice" or "mana" says what Mumified takes one off; by default it is the sacrifices if the
-## card needs any, otherwise the mana.
 static func summon(g: Game, p: int, hand_index: int, sacrifice_uids: Array = [], discount_on: String = "") -> Dictionary:
 	var chk: Dictionary = TurnRules.require_step(g, p, Game.Step.SUMMON)
 	if not chk.ok:
@@ -82,6 +63,7 @@ static func summon(g: Game, p: int, hand_index: int, sacrifice_uids: Array = [],
 			g._log("P%d sacrifices %s." % [p, sac.describe()])
 		slot = mini(slot, ps.champions.size())
 	var champion: Champion = g.spawn_champion(p, card, slot)
+	champion.summoned_turn = g.turn  # a freshly summoned champion cannot attack on its first turn
 	champion.damage = mini(carried, champion.max_hp())  # damage counters carry over permanently
 	ps.summoned_this_turn = true  # sacrifice summons use the turn's summon (revisit later)
 	var where: String = "the encampment area" if ps.castled else "the active play area"
@@ -93,9 +75,13 @@ static func summon(g: Game, p: int, hand_index: int, sacrifice_uids: Array = [],
 
 
 static func play_enchantment(g: Game, p: int, hand_index: int) -> Dictionary:
-	var chk: Dictionary = TurnRules.require_step(g, p, Game.Step.SUMMON)
+	var chk: Dictionary = TurnRules.require_turn(g, p)  # like spells: any time during your turn after the Castle step
 	if not chk.ok:
 		return chk
+	if g.step == Game.Step.CASTLE:
+		TurnRules._enter_summon_step(g, p)
+		if g.finished:
+			return g._fail("The game is over.")
 	var ps: PlayerState = g.players[p]
 	if ps.is_first_turn():
 		return g._fail("You cannot play enchantments on your first turn.")

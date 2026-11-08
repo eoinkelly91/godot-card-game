@@ -62,6 +62,9 @@ static func play_spell(g: Game, p: int, hand_index: int, effect_index: int, targ
 			target_champion = g._champion_of(ps, int(target.get("champion", -1)))
 			if target_champion == null:
 				return g._fail("Pick one of your champions to give the bonus to, or attach the spell to an attack.")
+			var cant: String = Preflight.attack_problem(g, p, target_champion)
+			if cant != "":
+				return g._fail("The bonus would be wasted: " + cant)
 		"lock", "draw", "gain_mana", "buff_attack":
 			pass
 		_:
@@ -129,6 +132,8 @@ static func attack(g: Game, p: int, attacker_uid: int, attack_index: int, target
 	var attacker: Champion = g._champion_of(me, attacker_uid)
 	if attacker == null:
 		return g._fail("Pick one of your own champions to attack with.")
+	if attacker.summoned_turn == g.turn:
+		return g._fail("%s was summoned this turn and cannot attack until your next turn." % attacker.card_name())
 	var attacks: Array = attacker.card.get("attacks", [])
 	if attack_index < 0 or attack_index >= attacks.size():
 		return g._fail("Bad attack index.")
