@@ -31,6 +31,16 @@ SPELLS = {
     "Parasite": [{"op": "drain_mana_per_card", "per_card": 1}, {"op": "opponent_discards", "amount": 2}],
     "Decoder": [{"op": "discard_spells_for_mana", "per_card": 2}, {"op": "discard_enchantment_for_mana", "amount": 5}],
     "Mumified": [{"op": "summon_discount", "amount": 1}],
+    "Magic Wave": [{"op": "type_attack_bonus", "type": "Spirit", "amount": 20}],
+    "Thunderstorm": [{"op": "damage_all_enemies", "amount": 10}],
+    "Vortex of the Damned": [{"op": "shuffle_weak_champions", "hp_below": 60}],
+    "Warrior Idol": [{"op": "attach", "kind": "warrior_idol"}],
+    "Fusion": [{"op": "attach", "kind": "fusion"}],
+    "Galachs Will": [{"op": "return_card", "kind": "spell"}, {"op": "return_card", "kind": "enchantment"}],
+    "Mystery": [{"op": "mystery_remove"}],
+    "Grand Shield": [{"op": "reduce_enemy_attacks", "amount": 20}],
+    "Rain of Dragons": [{"op": "type_attack_bonus", "type": "Creature", "amount": 20}],
+    "Power Source": [{"op": "attach", "kind": "power_source"}],
 }
 
 ENCHANTMENTS = {
@@ -39,6 +49,7 @@ ENCHANTMENTS = {
     "Battlements": {"fortress_defense": {"prevent": 20, "damage_attacker": 20}},
     "Siege Works": {"start_of_turn": {"op": "fortress_damage_per_active_champion", "amount": 10}},
     "Mist of Grief": {"on_champion_lost_to_attack": {"gain_mana": 1}},
+    "Super Shrink": {"hp_aura_enemy": -20},
 }
 
 

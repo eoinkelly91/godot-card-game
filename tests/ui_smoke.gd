@@ -123,6 +123,9 @@ func _test_every_spell_flow() -> void:
 		for ei in card.effects.size():
 			var g := _fresh_state()
 			g.players[0].hand = [card, cards["syranite"], cards["crimson_wave"], cards["battlements"]]
+			g.players[0].discard = [cards["battlements"], cards["heal"], cards["syranite"]]  # for Galachs Will and Archaeology
+			if not g.players[1].champions.is_empty():  # for Mystery: a card attached to an enemy champion
+				g.players[1].champions[0].attached = [cards["fusion"].duplicate()]
 			var flows := TargetFlows.new(g, self)
 			var tf: Dictionary = await flows.spell_target(0, 0, ei)
 			check(tf.has("target"), "%s effect %d: the flow builds a target (%s)" % [id, ei, str(tf)])
@@ -130,7 +133,7 @@ func _test_every_spell_flow() -> void:
 				var res: Dictionary = g.play_spell(0, 0, ei, tf.target)
 				check(res.ok, "%s effect %d: the engine accepts it (%s)" % [id, ei, str(res.get("error", ""))])
 				count += 1
-	check(count == 19, "all 19 spell effects went through (%d)" % count)
+	check(count == 30, "all 30 spell effects went through (%d)" % count)
 	# A flow reports problems instead of crashing: no damaged champion for Mist of Despair.
 	var g2 := _fresh_state()
 	for c in g2.players[0].champions:
@@ -525,6 +528,18 @@ func _test_fortress_card_and_board() -> void:
 	check("(2)" in dup.describe_champion(d2), "menus show the same (2)")
 	var fcv := CardView.create(ui.fortress_card(dup.players[0]), 150.0, null, true)
 	check(fcv != null, "the Fortress card builds with HP text")
+	# Attached cards: the champion is stacked on top of them, and the hover shows everything
+	var st := _fresh_state()
+	var holder_champ: Champion = st.players[0].champions[0]
+	holder_champ.attached = [cards["warrior_idol"].duplicate(), cards["fusion"].duplicate()]
+	ui.game = st
+	ui.flows = TargetFlows.new(st, ui)
+	var stack: Control = ui._stack_with_attachments(holder_champ, CardView.create(holder_champ.card, 150.0, holder_champ, true, false, false, st))
+	check(stack.get_child_count() == 3, "a champion with 2 attached cards is stacked on 2 cards")
+	var tip: Object = CardView.create(holder_champ.card, 150.0, holder_champ, true, false, false, st)._make_custom_tooltip("")
+	check(tip is HBoxContainer and (tip as HBoxContainer).get_child_count() == 3, "hovering shows the champion and its attached cards")
+	var gaia_view := CardView.create(cards["gaia"], 300.0, null, false)
+	check(gaia_view._mana_summon() and not CardView.create(cards["syranite"], 300.0, null, false)._mana_summon(), "a mana summon cost gets the blue number, others do not")
 	var sleeper := CardView.create(g.players[0].champions[0].card, 128.0, g.players[0].champions[0], true, false, true, g)
 	check(sleeper.modulate.a < 0.8, "an encamped champion is faded")
 	ui.auto_chooser = Callable(self, "auto")

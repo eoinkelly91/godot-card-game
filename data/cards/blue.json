@@ -33,6 +33,13 @@
    {
     "name": "Bite",
     "damage": 10
+   },
+   {
+    "name": "Dive",
+    "damage": 0,
+    "no_target": true,
+    "reduce_incoming_self": 30,
+    "text": "Reduce any attack targeting Deep Peed during your opponents next turn by 30."
    }
   ]
  },
@@ -89,12 +96,12 @@
   "id": "gronk",
   "name": "Gronk",
   "kind": "champion",
-  "class": "heroic",
+  "class": "legendary",
   "color": "Blue",
   "type": "Creature",
   "hp": 130,
   "summon": {
-   "sacrifice": 2
+   "sacrifice": 3
   },
   "attacks": [
    {
@@ -111,7 +118,7 @@
     "damage": 50,
     "mana_cost": 2,
     "splash_enemies": 20,
-    "text": "50 + This attack does 20 damage to every other enemy champion."
+    "text": "50 + This attack does 20 damage to each one of your opponents active champions."
    }
   ]
  },
@@ -313,6 +320,77 @@
     "damage": 30,
     "self_damage": 10,
     "text": "30  + This champion does 10 damage to itself."
+   }
+  ]
+ },
+ {
+  "id": "brickeen",
+  "name": "Brickeen",
+  "kind": "champion",
+  "class": "basic",
+  "color": "Blue",
+  "type": "Creature",
+  "hp": 40,
+  "summon": {},
+  "attacks": [
+   {
+    "name": "Planktonne",
+    "damage": 10,
+    "per_active_named": {
+     "names": [
+      "Brickeen",
+      "Brickzard"
+     ],
+     "amount": 20
+    },
+    "text": "10 + 20 damage for every active Brickeen or Brickzard in play."
+   }
+  ]
+ },
+ {
+  "id": "brickzard",
+  "name": "Brickzard",
+  "kind": "champion",
+  "class": "elite",
+  "color": "Blue",
+  "type": "Creature",
+  "hp": 80,
+  "summon": {
+   "sacrifice": 1
+  },
+  "attacks": [
+   {
+    "name": "Planktonne",
+    "damage": 20,
+    "per_active_named": {
+     "names": [
+      "Brickeen",
+      "Brickzard"
+     ],
+     "amount": 30
+    },
+    "text": "20 + 30 damage for every active Brickeen or Brickzard in play."
+   }
+  ]
+ },
+ {
+  "id": "hydrostretch",
+  "name": "Hydrostretch",
+  "kind": "champion",
+  "class": "basic",
+  "color": "Blue",
+  "type": "Creature",
+  "hp": 50,
+  "summon": {},
+  "attacks": [
+   {
+    "name": "Water Blast",
+    "damage": 0,
+    "per_active_color_own": {
+     "color": "Blue",
+     "amount": 10
+    },
+    "text": "This attack does 10 damage for each of your active blue champions."
    }
   ]
  }

@@ -62,5 +62,15 @@
   "on_champion_lost_to_attack": {
    "gain_mana": 1
   }
+ },
+ {
+  "id": "super_shrink",
+  "name": "Super Shrink",
+  "kind": "enchantment",
+  "cost": 3,
+  "text": [
+   "All your opponents active champions have their HP reduced by 20"
+  ],
+  "hp_aura_enemy": -20
  }
 ]

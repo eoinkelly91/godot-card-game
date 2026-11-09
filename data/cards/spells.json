@@ -221,5 +221,161 @@
     "amount": 1
    }
   ]
+ },
+ {
+  "id": "magic_wave",
+  "name": "Magic Wave",
+  "kind": "spell",
+  "cost": 0,
+  "text": [
+   "Increase all spirit champions attack by 20 this turn."
+  ],
+  "effects": [
+   {
+    "op": "type_attack_bonus",
+    "type": "Spirit",
+    "amount": 20
+   }
+  ]
+ },
+ {
+  "id": "thunderstorm",
+  "name": "Thunderstorm",
+  "kind": "spell",
+  "cost": 0,
+  "text": [
+   "Do 10 damage to each of your opponents champions (active or encamped)"
+  ],
+  "effects": [
+   {
+    "op": "damage_all_enemies",
+    "amount": 10
+   }
+  ]
+ },
+ {
+  "id": "vortex_of_the_damned",
+  "name": "Vortex of the Damned",
+  "kind": "spell",
+  "cost": 3,
+  "text": [
+   "Shuffle any of your opponents champions with less than 60HP back into their deck."
+  ],
+  "effects": [
+   {
+    "op": "shuffle_weak_champions",
+    "hp_below": 60
+   }
+  ]
+ },
+ {
+  "id": "warrior_idol",
+  "name": "Warrior Idol",
+  "kind": "spell",
+  "cost": 5,
+  "text": [
+   "Attach this card to a champion, This champions attack increases by 10 every turn until it is destroyed or Warrior Idol is removed."
+  ],
+  "effects": [
+   {
+    "op": "attach",
+    "kind": "warrior_idol"
+   }
+  ]
+ },
+ {
+  "id": "fusion",
+  "name": "Fusion",
+  "kind": "spell",
+  "cost": 3,
+  "text": [
+   "Attach this card to a champion, This champions HP is increased by 20 for each of your active champions of the same color as the champion fusion is attached to. This effect is in play until the champion is destroyed or Fusion is removed."
+  ],
+  "effects": [
+   {
+    "op": "attach",
+    "kind": "fusion"
+   }
+  ]
+ },
+ {
+  "id": "galachs_will",
+  "name": "Galachs Will",
+  "kind": "spell",
+  "cost": 3,
+  "text": [
+   "Put a spell card from your discard pile into your hand.",
+   "Put an enchantment from your discard pile into your hand."
+  ],
+  "effects": [
+   {
+    "op": "return_card",
+    "kind": "spell"
+   },
+   {
+    "op": "return_card",
+    "kind": "enchantment"
+   }
+  ]
+ },
+ {
+  "id": "mystery",
+  "name": "Mystery",
+  "kind": "spell",
+  "cost": 3,
+  "text": [
+   "Remove any spell cards attached to an opponents champion."
+  ],
+  "effects": [
+   {
+    "op": "mystery_remove"
+   }
+  ]
+ },
+ {
+  "id": "grand_shield",
+  "name": "Grand Shield",
+  "kind": "spell",
+  "cost": 3,
+  "text": [
+   "Reduce any of your opponents attacks by 20 next turn."
+  ],
+  "effects": [
+   {
+    "op": "reduce_enemy_attacks",
+    "amount": 20
+   }
+  ]
+ },
+ {
+  "id": "rain_of_dragons",
+  "name": "Rain of Dragons",
+  "kind": "spell",
+  "cost": 2,
+  "text": [
+   "Creatures deal an additional 20 damage with their attacks this turn."
+  ],
+  "effects": [
+   {
+    "op": "type_attack_bonus",
+    "type": "Creature",
+    "amount": 20
+   }
+  ]
+ },
+ {
+  "id": "power_source",
+  "name": "Power Source",
+  "kind": "spell",
+  "cost": 4,
+  "text": [
+   "Attach this card to a champion, This champions HP is increased by 10 for every card in your hand until the champion is destroyed or Power Source is removed."
+  ],
+  "effects": [
+   {
+    "op": "attach",
+    "kind": "power_source"
+   }
+  ]
  }
 ]

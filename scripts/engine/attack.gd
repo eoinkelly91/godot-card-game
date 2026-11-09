@@ -63,6 +63,10 @@ static func play_spell(g: Game, p: int, hand_index: int, effect_index: int, targ
 				return g._fail("The bonus would be wasted: " + cant)
 		"lock", "draw", "gain_mana", "buff_attack":
 			pass
+		"attach":  # Warrior Idol, Fusion, Power Source: the card stays on one of your champions
+			target_champion = g._champion_of(ps, int(target.get("champion", -1)))
+			if target_champion == null:
+				return g._fail("Pick one of your own champions to attach this card to.")
 		_:
 			var verr: String = SpellEffects.validate(g, p, hand_index, effect, target)
 			if verr != "":
@@ -70,7 +74,8 @@ static func play_spell(g: Game, p: int, hand_index: int, effect_index: int, targ
 
 	ps.mana -= spell_cost
 	ps.hand.remove_at(hand_index)
-	ps.discard.append(card)
+	if op != "attach":  # an attached card stays on its champion instead of going to the discard pile
+		ps.discard.append(card)
 	g.spells_this_turn += 1
 	g._log("P%d casts %s (effect %d)." % [p, card.get("name", "?"), effect_index + 1])
 
@@ -98,6 +103,12 @@ static func play_spell(g: Game, p: int, hand_index: int, effect_index: int, targ
 				ps.hand.append(ps.deck.pop_back())
 		"gain_mana":
 			ps.mana += int(effect.get("amount", 0))
+		"attach":
+			var att: Dictionary = card.duplicate()
+			att["attach_kind"] = str(effect.get("kind", ""))
+			att["_stacks"] = 1  # Warrior Idol: +10 now, one more +10 at the start of each of your turns
+			target_champion.attached.append(att)
+			g._log("%s is attached to %s." % [card.get("name", "?"), target_champion.describe()])
 		"bonus_damage":
 			target_champion.statuses.append({"kind": "next_attack_bonus", "amount": int(effect.get("amount", 0))})
 			g._log("%s's next attack this turn does +%d damage." % [target_champion.describe(), int(effect.get("amount", 0))])
@@ -292,6 +303,7 @@ static func attack(g: Game, p: int, attacker_uid: int, attack_index: int, target
 		g._log("The attack does nothing. %s is still used this turn." % attacker.color())
 		return g._ok({"damage": 0, "fizzled": true})
 	var extra_dmg: int = int(coins.extra) + discard_bonus
+	var coin_recoil: int = int(coins.self_damage)
 	var dmg: int = DamageRules.calc(g, attacker, atk, target_champion, spell_bonus, enchant_order, extra_dmg)
 	for sst in attacker.statuses.duplicate():
 		if str(sst.kind) == "stored_bonus":  # Grimn's saved-up Gnaw bonus is used up by the attack
@@ -306,6 +318,10 @@ static func attack(g: Game, p: int, attacker_uid: int, attack_index: int, target
 			g._log("%s cannot be damaged by a champion with over %d HP." % [target_champion.card_name(), int(tab2.immune_to_attackers_max_hp_over)])
 			dmg = 0
 	if target_champion != null:
+		var shield: int = StatusRules.incoming_reduction(target_champion)  # Dive / Formation
+		if shield > 0 and dmg > 0:
+			dmg = maxi(0, dmg - shield)
+			g._log("%s's defence reduces the attack by %d (%d gets through)." % [target_champion.card_name(), shield, dmg])
 		DamageRules.damage_champion(g, target_champion, dmg, p)
 		_when_destroyed_reaction(g, attacker, target_champion, p)
 	elif not bool(atk.get("no_target", false)):
@@ -329,6 +345,8 @@ static func attack(g: Game, p: int, attacker_uid: int, attack_index: int, target
 		var tab3: Dictionary = target_champion.card.ability
 		if tab3.has("when_hit_over_damage_attacker") and dmg > int(tab3.when_hit_over_damage_attacker.over):
 			DamageRules.damage_champion(g, attacker, int(tab3.when_hit_over_damage_attacker.amount), 1 - p)
+	if coin_recoil > 0 and me.champions.has(attacker) and not g.finished:  # Suproar: 10 for each tails
+		DamageRules.damage_champion(g, attacker, coin_recoil, 1 - p)
 	if not g.finished:
 		AttackEffects.after_damage(g, p, attacker, atk, target_champion)
 	g._check_win()
@@ -345,6 +363,7 @@ static func _when_destroyed_reaction(g: Game, attacker: Champion, victim: Champi
 
 ## Defensive abilities (Gnome, Trolls) applied to one target. Returns the damage, or -1 if the attack is prevented.
 static func _after_defences(g: Game, attacker: Champion, target: Champion, dmg: int) -> int:
+	dmg = maxi(0, dmg - StatusRules.incoming_reduction(target)) if dmg > 0 else dmg
 	if target.has_ability():
 		var ab: Dictionary = target.card.ability
 		if ab.has("negate_if_damage_over") and dmg > int(ab.negate_if_damage_over):

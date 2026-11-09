@@ -302,7 +302,11 @@ func _log(text: String) -> void:
 	logged.emit(text)
 
 
+var hp_recalc_busy: bool = false
+
+
 func _ok(extra: Dictionary = {}) -> Dictionary:
+	HpRules.recalc(self)  # HP changes (Gaia, Super Shrink, Fusion, Power Source) are applied after every action
 	var r: Dictionary = {"ok": true}
 	r.merge(extra)
 	return r

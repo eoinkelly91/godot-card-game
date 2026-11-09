@@ -36,6 +36,7 @@ var _start_shown_turn: int = -1
 var _turn_label: Label
 var _log: RichTextLabel
 var _hand_w: float = HAND_CARD_W
+var _attachment_room: float = 0.0  # extra row height while any champion on the board has attached cards
 var _left_box: VBoxContainer
 var _opp_info: RichTextLabel
 var _btn_log: Button
@@ -686,6 +687,10 @@ func _render_board(box: VBoxContainer, info: RichTextLabel, p: int, is_active: b
 	_clear(box)
 	var ps: PlayerState = game.players[p]
 	var summoning: bool = is_active and _summoning_available(ps)
+	var most: int = 0
+	for ch in game.players[0].champions + game.players[1].champions:
+		most = maxi(most, ch.attached.size())
+	_attachment_room = 14.0 * most
 	info.text = "Player %d%s   Mana %d   Deck %d   Hand %d   Kills %d/%d   Castles used %d/%d%s%s" % [
 		p, "  (YOUR TURN)" if is_active else "", ps.mana, ps.deck.size(), ps.hand.size(), ps.kills,
 		int(game.rules.annihilation_goal), ps.castles_used, int(game.rules.castles_per_game),
@@ -708,7 +713,7 @@ func _render_board(box: VBoxContainer, info: RichTextLabel, p: int, is_active: b
 
 func _zone_row(content: Control, encamped: bool) -> PanelContainer:
 	var panel := PanelContainer.new()
-	panel.custom_minimum_size = Vector2(0, BOARD_CARD_H + 10.0)
+	panel.custom_minimum_size = Vector2(0, BOARD_CARD_H + 10.0 + _attachment_room)
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = Color(0.06, 0.06, 0.09) if encamped else Color(0.11, 0.12, 0.18)
 	sb.set_content_margin_all(3)
@@ -736,8 +741,28 @@ func _champion_flow(ps: PlayerState, is_active: bool) -> Control:
 		var v := CardView.create(c.card, BOARD_CARD_W, c, true, c.attacked_this_turn and is_active, ps.castled, game, Color(0.95, 0.15, 0.15))  # red once it has attacked
 		if is_active:
 			v.pressed.connect(_on_own_champion.bind(c.uid))
-		flow.add_child(v)
+		flow.add_child(_stack_with_attachments(c, v))
 	return scroll
+
+
+## A champion with attached cards is drawn stacked on top of them: the attached cards peek out behind it, to the
+## lower right, one step for each card. (Hover the champion to see the champion and the attached cards in full.)
+func _stack_with_attachments(c: Champion, view: CardView) -> Control:
+	var n: int = c.attached.size()
+	if n == 0:
+		return view
+	var step: float = 14.0
+	var holder := Control.new()
+	holder.custom_minimum_size = Vector2(BOARD_CARD_W + step * n, BOARD_CARD_H + step * n)
+	for i in range(n - 1, -1, -1):  # the furthest back is drawn first
+		var back: CardView = CardView.create(c.attached[i], BOARD_CARD_W, null, true)
+		back.position = Vector2(step * (i + 1), step * (i + 1))
+		back.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		holder.add_child(back)
+	view.position = Vector2.ZERO
+	view.size = view.custom_minimum_size
+	holder.add_child(view)
+	return holder
 
 
 ## The Fortress as a card: its definition plus the HP it has right now.

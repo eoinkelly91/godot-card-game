@@ -60,6 +60,7 @@ static func summon(g: Game, p: int, hand_index: int, sacrifice_uids: Array = [],
 			carried += sac.damage  # every damage counter carries over
 			ps.champions.erase(sac)
 			ps.discard.append(sac.card)  # sacrificing awards no points to anyone
+			DamageRules.release_attached(g, sac)
 			g._log("P%d sacrifices %s." % [p, sac.describe()])
 		slot = mini(slot, ps.champions.size())
 	var champion: Champion = g.spawn_champion(p, card, slot)

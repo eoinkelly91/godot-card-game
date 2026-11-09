@@ -80,12 +80,12 @@
   "id": "poglasaur",
   "name": "Poglasaur",
   "kind": "champion",
-  "class": "heroic",
+  "class": "legendary",
   "color": "White",
   "type": "Creature",
   "hp": 80,
   "summon": {
-   "sacrifice": 2
+   "sacrifice": 3
   },
   "attacks": [
    {
@@ -107,7 +107,7 @@
   "class": "elite",
   "color": "White",
   "type": "Creature",
-  "hp": 60,
+  "hp": 70,
   "summon": {
    "sacrifice": 1
   },
@@ -314,6 +314,46 @@
    "text": "This champion can be sacrificed as any color champion.",
    "trigger": "passive",
    "sacrifice_as_any_color": true
+  }
+ },
+ {
+  "id": "tigrorat",
+  "name": "Tigrorat",
+  "kind": "champion",
+  "class": "basic",
+  "color": "White",
+  "type": "Creature",
+  "hp": 40,
+  "summon": {},
+  "attacks": [
+   {
+    "name": "Savage",
+    "damage": 50,
+    "mana_cost": 1
+   }
+  ]
+ },
+ {
+  "id": "gaia",
+  "name": "Gaia",
+  "kind": "champion",
+  "class": "heroic",
+  "color": "White",
+  "type": "Spirit",
+  "hp": 50,
+  "summon": {
+   "mana": 2
+  },
+  "attacks": [
+   {
+    "name": "Probe",
+    "damage": 20
+   }
+  ],
+  "ability": {
+   "text": "Ability: Gaia's HP is equivalent to that of your opponents active champion with the most HP.",
+   "trigger": "passive",
+   "gaia_hp": true
   }
  }
 ]

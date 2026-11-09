@@ -353,5 +353,52 @@
     "amount": 10
    }
   }
+ },
+ {
+  "id": "gomosaur",
+  "name": "Gomosaur",
+  "kind": "champion",
+  "class": "basic",
+  "color": "Red",
+  "type": "Creature",
+  "hp": 60,
+  "summon": {},
+  "attacks": [
+   {
+    "name": "Tail Club",
+    "damage": 10
+   },
+   {
+    "name": "Formation",
+    "damage": 10,
+    "requires": {
+     "self_hp_at_least": 40
+    },
+    "reduce_incoming_self": 20,
+    "text": "10 + Reduce any attack targeting Gomosaur during your opponents next turn by 20."
+   }
+  ]
+ },
+ {
+  "id": "suproar",
+  "name": "Suproar",
+  "kind": "champion",
+  "class": "basic",
+  "color": "Red",
+  "type": "Creature",
+  "hp": 60,
+  "summon": {},
+  "attacks": [
+   {
+    "name": "Rampage",
+    "damage": 0,
+    "coins": {
+     "count": 2,
+     "per_heads_damage": 30,
+     "per_tails_self_damage": 10
+    },
+    "text": "Flip 2 coins, this attack doe 30 damage per heads. If tails this attack does 10 damage to Suproar."
+   }
+  ]
  }
 ]

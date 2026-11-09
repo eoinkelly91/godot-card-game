@@ -12,6 +12,33 @@ static func add_attack_buff(g: Game, p: int, amount: int, turns: int) -> void:
 	g._log("P%d's attacks get +%d for %d turn(s)." % [p, amount, turns])
 
 
+## Magic Wave / Rain of Dragons: this turn the owner's champions of that type attack harder.
+static func type_bonus(ps: PlayerState, champion_type: String) -> int:
+	var total: int = 0
+	for b in ps.buffs:
+		if str(b.kind) == "type_attack" and str(b.type) == champion_type:
+			total += int(b.amount)
+	return total
+
+
+## Grand Shield: every attack this player makes is reduced (lasts through their next turn).
+static func outgoing_reduction(ps: PlayerState) -> int:
+	var total: int = 0
+	for b in ps.buffs:
+		if str(b.kind) == "outgoing_reduction":
+			total += int(b.amount)
+	return total
+
+
+## Deep Peed's Dive / Gomosaur's Formation: attacks that target this champion are reduced.
+static func incoming_reduction(champion: Champion) -> int:
+	var total: int = 0
+	for st in champion.statuses:
+		if str(st.kind) == "reduce_incoming":
+			total += int(st.amount)
+	return total
+
+
 static func attack_bonus(ps: PlayerState) -> int:
 	var total: int = 0
 	for b in ps.buffs:
@@ -33,7 +60,7 @@ static func end_of_turn(_g: Game, p: int) -> void:
 				champion.statuses.erase(st)
 			elif kind == "stored_bonus":  # Grimn: a saved bonus lasts one turn
 				champion.statuses.erase(st)
-			elif kind == "no_attack" or kind == "duel":  # count their owner's own turns
+			elif kind == "no_attack" or kind == "duel" or kind == "reduce_incoming":  # count their owner's own turns
 				st.turns_left = int(st.turns_left) - 1
 				if int(st.turns_left) <= 0:
 					champion.statuses.erase(st)
@@ -63,6 +90,11 @@ static func run_start_of_turn(g: Game, p: int) -> void:
 		for st in champion.statuses.duplicate():
 			if str(st.kind) == "protected":  # "prevent all damage until your next turn" ends here
 				champion.statuses.erase(st)
+	for champion in ps.champions:  # Warrior Idol compounds every turn
+		for att in champion.attached:
+			if str(att.get("attach_kind", "")) == "warrior_idol":
+				att["_stacks"] = int(att.get("_stacks", 1)) + 1
+				g._log("Warrior Idol: %s's attacks now do +%d." % [champion.card_name(), 10 * int(att._stacks)])
 	for champion in ps.champions.duplicate():
 		for st in champion.statuses.duplicate():
 			if str(st.kind) != "poison" or not ps.champions.has(champion):

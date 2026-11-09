@@ -35,6 +35,13 @@
    {
     "name": "Red Blade",
     "damage": 20
+   },
+   {
+    "name": "Pyro Trick",
+    "damage": 50,
+    "mana_cost": 1,
+    "coin_fizzle": true,
+    "text": "50 + Flip a coin, if tails this attack does nothing."
    }
   ]
  },
@@ -132,7 +139,14 @@
     },
     "no_target": true,
     "damage_each_enemy": 10,
-    "text": "Do 10 damage to each of your opponts champions."
+    "text": "Do 10 damage to each of your opponents active champions."
+   },
+   {
+    "name": "Demonic",
+    "damage": 0,
+    "mana_cost": 1,
+    "per_own_enchantment": 10,
+    "text": "This attack does 10 damage for each of your enchantments in play."
    }
   ]
  },
@@ -140,20 +154,20 @@
   "id": "psybar",
   "name": "Psybar",
   "kind": "champion",
-  "class": "elite",
+  "class": "heroic",
   "color": "Purple",
   "type": "Spirit",
   "hp": 70,
   "summon": {
-   "sacrifice": 1
+   "sacrifice": 2
   },
   "attacks": [
    {
     "name": "Demonic",
     "damage": 10,
     "mana_cost": 1,
-    "per_own_enchantment": 10,
-    "text": "10 + This attack does an extra 10 damage for each of your enchantments in play."
+    "per_enchantment_in_play": 10,
+    "text": "10 + This attack does an extra 10 damage for every enchantment in play."
    }
   ],
   "ability": {
@@ -168,12 +182,12 @@
   "id": "warlord",
   "name": "Warlord",
   "kind": "champion",
-  "class": "heroic",
+  "class": "legendary",
   "color": "Purple",
   "type": "Creature",
   "hp": 120,
   "summon": {
-   "sacrifice": 2
+   "sacrifice": 3
   },
   "attacks": [
    {
@@ -311,6 +325,22 @@
     "damage": 0,
     "per_champion_in_own_discard": 10,
     "text": "Do 10 damage for every chamion card in the discard pile."
+   }
+  ]
+ },
+ {
+  "id": "panthdar",
+  "name": "Panthdar",
+  "kind": "champion",
+  "class": "basic",
+  "color": "Purple",
+  "type": "Creature",
+  "hp": 50,
+  "summon": {},
+  "attacks": [
+   {
+    "name": "Claw Blade",
+    "damage": 20
    }
   ]
  }

@@ -43,11 +43,31 @@ static func calc(g: Game, attacker: Champion, atk: Dictionary, target: Champion,
 	for sst in attacker.statuses:
 		if str(sst.kind) == "stored_bonus":
 			total += float(sst.amount)
+	# Cards that count things (Brickeen, Hydrostretch, Psyville, Psybar)
+	if atk.has("per_active_named"):
+		var named: int = 0
+		for c in me.active_champions():
+			if (atk.per_active_named.names as Array).has(c.card_name()):
+				named += 1
+		total += float(int(atk.per_active_named.amount) * named)
+	if atk.has("per_active_color_own"):
+		var colored: int = 0
+		for c in me.active_champions():
+			if c.color().to_lower() == str(atk.per_active_color_own.color).to_lower():
+				colored += 1
+		total += float(int(atk.per_active_color_own.amount) * colored)
+	total += float(int(atk.get("per_enchantment_in_play", 0)) * (me.enchantments.size() + foe.enchantments.size()))
 	total += float(spell_bonus) + float(StatusRules.attack_bonus(g.players[attacker.owner]))
+	if total > 0.0:  # Magic Wave / Rain of Dragons (this turn, by champion type) and Warrior Idol (compounds every turn)
+		total += float(StatusRules.type_bonus(me, attacker.champion_type()))
+		for att in attacker.attached:
+			if str(att.get("attach_kind", "")) == "warrior_idol":
+				total += 10.0 * float(int(att.get("_stacks", 1)))
 	var lair: int = int(g.players[attacker.owner].fortress_def.get("creature_bonus_damage", 0))  # Beasts Lair
 	if lair > 0 and total > 0.0 and attacker.champion_type() == "Creature":
 		total += float(lair)
 	total = apply_enchantments(total, g.players[attacker.owner], enchant_order, attacker.color(), false)
+	total = maxf(0.0, total - float(StatusRules.outgoing_reduction(me)))  # Grand Shield
 	return round_down_10(total)
 
 
@@ -160,8 +180,7 @@ static func destroy_champion(g: Game, champion: Champion, credit_player: int, co
 	var ps: PlayerState = g.players[champion.owner]
 	ps.champions.erase(champion)
 	ps.discard.append(champion.card)
-	for a in champion.attached:
-		ps.discard.append(a)
+	release_attached(g, champion)
 	if credit_player >= 0 and credit_player != champion.owner:
 		g.players[credit_player].kills += 1
 	g._log("%s is destroyed." % champion.describe())
@@ -173,3 +192,15 @@ static func destroy_champion(g: Game, champion: Champion, credit_player: int, co
 				ps.mana += gain
 				g._log("%s gives P%d %d mana." % [ench.get("name", "An enchantment"), champion.owner, gain])
 	g._check_win()
+	HpRules.recalc(g)  # what Gaia copies may have just changed
+
+
+## Cards attached to a champion that leaves play (destroyed, sacrificed, shuffled away) go to its owner's discard pile.
+static func release_attached(g: Game, champion: Champion) -> void:
+	var ps: PlayerState = g.players[champion.owner]
+	for a in champion.attached:
+		var card: Dictionary = (a as Dictionary).duplicate()
+		card.erase("_stacks")
+		card.erase("attach_kind")
+		ps.discard.append(card)
+	champion.attached.clear()

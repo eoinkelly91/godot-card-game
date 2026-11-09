@@ -69,8 +69,31 @@ func spell_target(p: int, hand_index: int, effect_index: int) -> Dictionary:
 	var op: String = str(effect.get("op", ""))
 	match op:
 		"lock", "draw", "gain_mana", "buff_attack", "drain_mana", "drain_mana_per_card", "gain_mana_per_enchantment", "opponent_discards", \
-		"summon_discount", "wizardry_draw":
+		"summon_discount", "wizardry_draw", "type_attack_bonus", "reduce_enemy_attacks", "damage_all_enemies", "shuffle_weak_champions":
 			return _t({})
+		"attach":  # Warrior Idol, Fusion, Power Source: one of your own champions (encamped ones too)
+			if me.champions.is_empty():
+				return _err("You have no champions to attach this card to.")
+			var at: Variant = await _one("Attach %s to which of your champions?" % str(card.get("name", "this card")), _champs(me.champions))
+			return _cancel() if at == null else _t({"champion": at})
+		"mystery_remove":
+			var carrying: Array = foe.champions.filter(func(c: Champion) -> bool: return not c.attached.is_empty())
+			if foe.castled:
+				return _err("The opponent's champions are encamped and cannot be targeted.")
+			if carrying.is_empty():
+				return _err("None of the opponent's champions has a card attached.")
+			var mv: Variant = await _one("Remove the attached cards from which champion?", _champs(carrying))
+			return _cancel() if mv == null else _t({"champion": mv})
+		"return_card":  # Galachs Will: a spell (effect 1) or an enchantment (effect 2) from your discard pile
+			var want: String = str(effect.get("kind", "spell"))
+			var opts4: Array = []
+			for i in me.discard.size():
+				if str(me.discard[i].get("kind", "")) == want:
+					opts4.append({"label": str(me.discard[i].get("name", "?")), "value": i})
+			if opts4.is_empty():
+				return _err("You have no %s cards in your discard pile." % want)
+			var rcd: Variant = await _one("Return which %s to your hand?" % want, opts4)
+			return _cancel() if rcd == null else _t({"discard_index": rcd})
 		"damage":
 			if foe.castled or foe.champions.is_empty():
 				return _t({"fortress": 1 - p})

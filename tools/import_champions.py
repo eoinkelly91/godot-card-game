@@ -40,7 +40,15 @@ ATTACK_EFFECTS = {
     ("Elite-O", 0): {"damage": 10, "multi_target": 2},
     ("Maragret", 1): {"damage": 0, "no_target": True, "coin_opponent_discards": 1},
     ("Psyville", 0): {"damage": 0, "no_target": True, "damage_each_enemy": 10},
-    ("Psybar", 0): {"per_own_enchantment": 10},
+    ("Psybar", 0): {"per_enchantment_in_play": 10},
+    ("Psyville", 1): {"damage": 0, "per_own_enchantment": 10},
+    ("Brickeen", 0): {"per_active_named": {"names": ["Brickeen", "Brickzard"], "amount": 20}},
+    ("Brickzard", 0): {"per_active_named": {"names": ["Brickeen", "Brickzard"], "amount": 30}},
+    ("Gomosaur", 1): {"reduce_incoming_self": 20},
+    ("Deep Peed", 1): {"damage": 0, "no_target": True, "reduce_incoming_self": 30},
+    ("Hydrostretch", 0): {"damage": 0, "per_active_color_own": {"color": "Blue", "amount": 10}},
+    ("Suproar", 0): {"damage": 0, "coins": {"count": 2, "per_heads_damage": 30, "per_tails_self_damage": 10}},
+    ("Cyris", 1): {"coin_fizzle": True},
     ("Molten Harry", 1): {"damage": 0, "no_target": True, "coin_extra_attack": True},
     ("Cwelen", 1): {"coin_fizzle": True},
     ("Saisen", 0): {"damage": 0, "coins": {"count": 3, "per_heads_damage": 10}},
@@ -79,6 +87,7 @@ ABILITIES = {
     "Lava Titan": {"trigger": "on_attack", "bonus_per": {"count": "own_damage_per_5_counters", "amount": 10}},
     "Spike": {"trigger": "passive", "sacrifice_as_any_color": True},
     "Fu": {"trigger": "passive", "when_destroyed_damage_attacker": 30},
+    "Gaia": {"trigger": "passive", "gaia_hp": True},
 }
 
 

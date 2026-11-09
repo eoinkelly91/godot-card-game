@@ -8,7 +8,9 @@ var uid: int
 var card: Dictionary
 var owner: int
 var damage: int = 0
-var attached: Array = []  # cards attached to this champion (future decision; nothing uses it yet)
+var attached: Array = []  # spell cards attached to this champion (Warrior Idol, Fusion, Power Source): card dictionaries
+var hp_mod: int = 0        # HP changes from Super Shrink, Fusion, Power Source (set by HpRules.recalc)
+var hp_override: int = -1  # Gaia: the HP it is currently copying (-1 = the printed HP)
 var summoned_turn: int = -1  # the game turn this champion was summoned on (it cannot attack that turn)
 var attacked_this_turn: bool = false  # Grimn: did this champion attack during its owner's turn
 var statuses: Array = []  # ongoing effects, e.g. {"kind": "poison", "amount": 10, "turns_left": 3, "source": 0}
@@ -37,8 +39,12 @@ func champion_class() -> String:
 	return str(card.get("class", ""))
 
 
+func base_hp() -> int:
+	return hp_override if hp_override >= 0 else int(card.get("hp", 0))
+
+
 func max_hp() -> int:
-	return int(card.get("hp", 0))
+	return maxi(0, base_hp() + hp_mod)
 
 
 func current_hp() -> int:

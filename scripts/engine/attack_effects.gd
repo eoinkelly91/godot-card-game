@@ -11,6 +11,7 @@ extends RefCounted
 static func coin_damage(g: Game, atk: Dictionary) -> Dictionary:
 	var extra: int = 0
 	var fizzle: bool = false
+	var self_hit: int = 0
 	if atk.has("coins"):
 		var heads: int = 0
 		for i in int(atk.coins.count):
@@ -18,6 +19,8 @@ static func coin_damage(g: Game, atk: Dictionary) -> Dictionary:
 				heads += 1
 		extra += heads * int(atk.coins.per_heads_damage)
 		g._log("%d Heads out of %d coins." % [heads, int(atk.coins.count)])
+		if atk.coins.has("per_tails_self_damage"):  # Suproar's Rampage: every tails hurts the attacker
+			self_hit += (int(atk.coins.count) - heads) * int(atk.coins.per_tails_self_damage)
 	if atk.has("coin_bonus"):
 		if g.flip_coin():
 			extra += int(atk.coin_bonus)
@@ -30,7 +33,7 @@ static func coin_damage(g: Game, atk: Dictionary) -> Dictionary:
 		else:
 			fizzle = true
 			g._log("Coin: Tails, the attack does nothing.")
-	return {"extra": extra, "fizzle": fizzle}
+	return {"extra": extra, "fizzle": fizzle, "self_damage": self_hit}
 
 
 ## Effects that happen when the attack lands (after its damage). target may be null (Fortress or no target).
@@ -46,10 +49,10 @@ static func after_damage(g: Game, p: int, attacker: Champion, atk: Dictionary, t
 			if g.flip_coin():
 				_hit(g, p, attacker, c, int(atk.coin_each_enemy))
 	if atk.has("damage_each_enemy"):
-		for c in foe.champions.duplicate():
+		for c in foe.active_champions():
 			_hit(g, p, attacker, c, int(atk.damage_each_enemy))
-	if atk.has("splash_enemies"):  # every OTHER enemy champion; the target already took the attack's damage
-		for c in foe.champions.duplicate():
+	if atk.has("splash_enemies"):  # every OTHER active enemy champion; the target already took the attack's damage
+		for c in foe.active_champions():
 			if c != target:
 				_hit(g, p, attacker, c, int(atk.splash_enemies))
 	if atk.has("splash_all"):  # every champion in play, your own included, but not the attacker itself
@@ -101,10 +104,21 @@ static func after_damage(g: Game, p: int, attacker: Champion, atk: Dictionary, t
 			foe.champions.erase(target)
 			foe.hand.append(target.card)
 			for att in target.attached:
-				foe.hand.append(att)
+				var back: Dictionary = (att as Dictionary).duplicate()
+				back.erase("_stacks")
+				back.erase("attach_kind")
+				foe.hand.append(back)
+			target.attached.clear()
 			g._log("%s and its attached cards return to P%d's hand." % [target.card_name(), 1 - p])
 		else:
 			g._log("Coin: Tails.")
+
+	if atk.has("reduce_incoming_self") and me.champions.has(attacker):  # Deep Peed's Dive, Gomosaur's Formation
+		for st in attacker.statuses.duplicate():
+			if str(st.kind) == "reduce_incoming":
+				attacker.statuses.erase(st)
+		attacker.statuses.append({"kind": "reduce_incoming", "amount": int(atk.reduce_incoming_self), "turns_left": 2})
+		g._log("Attacks targeting %s are reduced by %d until its owner's next turn." % [attacker.card_name(), int(atk.reduce_incoming_self)])
 
 	# Self damage comes last. A champion destroyed by its own recoil scores a point for the opponent.
 	if atk.has("self_damage") and me.champions.has(attacker):

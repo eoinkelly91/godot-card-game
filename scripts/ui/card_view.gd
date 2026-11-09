@@ -86,7 +86,16 @@ static func image_path(card_id: String) -> String:
 
 ## The full-size card shown when hovering.
 func _make_custom_tooltip(_for_text: String) -> Object:
-	return CardView.create(card, 340.0, live, false, false, encamped, game)
+	var main: CardView = CardView.create(card, 340.0, live, false, false, encamped, game)
+	if live == null or live.attached.is_empty():
+		return main
+	# A champion with attached cards: the champion first, then every attached card beside it
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 8)
+	row.add_child(main)
+	for a in live.attached:
+		row.add_child(CardView.create(a, 260.0, null, false))
+	return row
 
 
 func _gui_input(event: InputEvent) -> void:
@@ -215,7 +224,11 @@ func _build() -> void:
 		add_child(hp_line)
 	else:
 		var num_text: String = _top_left_text()
-		_label(num_text, 0, 0, NUM_W, TOP_H, 38 if num_text.length() < 3 else 28, on_base)
+		var num_color: Color = on_base
+		if _mana_summon():  # a summon cost paid in mana is a blue number on white (sacrifices stay as they were)
+			_box(0, 0, NUM_W, TOP_H, Color(1, 1, 1))
+			num_color = Color(0.1, 0.3, 0.95)
+		_label(num_text, 0, 0, NUM_W, TOP_H, 38 if num_text.length() < 3 else 28, num_color)
 		var line := ColorRect.new()
 		line.color = DARK
 		line.position = Vector2(NUM_W - 1.0, 4.0) * k
@@ -277,6 +290,13 @@ func _zzz() -> void:
 	z.add_theme_constant_override("outline_size", maxi(2, int(8.0 * k)))
 	z.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(z)
+
+
+func _mana_summon() -> bool:
+	if _kind() != "champion":
+		return false
+	var req: Dictionary = card.get("summon", {})
+	return int(req.get("mana", 0)) > 0 and int(req.get("sacrifice", 0)) == 0
 
 
 func _top_left_text() -> String:

@@ -49,6 +49,8 @@ func _init() -> void:
 		test_fortress_abilities,
 		test_grimn_not_on_summon_turn,
 		test_turn_has_no_steps,
+		test_new_cards_gaia_hp_and_attachments,
+		test_new_cards_spells_and_attacks,
 		test_simultaneous_win_is_draw,
 		test_mulligan_limit,
 		test_castle_basics,
@@ -775,8 +777,8 @@ func test_real_card_data() -> void:
 		check(int(c.hp) % 10 == 0, "%s: HP is a multiple of 10" % id)
 		for atk in c.attacks:
 			check(not (atk.has("mana_cost") and atk.has("requires")), "%s: %s does not mix mana and an HP threshold" % [id, atk.name])
-	check(champions == 55, "55 champions load (got %d)" % champions)
-	check(by_color == {"Red": 15, "Blue": 14, "White": 13, "Purple": 13}, "champions per color: %s" % str(by_color))
+	check(champions == 63, "63 champions load (got %d)" % champions)
+	check(by_color == {"Red": 17, "Blue": 17, "White": 15, "Purple": 14}, "champions per color: %s" % str(by_color))
 	check(rc("mersoilder").attacks[1].mana_cost == 2 and rc("mersoilder").attacks[1].coin_bonus == 20, "Mersoilder's Engage costs 2 mana and has a 20 coin bonus")
 	check(rc("harmlobeast").attacks.is_empty() and rc("harmlobeast").has("ability"), "Harmlobeast has an ability and no attack")
 	check(rc("stanter").attacks[1].requires.self_hp_at_least == 70, "Stanter's Divine Wind needs 70 HP")
@@ -1237,7 +1239,7 @@ func test_real_spell_data() -> void:
 		elif str(c.kind) == "enchantment":
 			enchants += 1
 			check(int(c.cost) == 3 or id == "mist_of_grief", "%s costs mana as in the sheet" % id)
-	check(spells == 13 and enchants == 5, "13 spells and 5 enchantments load (got %d and %d)" % [spells, enchants])
+	check(spells == 23 and enchants == 6, "23 spells and 6 enchantments load (got %d and %d)" % [spells, enchants])
 	check(int(rc("heal").cost) == 0 and int(rc("battle_axe").cost) == 1 and int(rc("treason").cost) == 3, "spell costs come from the sheet")
 
 
@@ -2135,3 +2137,127 @@ func test_turn_has_no_steps() -> void:
 	var g3 := real_game()
 	g3.players[0].hand = [rc("syranite")]
 	check(g3.summon(0, 0).ok, "summoning needs no step")
+
+
+func test_new_cards_gaia_hp_and_attachments() -> void:
+	# Gaia copies the HP of the opponent's active champion with the most HP, 50 if there is none
+	var g := real_game()
+	var gaia := spawn(g, 0, "gaia")
+	HpRules.recalc(g)
+	check(gaia.max_hp() == 50, "Gaia has 50 HP when the opponent has no active champions")
+	var small := spawn(g, 1, "gob")
+	var big := spawn(g, 1, "amustas")
+	HpRules.recalc(g)
+	check(gaia.max_hp() == big.max_hp() and big.max_hp() > small.max_hp(), "Gaia copies the highest HP among the opponent's active champions")
+	g.players[1].castled = true
+	HpRules.recalc(g)
+	check(gaia.max_hp() == 50, "encamped champions are not copied (50)")
+	g.players[1].castled = false
+	gaia.damage = small.max_hp() + 10
+	DamageRules.destroy_champion(g, big, 0)
+	check(not g.players[0].champions.has(gaia) and g.players[1].kills >= 1, "when the copied champion is destroyed Gaia copies the next highest, and dies if its damage is higher (the opponent gets a kill)")
+	# Super Shrink: -20 HP for the opponent's active champions; Fusion and Power Source add HP
+	var g2 := real_game()
+	var tgt := spawn(g2, 1, "gob")
+	var base: int = tgt.max_hp()
+	g2.players[0].enchantments = [rc("super_shrink")]
+	HpRules.recalc(g2)
+	check(tgt.max_hp() == base - 20, "Super Shrink takes 20 HP from the opponent's active champions")
+	tgt.damage = base - 10
+	HpRules.recalc(g2)
+	check(not g2.players[1].champions.has(tgt) and g2.players[0].kills == 1, "a champion whose damage exceeds its shrunken HP is destroyed and you get the kill")
+	var g3 := real_game()
+	var a := spawn(g3, 0, "syranite")
+	var b := spawn(g3, 0, "syranite")
+	g3.players[0].mana = 10
+	g3.players[0].hand = [rc("fusion"), rc("power_source"), rc("syranite"), rc("syranite")]
+	var hp0: int = a.max_hp()
+	check(g3.play_spell(0, 0, 0, {"champion": a.uid}).ok, "Fusion attaches")
+	check(a.attached.size() == 1 and a.max_hp() == hp0 + 40 and b.max_hp() == hp0, "Fusion: +20 for each active champion of the same color (itself included)")
+	check(g3.play_spell(0, 0, 0, {"champion": b.uid}).ok and b.attached.size() == 1, "Power Source attaches")
+	check(b.max_hp() == hp0 + 10 * g3.players[0].hand.size(), "Power Source: +10 HP for every card in your hand")
+	var before: int = b.max_hp()
+	g3.players[0].hand.append(rc("syranite"))
+	HpRules.recalc(g3)
+	check(b.max_hp() == before + 10, "and it follows the hand size")
+	DamageRules.destroy_champion(g3, b, 1)
+	check(g3.players[0].discard.any(func(c: Dictionary) -> bool: return str(c.get("id", "")) == "power_source"), "attached cards go to the discard pile when the champion is destroyed")
+
+func test_new_cards_spells_and_attacks() -> void:
+	# Warrior Idol compounds every turn
+	var g := real_game()
+	var a := spawn(g, 0, "syranite")
+	var foe := spawn(g, 1, "gob")
+	g.players[0].mana = 10
+	g.players[0].hand = [rc("warrior_idol")]
+	check(g.play_spell(0, 0, 0, {"champion": a.uid}).ok, "Warrior Idol attaches")
+	check(DamageRules.preview(g, a, a.card.attacks[0]) == int(a.card.attacks[0].damage) + 10, "Warrior Idol: +10 on the turn it is played")
+	g.end_turn(0)
+	g.end_turn(1)
+	check(DamageRules.preview(g, a, a.card.attacks[0]) == int(a.card.attacks[0].damage) + 20, "and +20 a turn later")
+	# Magic Wave / Rain of Dragons / Grand Shield
+	var g2 := real_game()
+	var spirit := spawn(g2, 0, "misley")
+	var beast := spawn(g2, 0, "pog")
+	g2.players[0].hand = [rc("magic_wave"), rc("rain_of_dragons")]
+	g2.play_spell(0, 0, 0)
+	check(DamageRules.preview(g2, spirit, spirit.card.attacks[0]) == int(spirit.card.attacks[0].damage) + 20 and DamageRules.preview(g2, beast, beast.card.attacks[0]) == int(beast.card.attacks[0].damage), "Magic Wave: your Spirits +20 this turn")
+	g2.play_spell(0, 0, 0)
+	check(DamageRules.preview(g2, beast, beast.card.attacks[0]) == int(beast.card.attacks[0].damage) + 20, "Rain of Dragons: your Creatures +20")
+	g2.end_turn(0)
+	check(DamageRules.preview(g2, spirit, spirit.card.attacks[0]) == int(spirit.card.attacks[0].damage), "the bonus lasts one turn")
+	var g3 := real_game()
+	var hitter := spawn(g3, 1, "amustas")
+	g3.players[0].hand = [rc("grand_shield")]
+	g3.players[0].mana = 10
+	g3.play_spell(0, 0, 0)
+	g3.end_turn(0)
+	var plain: int = int(hitter.card.attacks[0].damage)
+	check(DamageRules.preview(g3, hitter, hitter.card.attacks[0]) == maxi(0, plain - 20), "Grand Shield: the opponent's attacks do 20 less next turn")
+	# Thunderstorm, Vortex of the Damned, Mystery, Galachs Will
+	var g4 := real_game()
+	var f1 := spawn(g4, 1, "gob")
+	var f2 := spawn(g4, 1, "amustas")
+	g4.players[1].castled = true
+	g4.players[0].mana = 10
+	g4.players[0].hand = [rc("thunderstorm"), rc("vortex_of_the_damned")]
+	g4.play_spell(0, 0, 0)
+	check(f1.damage == 10 and f2.damage == 10, "Thunderstorm hits every opposing champion, encamped ones too")
+	var deck_before: int = g4.players[1].deck.size()
+	g4.play_spell(0, 0, 0)
+	check(not g4.players[1].champions.has(f1) and g4.players[1].champions.has(f2) and g4.players[1].deck.size() == deck_before + 1, "Vortex shuffles champions under 60 HP back into the deck")
+	var g5 := real_game()
+	var carrier := spawn(g5, 1, "gob")
+	carrier.attached = [rc("fusion").duplicate()]
+	g5.players[0].hand = [rc("mystery"), rc("galachs_will")]
+	g5.players[0].discard = [rc("heal"), rc("battlements")]
+	g5.players[0].mana = 10
+	check(g5.play_spell(0, 0, 0, {"champion": carrier.uid}).ok and carrier.attached.is_empty(), "Mystery removes the cards attached to an opponent's champion")
+	check(g5.play_spell(0, 0, 1, {"discard_index": 1}).ok and g5.players[0].hand[0].name == "Battlements", "Galachs Will returns an enchantment from the discard pile")
+	# New attacks
+	var g6 := real_game()
+	var z1 := spawn(g6, 0, "brickeen")
+	var z2 := spawn(g6, 0, "brickzard")
+	var hy := spawn(g6, 0, "hydrostretch")
+	var one_brick: int = int(z1.card.attacks[0].damage)
+	check(DamageRules.preview(g6, z1, z1.card.attacks[0]) == one_brick + 20 * 2, "Planktonne counts every active Brickeen and Brickzard")
+	var blues: int = 0
+	for c in g6.players[0].active_champions():
+		if c.color() == "Blue":
+			blues += 1
+	check(DamageRules.preview(g6, hy, hy.card.attacks[0]) == 10 * blues, "Hydrostretch: 10 per active Blue champion")
+	var g7 := real_game()
+	var gomo := spawn(g7, 0, "gomosaur")
+	var att := spawn(g7, 1, "amustas")
+	to_attack(g7)
+	g7.attack(0, gomo.uid, 1, {"champion": att.uid})
+	g7.end_turn(0)
+	var gt: Champion = gomo
+	check(StatusRules.incoming_reduction(gt) == 20, "Formation: attacks targeting Gomosaur are reduced by 20 on the opponent's turn")
+	var g8 := real_game()
+	var sup := spawn(g8, 0, "suproar")
+	var tg := spawn(g8, 1, "gob")
+	g8.forced_coins = [true, false]
+	to_attack(g8)
+	g8.attack(0, sup.uid, 0, {"champion": tg.uid})
+	check(tg.damage == 30 and sup.damage == 10, "Rampage: 30 for each heads, 10 to Suproar for each tails")

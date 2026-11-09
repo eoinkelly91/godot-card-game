@@ -34,6 +34,18 @@ static func validate(g: Game, p: int, hand_index: int, effect: Dictionary, targe
 				total += n
 			if total > int(effect.get("count", 3)):
 				return "You can move at most %d counters." % int(effect.get("count", 3))
+		"type_attack_bonus", "reduce_enemy_attacks", "damage_all_enemies", "shuffle_weak_champions":
+			pass
+		"mystery_remove":  # Mystery: target {"champion": uid} of an opponent's champion that has attached cards
+			var mc: Champion = g._champion_of(foe, int(target.get("champion", -1)))
+			if mc == null or foe.castled:
+				return "Pick an enemy champion in the active play area."
+			if mc.attached.is_empty():
+				return "%s has no cards attached." % mc.card_name()
+		"return_card":  # Galachs Will: target {"discard_index": i}, a spell or an enchantment depending on the effect
+			var ri: int = int(target.get("discard_index", -1))
+			if ri < 0 or ri >= me.discard.size() or str(me.discard[ri].get("kind", "")) != str(effect.get("kind", "spell")):
+				return "Pick a %s card in your discard pile." % str(effect.get("kind", "spell"))
 		"drain_mana", "drain_mana_per_card", "gain_mana_per_enchantment", "opponent_discards", "summon_discount", "wizardry_draw", "rearrange_top":
 			pass
 		"remove_enchantment":  # target {"enchantment": index into the opponent's enchantments}
@@ -118,6 +130,39 @@ static func apply(g: Game, p: int, hand_index: int, effect: Dictionary, target: 
 	var me: PlayerState = g.players[p]
 	var foe: PlayerState = g.players[1 - p]
 	match str(effect.get("op", "")):
+		"type_attack_bonus":  # Magic Wave, Rain of Dragons
+			me.buffs.append({"kind": "type_attack", "type": str(effect.get("type", "")), "amount": int(effect.get("amount", 0)), "turns_left": 1})
+			g._log("P%d's %s champions attack for +%d this turn." % [p, str(effect.get("type", "")), int(effect.get("amount", 0))])
+		"reduce_enemy_attacks":  # Grand Shield: until the end of the opponent's next turn
+			foe.buffs.append({"kind": "outgoing_reduction", "amount": int(effect.get("amount", 0)), "turns_left": 1})
+			g._log("P%d's attacks are reduced by %d during their next turn." % [1 - p, int(effect.get("amount", 0))])
+		"damage_all_enemies":  # Thunderstorm: every opposing champion, encamped ones too
+			var dmg: int = DamageRules.round_down_10(DamageRules.apply_enchantments(float(effect.get("amount", 0)), me, [], "", true))
+			for c in foe.champions.duplicate():
+				DamageRules.damage_champion(g, c, dmg, p, true)
+		"shuffle_weak_champions":  # Vortex of the Damned: back into their deck, attached cards to the discard pile
+			var below: int = int(effect.get("hp_below", 60))
+			for c in foe.champions.duplicate():
+				if c.max_hp() < below:
+					foe.champions.erase(c)
+					DamageRules.release_attached(g, c)
+					foe.deck.append(c.card)
+					g._log("%s is shuffled back into P%d's deck." % [c.describe(), 1 - p])
+			for i in range(foe.deck.size() - 1, 0, -1):  # shuffle with the game's own random numbers
+				var j: int = g.rng.randi_range(0, i)
+				var tmp: Variant = foe.deck[i]
+				foe.deck[i] = foe.deck[j]
+				foe.deck[j] = tmp
+		"mystery_remove":  # Mystery
+			var mc: Champion = g._champion_of(foe, int(target.get("champion", -1)))
+			var removed: int = mc.attached.size()
+			DamageRules.release_attached(g, mc)
+			g._log("Mystery removes %d attached card(s) from %s." % [removed, mc.card_name()])
+		"return_card":  # Galachs Will
+			var back: Dictionary = me.discard[int(target.discard_index)]
+			me.discard.remove_at(int(target.discard_index))
+			me.hand.append(back)
+			g._log("P%d returns %s from the discard pile to their hand." % [p, str(back.get("name", "a card"))])
 		"cleanse":  # removes the NEGATIVE statuses (poison) from one of your champions
 			var c: Champion = g._champion_of(me, int(target.champion))
 			for st in c.statuses.duplicate():
