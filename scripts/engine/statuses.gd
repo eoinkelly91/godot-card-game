@@ -38,7 +38,8 @@ static func end_of_turn(_g: Game, p: int) -> void:
 				if int(st.turns_left) <= 0:
 					champion.statuses.erase(st)
 		# Grimn: a champion that did not attack this turn saves a bonus for its next attack.
-		if champion.has_ability() and champion.card.ability.has("stored_bonus_if_idle") and not champion.attacked_this_turn:
+		if champion.has_ability() and champion.card.ability.has("stored_bonus_if_idle") and not champion.attacked_this_turn \
+				and champion.summoned_turn != _g.turn:  # not on the turn it was summoned
 			champion.statuses.append({"kind": "stored_bonus", "amount": int(champion.card.ability.stored_bonus_if_idle)})
 			_g._log("%s did not attack: its next attack does +%d damage." % [champion.card_name(), int(champion.card.ability.stored_bonus_if_idle)])
 

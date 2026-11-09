@@ -47,6 +47,8 @@ func _init() -> void:
 		test_decking_out,
 		test_pass_ends_turn,
 		test_fortress_abilities,
+		test_grimn_not_on_summon_turn,
+		test_turn_has_no_steps,
 		test_simultaneous_win_is_draw,
 		test_mulligan_limit,
 		test_castle_basics,
@@ -1242,9 +1244,9 @@ func test_real_spell_data() -> void:
 func test_spells_any_time_after_castle_and_cost_mana() -> void:
 	var g := real_game()
 	g.players[0].hand = [rc("crimson_wave"), rc("mumified")]
-	check(g.step == Game.Step.CASTLE, "the turn starts in the castle step")
+	check(g.step == Game.Step.OPEN, "the turn starts in the castle step")
 	check(g.play_spell(0, 0, 0).ok, "a free spell can be played right after the castle step (Summon step)")
-	check(g.step == Game.Step.SUMMON, "playing a spell moves the turn to the Summon step")
+	check(g.step == Game.Step.OPEN, "playing a spell moves the turn to the Summon step")
 	g.players[0].mana = 1  # after the Fortress mana has arrived
 	check(not g.play_spell(0, 0, 0).ok, "Mumified needs 2 mana")
 	g.players[0].mana = 2
@@ -1963,7 +1965,7 @@ func test_start_of_turn_summary_and_poison() -> void:
 	var t2 := spawn(g2, 0, "amustas")
 	StatusRules.apply_poison(g2, t2, 10, -1, 1)
 	trig(g2)  # poison ticks at the very start of the turn, before any castling decision
-	check(t2.damage == 10 and g2.step == Game.Step.CASTLE, "poison triggers while the turn is still in the Castle step")
+	check(t2.damage == 10 and g2.step == Game.Step.OPEN, "poison triggers while the turn is still in the Castle step")
 
 
 # ---------------------------------------------------------------- sheet update: Fu, Vortex, Predict, Crimson Wave, Castle
@@ -2056,7 +2058,7 @@ func test_turn_order_summoning_sickness_hand_limit_and_decks() -> void:
 	t.damage = 30
 	StatusRules.apply_poison(g, t, 10, -1, 0)
 	g.end_turn(0)  # player 1's turn begins: draw, then triggers
-	check(g.step == Game.Step.CASTLE and t.damage == 40, "poison has already ticked while the turn is in the Castle step")
+	check(g.step == Game.Step.OPEN and t.damage == 40, "poison has already ticked while the turn is in the Castle step")
 	# A champion cannot attack on the turn it was summoned
 	var g2 := real_game()
 	g2.players[0].hand = [rc("syranite")]
@@ -2102,3 +2104,34 @@ func test_enchantments_anytime_and_battle_axe_target() -> void:
 	var fresh: Champion = g2.players[0].champions[0]
 	var r: Dictionary = g2.play_spell(0, 0, 0, {"champion": fresh.uid})
 	check(not r.ok and "wasted" in str(r.error), "Battle Axe will not name a champion that cannot attack")
+
+
+func test_grimn_not_on_summon_turn() -> void:
+	var g := real_game()
+	g.players[0].hand = [rc("grimn")]
+	g.summon(0, 0)
+	var grimn: Champion = g.players[0].champions[0]
+	g.end_turn(0)
+	check(grimn.statuses.filter(func(st: Dictionary) -> bool: return str(st.kind) == "stored_bonus").is_empty(), "Grimn saves no bonus on the turn it was summoned")
+	g.end_turn(1)
+	g.end_turn(0)  # a full turn later without attacking
+	check(grimn.statuses.filter(func(st: Dictionary) -> bool: return str(st.kind) == "stored_bonus").size() == 1, "but saves +20 after a turn in play without attacking")
+
+
+func test_turn_has_no_steps() -> void:
+	# Summoning, spells and enchantments work at any time; castling only before the first attack
+	var g := real_game()
+	var a := spawn(g, 0, "syranite")
+	var foe := spawn(g, 1, "gob")
+	g.players[0].hand = [rc("tide_guard"), rc("field_medics")] if false else [rc("syranite"), rc("field_medics")]
+	check(g.play_enchantment(0, 1).ok, "an enchantment can come first")
+	check(g.attack(0, a.uid, 0, {"champion": foe.uid}).ok, "attack")
+	check(g.summon(0, 0).ok, "summoning is still possible after attacking")
+	check(not g.castle(0).ok and "after attacking" in Preflight.castle_problem(g, 0), "castling is closed once you have attacked")
+	var g2 := real_game()
+	spawn(g2, 0, "syranite")
+	g2.players[0].hand = [rc("field_medics")]
+	check(g2.play_enchantment(0, 0).ok and g2.castle(0).ok, "castling is still possible after an enchantment, before attacking")
+	var g3 := real_game()
+	g3.players[0].hand = [rc("syranite")]
+	check(g3.summon(0, 0).ok, "summoning needs no step")

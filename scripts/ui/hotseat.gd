@@ -10,7 +10,7 @@ const COLORS := {
 	"White": Color(0.78, 0.78, 0.74), "Purple": Color(0.42, 0.2, 0.58),
 }
 const NEUTRAL := Color(0.25, 0.3, 0.28)
-const HAND_CARD_W := 245.0
+const HAND_CARD_W := 245.0  # the starting size; the hand grows or shrinks to fill the window (see _fit_hand_size)
 const BOARD_CARD_W := 150.0
 const BOARD_CARD_H := BOARD_CARD_W * 650.0 / 490.0
 
@@ -35,12 +35,14 @@ var _attack_hint: Label
 var _start_shown_turn: int = -1
 var _turn_label: Label
 var _log: RichTextLabel
-var _opp_info: Label
+var _hand_w: float = HAND_CARD_W
+var _left_box: VBoxContainer
+var _opp_info: RichTextLabel
 var _btn_log: Button
 var _log_panel: PanelContainer
 var _opp_discard_btn: Button
 var _my_discard_box: VBoxContainer
-var _me_info: Label
+var _me_info: RichTextLabel
 var _btn_end: Button
 var _btn_new: Button
 var _setup: Control
@@ -110,6 +112,8 @@ func _build_ui() -> void:
 	outer.add_theme_constant_override("separation", 3)
 	margin.add_child(outer)
 	var left := VBoxContainer.new()
+	_left_box = left
+	left.resized.connect(_fit_hand_size)
 	left.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	left.add_theme_constant_override("separation", 3)
 	outer.add_child(left)
@@ -130,7 +134,7 @@ func _build_ui() -> void:
 	_opp_info = _info_label()
 	_opp_info.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	opp_head.add_child(_opp_info)
-	_opp_discard_btn = _button("Their discard pile", _on_view_opp_discard)
+	_opp_discard_btn = _button("Opponents Discard Pile", _on_view_opp_discard)
 	opp_head.add_child(_opp_discard_btn)
 	_opp_box = VBoxContainer.new()
 	left.add_child(_opp_box)
@@ -152,7 +156,7 @@ func _build_ui() -> void:
 	left.add_child(bottom)
 	_hand_scroll = ScrollContainer.new()
 	_hand_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_hand_scroll.custom_minimum_size = Vector2(0, HAND_CARD_W * 650.0 / 490.0 + 24.0)
+	_hand_scroll.custom_minimum_size = Vector2(0, _hand_w * 650.0 / 490.0 + 24.0)
 	_hand_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	_hand_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_ALWAYS  # the bar stays (hidden when not needed)
 	_hand_scroll.gui_input.connect(_on_hand_gui_input)
@@ -218,9 +222,13 @@ func _toggle_log() -> void:
 	_log_panel.visible = not _log_panel.visible
 
 
-func _info_label() -> Label:
-	var l := Label.new()
-	l.add_theme_font_size_override("font_size", 13)
+func _info_label() -> RichTextLabel:
+	var l := RichTextLabel.new()  # rich text so "SUMMONING AVAILABLE" can be yellow
+	l.bbcode_enabled = true
+	l.fit_content = true
+	l.scroll_active = false
+	l.autowrap_mode = TextServer.AUTOWRAP_OFF
+	l.add_theme_font_size_override("normal_font_size", 13)
 	return l
 
 
@@ -509,8 +517,6 @@ func _on_reveal() -> void:
 	var p: int = game.active
 	var ps: PlayerState = game.players[p]
 	_show_start_of_turn()  # poison, abilities and the Fortress already happened when the turn began
-	if game.step == Game.Step.CASTLE and not ps.castled and Preflight.castle_problem(game, p) != "":
-		game.next_step(p)  # nothing to decide about castling
 	if not _fortress_options().is_empty():
 		_status.text += "  |  Click your Fortress to castle or uncastle."
 	refresh()
@@ -642,6 +648,7 @@ func _status_text(st: Dictionary) -> String:
 
 func _clear(node: Node) -> void:
 	for c in node.get_children():
+		node.remove_child(c)  # detach at once: a node that is only queued for deletion still takes up layout space
 		c.queue_free()
 
 
@@ -652,19 +659,20 @@ func refresh() -> void:
 	if game == null:
 		return
 	var p: int = game.active
-	_turn_label.text = "Turn %d · Player %d · %s step%s" % [game.turn, p, ["Castle", "Summon", "Attack"][game.step], "  (game over)" if game.finished else ""]
+	_turn_label.text = "Turn %d · Player %d%s" % [game.turn, p, "  (game over)" if game.finished else ""]
 	var mine: bool = viewer == p and not game.finished and not _cover.visible
 	_render_board(_opp_box, _opp_info, 1 - p, false)
 	_render_board(_me_box, _me_info, p, true)
-	_opp_discard_btn.text = "Their discard pile (%d)" % game.players[1 - p].discard.size()
+	call_deferred("_fit_hand_size")
+	_opp_discard_btn.text = "Opponents Discard Pile (%d)" % game.players[1 - p].discard.size()
 	_clear(_my_discard_box)
-	_my_discard_box.add_child(_discard_pile(game.players[p], p, HAND_CARD_W - 18.0))  # as tall as the hand, with END TURN under it
+	_my_discard_box.add_child(_discard_pile(game.players[p], p, _hand_w - 18.0))  # as tall as the hand, with END TURN under it
 	_render_hand()
 	var ps: PlayerState = game.players[p]
 	_btn_new.visible = game.finished
 	_btn_end.disabled = not mine
 	_update_end_turn_highlight(mine)
-	_attack_hint.text = Preflight.attackers_text(game, p) if mine and game.step != Game.Step.CASTLE else ""
+	_attack_hint.text = Preflight.attackers_text(game, p) if mine else ""
 	while _log_seen < game.log_lines.size():
 		_log.append_text(game.log_lines[_log_seen] + "\n")
 		_log_seen += 1
@@ -674,14 +682,14 @@ func refresh() -> void:
 
 
 ## One player's row: champions (left, encamped ones faded and asleep), then the Fortress, then the enchantments.
-func _render_board(box: VBoxContainer, info: Label, p: int, is_active: bool) -> void:
+func _render_board(box: VBoxContainer, info: RichTextLabel, p: int, is_active: bool) -> void:
 	_clear(box)
 	var ps: PlayerState = game.players[p]
-	var summoning: bool = is_active and not game.finished and game.step != Game.Step.ATTACK and not ps.summoned_this_turn
+	var summoning: bool = is_active and _summoning_available(ps)
 	info.text = "Player %d%s   Mana %d   Deck %d   Hand %d   Kills %d/%d   Castles used %d/%d%s%s" % [
 		p, "  (YOUR TURN)" if is_active else "", ps.mana, ps.deck.size(), ps.hand.size(), ps.kills,
 		int(game.rules.annihilation_goal), ps.castles_used, int(game.rules.castles_per_game),
-		"   SUMMONING AVAILABLE" if summoning else "",
+		"   [color=#ffd940]SUMMONING AVAILABLE[/color]" if summoning else "",
 		("   [CASTLED: Fortress vulnerable to attack, champions encamped, turns remaining:%d]" % maxi(0, int(game.rules.max_castled_turns) - ps.castled_turns)) if ps.castled else ""]
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 10)
@@ -798,10 +806,26 @@ func _render_hand() -> void:
 	var ps: PlayerState = game.players[p]
 	_hand_label.text = "Your hand (%d cards) · Mana %d · Colors that attacked this turn: %s" % [ps.hand.size(), ps.mana, ", ".join(ps.colors_used) if not ps.colors_used.is_empty() else "none"]
 	for i in ps.hand.size():
-		var v := CardView.create(ps.hand[i], HAND_CARD_W)
+		var v := CardView.create(ps.hand[i], _hand_w)
 		v.pressed.connect(_on_hand_card.bind(i))
 		_hand_row.add_child(v)
 	call_deferred("_fix_hand_scroll")
+
+
+## Makes the hand cards as big as the window allows, so there is no empty strip between the hand and the
+## messages bar (and no overflow either).
+func _fit_hand_size() -> void:
+	if _left_box == null or _hand_scroll == null or not is_inside_tree():
+		return
+	var leftover: float = _left_box.size.y - _left_box.get_combined_minimum_size().y
+	if absf(leftover) < 4.0:
+		return
+	var new_w: float = clampf(_hand_w + leftover * 490.0 / 650.0, 160.0, 300.0)
+	if absf(new_w - _hand_w) < 2.0:
+		return
+	_hand_w = new_w
+	_hand_scroll.custom_minimum_size = Vector2(0, _hand_w * 650.0 / 490.0 + 24.0)
+	refresh()
 
 
 ## After the hand changes: the scroll bar only shows when the hand is wider than the window (its space stays
@@ -827,7 +851,7 @@ func _fix_hand_scroll() -> void:
 ## The mouse wheel scrolls the hand sideways (a plain wheel normally only scrolls up and down).
 func _on_hand_gui_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.pressed:
-		var step: int = int(HAND_CARD_W)
+		var step: int = int(_hand_w)
 		if event.button_index == MOUSE_BUTTON_WHEEL_DOWN or event.button_index == MOUSE_BUTTON_WHEEL_RIGHT:
 			_hand_scroll.scroll_horizontal += step
 			_hand_scroll.accept_event()
@@ -838,7 +862,7 @@ func _on_hand_gui_input(event: InputEvent) -> void:
 
 func ps_hand_width() -> float:
 	var n: int = game.players[game.active].hand.size() if game != null else 0
-	return float(n) * (HAND_CARD_W + 6.0)
+	return float(n) * (_hand_w + 6.0)
 
 
 # ================================================================ actions
@@ -857,7 +881,7 @@ func _report(res: Dictionary) -> bool:
 	return bool(res.ok)
 
 
-## What clicking your own Fortress offers right now: castle / uncastle / carry on in the Castle step.
+## What clicking your own Fortress offers right now: castle or uncastle in the Castle step (Cancel just closes it).
 ## (There is no Fortress heal any more: the Fortress ability triggers by itself at the start of the turn.)
 func _fortress_options() -> Array:
 	var opts: Array = []
@@ -865,14 +889,17 @@ func _fortress_options() -> Array:
 		return opts
 	var p: int = game.active
 	var ps: PlayerState = game.players[p]
-	if game.step == Game.Step.CASTLE:
+	if game.step == Game.Step.OPEN:
 		if ps.castled:
 			opts.append({"label": "Uncastle: bring your champions back into play", "value": "uncastle"})
 		elif Preflight.castle_problem(game, p) == "":
 			opts.append({"label": "Castle: your champions are encamped, you draw 2 cards a turn", "value": "castle"})
-	if game.step == Game.Step.CASTLE and not opts.is_empty():
-		opts.append({"label": "Carry on without changing anything", "value": "continue"})
 	return opts
+
+
+## The same condition as the "SUMMONING AVAILABLE" text.
+func _summoning_available(ps: PlayerState) -> bool:
+	return not game.finished and not ps.summoned_this_turn  # summoning works at any time during your turn
 
 
 ## True when this player has nothing more to do: no champion can attack and no spell or enchantment can be played.
@@ -881,6 +908,8 @@ func _nothing_left_to_do() -> bool:
 		return false
 	var p: int = game.active
 	var ps: PlayerState = game.players[p]
+	if _summoning_available(ps):
+		return false
 	for c in ps.champions:
 		if Preflight.attack_problem(game, p, c) == "":
 			return false
@@ -915,10 +944,10 @@ func _on_fortress_clicked() -> void:
 		return
 	var opts: Array = _fortress_options()
 	var lock: String = TurnRules.castle_lock_text(game, game.players[game.active])
-	if lock != "" and game.step == Game.Step.CASTLE and not game.players[game.active].castled:
+	if lock != "" and game.step == Game.Step.OPEN and not game.players[game.active].castled:
 		_status.text = lock  # how long until this player may castle
 	if opts.is_empty():
-		var why: String = Preflight.castle_problem(game, game.active) if game.step == Game.Step.CASTLE else ""
+		var why: String = Preflight.castle_problem(game, game.active) if game.step == Game.Step.OPEN else ""
 		_status.text = "Nothing to do with your Fortress right now." + ("  Castling: " + why if why != "" else "")
 		return
 	busy = true
@@ -928,13 +957,9 @@ func _on_fortress_clicked() -> void:
 		return
 	match str((res as Array)[0]):
 		"castle":
-			if _report(game.castle(game.active)):
-				_report(game.next_step(game.active))  # nothing else to decide in the Castle step
+			_report(game.castle(game.active))
 		"uncastle":
-			if _report(game.uncastle(game.active)):
-				_report(game.next_step(game.active))
-		"continue":
-			_report(game.next_step(game.active))
+			_report(game.uncastle(game.active))
 
 
 func _on_castle() -> void:
@@ -974,7 +999,7 @@ func _on_end_turn() -> void:
 func _pick_champion(title: String, list: Array) -> Variant:
 	var opts: Array = []
 	for c in list:
-		opts.append({"label": c.describe() + (" (damage %d)" % c.damage if c.damage > 0 else ""), "value": c.uid})
+		opts.append({"label": game.describe_champion(c) + (" (damage %d)" % c.damage if c.damage > 0 else ""), "value": c.uid})
 	var res: Variant = await choose(title, opts, 1, 1)
 	if res == null or (res as Array).is_empty():
 		return null
@@ -1103,7 +1128,7 @@ func attack_with(uid: int) -> Dictionary:
 		var tip: String = str(atk.get("text", ""))
 		opts.append({"label": _atk_menu_label(c, atk) + ("   ✗ " + why if why != "" else ""), "value": ai,
 				"tooltip": why if why != "" else tip, "disabled": why != ""})
-	var pick: Variant = await choose("%s: which attack?" % c.card_name(), opts, 1, 1)
+	var pick: Variant = await choose("%s%s: which attack?" % [c.card_name(), game.champion_tag(c)], opts, 1, 1)
 	if pick == null or (pick as Array).is_empty():
 		return {"ok": false, "error": ""}
 	var ai2: int = int((pick as Array)[0])

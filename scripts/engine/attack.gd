@@ -13,10 +13,6 @@ static func play_spell(g: Game, p: int, hand_index: int, effect_index: int, targ
 	var chk: Dictionary = TurnRules.require_turn(g, p)
 	if not chk.ok:
 		return chk
-	if g.step == Game.Step.CASTLE:
-		TurnRules._enter_summon_step(g, p)  # spells come after the castle step
-		if g.finished:
-			return g._fail("The game is over.")
 	var ps: PlayerState = g.players[p]
 	if ps.is_first_turn():
 		return g._fail("You cannot play spells on your first turn.")
@@ -117,7 +113,7 @@ static func play_spell(g: Game, p: int, hand_index: int, effect_index: int, targ
 ## enchant_order: indices into your enchantment list (defaults to the order they were played).
 static func attack(g: Game, p: int, attacker_uid: int, attack_index: int, target: Dictionary,
 		spell_picks: Array = [], enchant_order: Array = []) -> Dictionary:
-	var chk: Dictionary = TurnRules.require_step(g, p, Game.Step.ATTACK)
+	var chk: Dictionary = TurnRules.require_step(g, p, Game.Step.ATTACKED)
 	if not chk.ok:
 		return chk
 	var me: PlayerState = g.players[p]

@@ -16,8 +16,7 @@ static func take_turn(g: Game, p: int) -> void:
 	elif ps.castles_used == 0 and not ps.is_first_turn() and ps.champions.size() == 1 and foe.champions.size() >= 3:
 		g.castle(p)  # only possible with exactly one champion in the active play area
 
-	# Step 3 and the Summon step.
-	g.next_step(p)
+	# Summon (the turn has no steps: summoning, spells and enchantments are possible at any time).
 	for i in range(ps.hand.size() - 1, -1, -1):
 		if i < ps.hand.size() and str(ps.hand[i].get("kind", "")) == "enchantment":
 			g.play_enchantment(p, i)
@@ -29,8 +28,7 @@ static func take_turn(g: Game, p: int) -> void:
 		if g.summon(p, i, _sacrifices(ps, ps.hand[i])).ok:
 			break
 
-	# Attack step.
-	g.next_step(p)
+	# Attack.
 	if ps.is_first_turn():
 		g.end_turn(p)
 		return

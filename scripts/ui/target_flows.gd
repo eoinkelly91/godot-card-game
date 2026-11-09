@@ -33,7 +33,7 @@ func _champs(list: Array, skip: Array = []) -> Array:
 	var out: Array = []
 	for c in list:
 		if not skip.has(c):
-			out.append({"label": c.describe() + (" (damage %d)" % c.damage if c.damage > 0 else ""), "value": c.uid})
+			out.append({"label": g.describe_champion(c) + (" (damage %d)" % c.damage if c.damage > 0 else ""), "value": c.uid})
 	return out
 
 
@@ -202,7 +202,7 @@ func _move_counters(p: int, count: int) -> Dictionary:
 		for c in me.champions:
 			var free: int = int(c.damage / 10) - int(taken.get(c.uid, 0))
 			if free > 0:
-				from_opts.append({"label": "%s (%d counters)" % [c.describe(), free], "value": c.uid})
+				from_opts.append({"label": "%s (%d counters)" % [g.describe_champion(c), free], "value": c.uid})
 		if from_opts.is_empty():
 			break
 		if not moves.is_empty():

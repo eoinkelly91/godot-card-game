@@ -199,12 +199,14 @@ func _build() -> void:
 
 	# Top bar: cost / B and the name (a Fortress has its name on the left and its HP on the right)
 	var name_text: String = str(card.get("name", "?")).to_upper()
+	if live != null and game != null:
+		name_text += game.champion_tag(live)  # (1) / (2) when two champions share a name
 	if _kind() == "fortress":
-		var hp_w: float = 150.0
+		var hp_w: float = 190.0
 		var max_hp: int = int(card.get("hp", 500))
-		var hp_text: String = "%d/%d" % [int(card.get("hp_now", max_hp)), max_hp]
+		var hp_text: String = "%d/%dHP" % [int(card.get("hp_now", max_hp)), max_hp]
 		_label(name_text, 6.0, 0, DW - hp_w - 12.0, TOP_H, clampf(46.0 - maxf(0.0, name_text.length() - 12.0) * 2.4, 22.0, 40.0), on_base)
-		_label(hp_text, DW - hp_w, 0, hp_w, TOP_H, 34, on_base)
+		_label(hp_text, DW - hp_w, 0, hp_w, TOP_H, 26, on_base)
 		var hp_line := ColorRect.new()
 		hp_line.color = DARK
 		hp_line.position = Vector2(DW - hp_w - 1.0, 4.0) * k

@@ -7,7 +7,7 @@ extends RefCounted
 
 
 static func summon(g: Game, p: int, hand_index: int, sacrifice_uids: Array = [], discount_on: String = "") -> Dictionary:
-	var chk: Dictionary = TurnRules.require_step(g, p, Game.Step.SUMMON)
+	var chk: Dictionary = TurnRules.require_turn(g, p)  # summoning is possible at any time during your turn
 	if not chk.ok:
 		return chk
 	var ps: PlayerState = g.players[p]
@@ -78,10 +78,6 @@ static func play_enchantment(g: Game, p: int, hand_index: int) -> Dictionary:
 	var chk: Dictionary = TurnRules.require_turn(g, p)  # like spells: any time during your turn after the Castle step
 	if not chk.ok:
 		return chk
-	if g.step == Game.Step.CASTLE:
-		TurnRules._enter_summon_step(g, p)
-		if g.finished:
-			return g._fail("The game is over.")
 	var ps: PlayerState = g.players[p]
 	if ps.is_first_turn():
 		return g._fail("You cannot play enchantments on your first turn.")

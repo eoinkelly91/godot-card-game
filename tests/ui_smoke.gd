@@ -390,7 +390,7 @@ func _test_castle_reveal_scroll_and_tags() -> void:
 	g.players[0].champions.resize(1)
 	ui.refresh()
 	var copts: Array = ui._fortress_options()
-	check(copts.size() == 2 and copts[0].value == "castle" and copts[1].value == "continue", "the Fortress offers Castle or carry on with exactly one champion")
+	check(copts.size() == 1 and copts[0].value == "castle", "the Fortress offers just Castle with exactly one champion (Cancel closes the menu)")
 	# Revealing a turn with nothing to decide runs the start-of-turn triggers (poison!) straight away
 	var g2 := _fresh_state()
 	var t: Champion = g2.players[0].champions[0]
@@ -404,7 +404,7 @@ func _test_castle_reveal_scroll_and_tags() -> void:
 	ui._cover_for_mulligan = false
 	ui._cover.visible = true
 	ui._on_reveal()
-	check(g2.step == Game.Step.SUMMON and t.damage == dmg_before + 10, "the poison ticked at the very start of the turn")
+	check(g2.step == Game.Step.OPEN and t.damage == dmg_before + 10, "the poison ticked at the very start of the turn")
 	check(ui._status.text.begins_with("Start of turn:") and "10" in ui._status.text, "and the status line says what happened (%s)" % ui._status.text.left(80))
 	# With a castle choice available the turn waits in the Castle step
 	var g3 := _fresh_state()
@@ -413,7 +413,7 @@ func _test_castle_reveal_scroll_and_tags() -> void:
 	ui.flows = TargetFlows.new(g3, ui)
 	ui._cover.visible = true
 	ui._on_reveal()
-	check(g3.step == Game.Step.CASTLE and "Click your Fortress" in ui._status.text, "with a castle possible, the turn waits in the Castle step and says to click the Fortress")
+	check(g3.step == Game.Step.OPEN and "Click your Fortress" in ui._status.text, "with a castle possible, the turn waits in the Castle step and says to click the Fortress")
 	# The hand's scroll bar is always shown and a smaller hand starts at the left edge
 	check(ui._hand_scroll.horizontal_scroll_mode == ScrollContainer.SCROLL_MODE_SHOW_ALWAYS, "the hand scroll bar is always shown")
 	# Status tags are spelled out
@@ -449,7 +449,7 @@ func _test_fortress_card_and_board() -> void:
 	# Clicking the Fortress and choosing Castle castles, then carries on to the Summon step
 	ui.auto_chooser = func(_t: String, o: Array, _mn: int, _mx: int) -> Variant: return [o[0].value]
 	await ui._on_fortress_clicked()
-	check(g.players[0].castled and g.step == Game.Step.SUMMON, "choosing Castle from the Fortress menu castles and starts the turn")
+	check(g.players[0].castled and g.step == Game.Step.OPEN, "choosing Castle from the Fortress menu castles and starts the turn")
 	# Castled: one row per player; the champion is asleep (faded) and the Fortress has an orange border
 	var rows: Array = ui._me_box.get_children().filter(func(n: Node) -> bool: return not n.is_queued_for_deletion())
 	check(rows.size() == 1, "each player has a single row (champions, Fortress, enchantments)")
@@ -477,6 +477,10 @@ func _test_fortress_card_and_board() -> void:
 	ui.viewer = 0
 	nl.next_step(0)
 	nl.players[0].hand.clear()
+	ui.refresh()
+	check(not ui._nothing_left_to_do() and not ui._btn_end.has_theme_stylebox_override("normal"), "END TURN is not highlighted while summoning is available")
+	check(ui._me_info.text.contains("[color=#ffd940]SUMMONING AVAILABLE"), "SUMMONING AVAILABLE is yellow")
+	nl.players[0].summoned_this_turn = true
 	for c in nl.players[0].champions:
 		c.attacked_this_turn = true
 	nl.players[0].colors_used = ["Red", "Blue", "White", "Purple"]
@@ -502,6 +506,25 @@ func _test_fortress_card_and_board() -> void:
 	newbie.summoned_turn = lk.turn
 	var nv := CardView.create(newbie.card, 150.0, newbie, true, false, false, lk)
 	check(nv.modulate.a < 0.8, "a champion summoned this turn is faded and asleep")
+	# No steps: the title is just the turn and player, and summoning stays available until you summon
+	check(not ui._turn_label.text.contains("step"), "the turn title no longer names a step")
+	var ns := _fresh_state()
+	ui.game = ns
+	ui.flows = TargetFlows.new(ns, ui)
+	ui.viewer = 0
+	ns.players[0].champions.resize(1)
+	ns.attack(0, ns.players[0].champions[0].uid, 0, {"champion": ns.players[1].champions[0].uid} if not ns.players[1].champions.is_empty() else {})
+	ui.refresh()
+	check(ui._me_info.text.contains("SUMMONING AVAILABLE"), "summoning is still available after attacking")
+	check(ui._fortress_options().is_empty(), "the Fortress offers nothing to click once you have attacked")
+	# Two champions with the same name get (1) and (2)
+	var dup := _fresh_state()
+	var d1 := dup.spawn_champion(0, cards["pog"])
+	var d2 := dup.spawn_champion(0, cards["pog"])
+	check(dup.champion_tag(d1) == " (1)" and dup.champion_tag(d2) == " (2)" and dup.champion_tag(dup.players[0].champions[0]) == "", "same-named champions are numbered, others are not")
+	check("(2)" in dup.describe_champion(d2), "menus show the same (2)")
+	var fcv := CardView.create(ui.fortress_card(dup.players[0]), 150.0, null, true)
+	check(fcv != null, "the Fortress card builds with HP text")
 	var sleeper := CardView.create(g.players[0].champions[0].card, 128.0, g.players[0].champions[0], true, false, true, g)
 	check(sleeper.modulate.a < 0.8, "an encamped champion is faded")
 	ui.auto_chooser = Callable(self, "auto")

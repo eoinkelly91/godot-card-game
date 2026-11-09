@@ -16,7 +16,9 @@ extends RefCounted
 signal logged(text: String)
 
 enum Phase { SETUP, PLAYING, ENDED }
-enum Step { CASTLE, SUMMON, ATTACK }
+# A turn has no steps any more: it is simply the player's turn. The only thing tracked is whether the player has
+# started attacking (castling is only possible before the first attack of the turn).
+enum Step { OPEN, ATTACKED }
 
 const DEFAULT_RULES := {
 	"start_hand": 7,
@@ -45,7 +47,7 @@ var turn: int = 0               # counts every player's turn
 var active: int = 0             # whose turn it is
 var first_player: int = 0
 var phase: int = Phase.SETUP
-var step: int = Step.CASTLE
+var step: int = Step.OPEN
 var spells_this_turn: int = 0
 var start_summary: Array = []      # log lines from the start-of-turn triggers of the current turn
 var start_summary_turn: int = -1
@@ -119,6 +121,30 @@ func start() -> void:
 
 func castle(p: int) -> Dictionary:
 	return TurnRules.castle(self, p)
+
+
+## " (1)", " (2)" when a player has several champions with the same name in play, so they can be told apart.
+func champion_tag(c: Champion) -> String:
+	var same: Array = []
+	for other in players[c.owner].champions:
+		if other.card_name() == c.card_name():
+			same.append(other)
+	if same.size() < 2:
+		return ""
+	return " (%d)" % (same.find(c) + 1)
+
+
+## Champion.describe() with the (1)/(2) tag after the name, for menus.
+func describe_champion(c: Champion) -> String:
+	var d: String = c.describe()
+	var t: String = champion_tag(c)
+	if t == "":
+		return d
+	var at: int = d.find(c.card_name())
+	if at < 0:
+		return d + t
+	var end: int = at + c.card_name().length()
+	return d.substr(0, end) + t + d.substr(end)
 
 
 func discard_hand_card(p: int, index: int) -> Dictionary:

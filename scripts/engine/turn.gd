@@ -17,7 +17,7 @@ static func begin(g: Game) -> void:
 	ps.reset_for_turn()
 	ps.turns_taken += 1
 	g.phase = Game.Phase.PLAYING
-	g.step = Game.Step.CASTLE
+	g.step = Game.Step.OPEN
 	g.spells_this_turn = 0
 	g._log("--- Turn %d: Player %d ---" % [g.turn, p])
 	if ps.mana >= int(g.rules.economic_goal):
@@ -48,9 +48,11 @@ static func begin(g: Game) -> void:
 # ---------------------------------------------------------------- castling (step 2)
 
 static func castle(g: Game, p: int) -> Dictionary:
-	var chk: Dictionary = require_step(g, p, Game.Step.CASTLE, false)
+	var chk: Dictionary = require_turn(g, p)
 	if not chk.ok:
 		return chk
+	if g.step == Game.Step.ATTACKED:
+		return g._fail("You cannot castle after attacking this turn.")
 	var ps: PlayerState = g.players[p]
 	if ps.is_first_turn():
 		return g._fail("You cannot castle on your first turn.")
@@ -72,9 +74,11 @@ static func castle(g: Game, p: int) -> Dictionary:
 
 
 static func uncastle(g: Game, p: int) -> Dictionary:
-	var chk: Dictionary = require_step(g, p, Game.Step.CASTLE, false)
+	var chk: Dictionary = require_turn(g, p)
 	if not chk.ok:
 		return chk
+	if g.step == Game.Step.ATTACKED:
+		return g._fail("You cannot uncastle after attacking this turn.")
 	if not g.players[p].castled:
 		return g._fail("You are not castled.")
 	_uncastle(g, p)
@@ -89,22 +93,15 @@ static func _uncastle(g: Game, p: int) -> void:
 
 # ---------------------------------------------------------------- steps
 
-## Moves the turn on one step (castle step -> summon step -> attack step) and returns ok/fail.
+## Starts attacking (this closes the castle option for the turn). Attacking does this by itself.
 static func next_step(g: Game, p: int) -> Dictionary:
 	var chk: Dictionary = require_turn(g, p)
 	if not chk.ok:
 		return chk
-	if g.step == Game.Step.CASTLE:
-		_enter_summon_step(g, p)
-	elif g.step == Game.Step.SUMMON:
-		_enter_attack_step(g, p)
-	else:
-		return g._fail("You are already in the Attack step.")
+	if g.step == Game.Step.ATTACKED:
+		return g._fail("You have already started attacking this turn.")
+	_enter_attack_step(g, p)
 	return g._ok()
-
-
-static func _enter_summon_step(g: Game, _p: int) -> void:
-	g.step = Game.Step.SUMMON
 
 
 ## Start-of-turn triggers, right after the draw. Every player always gets 1 mana (the draw is above); then the
@@ -123,7 +120,7 @@ static func _run_start_triggers(g: Game, p: int) -> void:
 
 
 static func _enter_attack_step(g: Game, p: int) -> void:
-	g.step = Game.Step.ATTACK
+	g.step = Game.Step.ATTACKED
 
 
 ## The castle lock counts each player's OWN turns: no castling during your first N turns.
@@ -167,9 +164,7 @@ static func require_step(g: Game, p: int, needed: int, advance: bool = true) -> 
 	if not chk.ok:
 		return chk
 	if advance:
-		if needed >= Game.Step.SUMMON and g.step == Game.Step.CASTLE:
-			_enter_summon_step(g, p)
-		if needed == Game.Step.ATTACK and g.step == Game.Step.SUMMON:
+		if needed == Game.Step.ATTACKED and g.step == Game.Step.OPEN:
 			_enter_attack_step(g, p)
 		if g.finished:
 			return g._fail("The game is over.")

@@ -61,7 +61,7 @@ static func _attack_cost_problem(g: Game, me: PlayerState, attacker: Champion, a
 		if attacker.current_hp() < need:
 			return "%s needs %d HP or more to use %s (it has %d)." % [attacker.card_name(), need, atk.get("name", "this attack"), attacker.current_hp()]
 	var mana: int = int(atk.get("mana_cost", 0))
-	if g.step != Game.Step.CASTLE and me.mana < mana:
+	if me.mana < mana:
 		return "%s costs %d mana (you have %d)." % [atk.get("name", "This attack"), mana, me.mana]
 	return ""
 
@@ -79,7 +79,7 @@ static func spell_problem(g: Game, p: int, hand_index: int) -> String:
 				return "%s stops you playing spells while it is in play." % c.card_name()
 		return "Your spells are locked this turn."
 	var cost: int = int(me.hand[hand_index].get("cost", 0))
-	if g.step != Game.Step.CASTLE and me.mana < cost:
+	if me.mana < cost:
 		return "%s costs %d mana (you have %d)." % [me.hand[hand_index].get("name", "This spell"), cost, me.mana]
 	return ""
 
@@ -97,7 +97,7 @@ static func summon_problem(g: Game, p: int, hand_index: int) -> String:
 	var mana: int = int(req.get("mana", 0))
 	if int(req.get("sacrifice", 0)) == 0 and me.summon_discount > 0:
 		mana = maxi(0, mana - me.summon_discount)
-	if g.step != Game.Step.CASTLE and me.mana < mana:
+	if me.mana < mana:
 		return "%s needs %d mana (you have %d)." % [me.hand[hand_index].get("name", "This champion"), mana, me.mana]
 	return ""
 
@@ -114,7 +114,7 @@ static func enchantment_problem(g: Game, p: int, hand_index: int) -> String:
 	if me.enchantments.size() >= int(g.rules.enchantment_limit):
 		return "You already have the maximum number of enchantments (%d)." % int(g.rules.enchantment_limit)
 	var cost: int = int(me.hand[hand_index].get("cost", 0))
-	if g.step != Game.Step.CASTLE and me.mana < cost:
+	if me.mana < cost:
 		return "%s costs %d mana (you have %d)." % [me.hand[hand_index].get("name", "This enchantment"), cost, me.mana]
 	return ""
 
@@ -125,8 +125,8 @@ static func castle_problem(g: Game, p: int) -> String:
 	if basic != "":
 		return basic
 	var me: PlayerState = g.players[p]
-	if g.step != Game.Step.CASTLE:
-		return "You can only castle before the start-of-turn triggers (the Castle step)."
+	if g.step == Game.Step.ATTACKED:
+		return "You cannot castle after attacking this turn."
 	if me.is_first_turn():
 		return "You cannot castle on your first turn."
 	var lock: String = TurnRules.castle_lock_text(g, me)
