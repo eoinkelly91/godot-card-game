@@ -51,6 +51,7 @@ func _init() -> void:
 		test_turn_has_no_steps,
 		test_new_cards_gaia_hp_and_attachments,
 		test_new_cards_spells_and_attacks,
+		test_attachment_limit_and_attack_explanation,
 		test_simultaneous_win_is_draw,
 		test_mulligan_limit,
 		test_castle_basics,
@@ -219,11 +220,11 @@ func test_fortress_triggers_after_first_turn() -> void:
 	var f := Game.new()
 	f.setup([filler.duplicate(), filler.duplicate()], 7, 0)
 	f.start()
-	check(f.players[0].mana == 4 and f.players[0].hand.size() == 8, "first turn: 3 starting mana + 1, and a card is drawn")
+	check(f.players[0].mana == 3 and f.players[0].hand.size() == 8, "first turn: 2 starting mana + 1, and a card is drawn")
 	f.end_turn(0)
-	check(f.players[1].mana == 4 and f.players[1].hand.size() == 8, "the second player gets the same on their first turn")
+	check(f.players[1].mana == 3 and f.players[1].hand.size() == 8, "the second player gets the same on their first turn")
 	f.end_turn(1)
-	check(f.players[0].mana == 5, "and +1 mana every turn after that")
+	check(f.players[0].mana == 4, "and +1 mana every turn after that")
 
 
 func test_one_summon_per_turn() -> void:
@@ -2026,7 +2027,7 @@ func test_start_mana_castle_lock_and_poison() -> void:
 		filler.append(rc("syranite"))
 	var fresh := Game.new()
 	fresh.setup([filler.duplicate(), filler.duplicate()], 7, 0)
-	check(fresh.players[0].mana == 3 and fresh.players[1].mana == 3, "each player starts with 3 mana")
+	check(fresh.players[0].mana == 2 and fresh.players[1].mana == 2, "each player starts with 2 mana")
 	var g := real_game()
 	g.rules.castle_locked_turns = 5
 	spawn(g, 0, "syranite")
@@ -2173,7 +2174,7 @@ func test_new_cards_gaia_hp_and_attachments() -> void:
 	g3.players[0].hand = [rc("fusion"), rc("power_source"), rc("syranite"), rc("syranite")]
 	var hp0: int = a.max_hp()
 	check(g3.play_spell(0, 0, 0, {"champion": a.uid}).ok, "Fusion attaches")
-	check(a.attached.size() == 1 and a.max_hp() == hp0 + 40 and b.max_hp() == hp0, "Fusion: +20 for each active champion of the same color (itself included)")
+	check(a.attached.size() == 1 and a.max_hp() == hp0 + 20 and b.max_hp() == hp0, "Fusion: +20 for each OTHER active champion of the same color (not itself)")
 	check(g3.play_spell(0, 0, 0, {"champion": b.uid}).ok and b.attached.size() == 1, "Power Source attaches")
 	check(b.max_hp() == hp0 + 10 * g3.players[0].hand.size(), "Power Source: +10 HP for every card in your hand")
 	var before: int = b.max_hp()
@@ -2240,7 +2241,7 @@ func test_new_cards_spells_and_attacks() -> void:
 	var z2 := spawn(g6, 0, "brickzard")
 	var hy := spawn(g6, 0, "hydrostretch")
 	var one_brick: int = int(z1.card.attacks[0].damage)
-	check(DamageRules.preview(g6, z1, z1.card.attacks[0]) == one_brick + 20 * 2, "Planktonne counts every active Brickeen and Brickzard")
+	check(DamageRules.preview(g6, z1, z1.card.attacks[0]) == one_brick + 20, "Planktonne counts the OTHER active Brickeen and Brickzard, not itself")
 	var blues: int = 0
 	for c in g6.players[0].active_champions():
 		if c.color() == "Blue":
@@ -2261,3 +2262,21 @@ func test_new_cards_spells_and_attacks() -> void:
 	to_attack(g8)
 	g8.attack(0, sup.uid, 0, {"champion": tg.uid})
 	check(tg.damage == 30 and sup.damage == 10, "Rampage: 30 for each heads, 10 to Suproar for each tails")
+
+
+func test_attachment_limit_and_attack_explanation() -> void:
+	var g := real_game()
+	var a := spawn(g, 0, "syranite")
+	g.players[0].mana = 20
+	g.players[0].hand = [rc("fusion"), rc("power_source"), rc("warrior_idol")]
+	check(g.play_spell(0, 0, 0, {"champion": a.uid}).ok and g.play_spell(0, 0, 0, {"champion": a.uid}).ok, "two cards can be attached")
+	var r: Dictionary = g.play_spell(0, 0, 0, {"champion": a.uid})
+	check(not r.ok and a.attached.size() == 2 and "already has 2" in str(r.error), "a third attached card is refused")
+	# The explanation lists every part of an attack's damage
+	var g2 := real_game()
+	var grimn := spawn(g2, 0, "grimn")
+	grimn.statuses.append({"kind": "stored_bonus", "amount": 20})
+	var notes: Array = DamageRules.explain(g2, grimn, grimn.card.attacks[0])
+	check(str(notes[0]).begins_with("Base damage") and notes.any(func(n: String) -> bool: return "+20" in n and "saved" in n), "the explanation shows the base damage and the saved +20")
+	g2.players[0].buffs.append({"kind": "outgoing_reduction", "amount": 10, "turns_left": 1})
+	check(DamageRules.explain(g2, grimn, grimn.card.attacks[0]).any(func(n: String) -> bool: return n.begins_with("-10")), "and a reduction")

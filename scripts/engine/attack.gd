@@ -67,6 +67,8 @@ static func play_spell(g: Game, p: int, hand_index: int, effect_index: int, targ
 			target_champion = g._champion_of(ps, int(target.get("champion", -1)))
 			if target_champion == null:
 				return g._fail("Pick one of your own champions to attach this card to.")
+			if target_champion.attached.size() >= int(g.rules.max_attached_cards):
+				return g._fail("%s already has %d cards attached." % [target_champion.card_name(), int(g.rules.max_attached_cards)])
 		_:
 			var verr: String = SpellEffects.validate(g, p, hand_index, effect, target)
 			if verr != "":

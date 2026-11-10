@@ -22,7 +22,7 @@ enum Step { OPEN, ATTACKED }
 
 const DEFAULT_RULES := {
 	"start_hand": 7,
-	"start_mana": 3,
+	"start_mana": 2,
 	"max_mulligans": 2,
 	"board_limit": 6,                        # champions in the active play area, and in the encampment area
 	"enchantment_limit": 3,
@@ -37,6 +37,7 @@ const DEFAULT_RULES := {
 	"first_player_skips_first_draw": false,
 	"max_turns": 400,                        # safety net for simulations (counts every player's turn)
 	"fortress": {"hp": 500},   # the default Fortress; a deck's Fortress card replaces it (hp and its ability)
+	"max_attached_cards": 2,   # a champion can carry at most this many attached cards
 	"mana_per_turn": 1,        # every player always gets this much mana at the start of their turn
 }
 

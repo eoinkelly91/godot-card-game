@@ -87,15 +87,49 @@ static func image_path(card_id: String) -> String:
 ## The full-size card shown when hovering.
 func _make_custom_tooltip(_for_text: String) -> Object:
 	var main: CardView = CardView.create(card, 340.0, live, false, false, encamped, game)
-	if live == null or live.attached.is_empty():
+	if live == null:
 		return main
-	# A champion with attached cards: the champion first, then every attached card beside it
+	# A champion in play: the champion, every attached card beside it, and where its attack values come from
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 8)
 	row.add_child(main)
 	for a in live.attached:
 		row.add_child(CardView.create(a, 260.0, null, false))
+	var explain: Control = _attack_explanation()
+	if explain != null:
+		row.add_child(explain)
 	return row
+
+
+## A black panel next to the hovered champion: for each attack, every part of its damage (bonuses and reductions).
+func _attack_explanation() -> Control:
+	if live == null or game == null:
+		return null
+	var panel := PanelContainer.new()
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0, 0, 0)
+	sb.set_content_margin_all(10)
+	panel.add_theme_stylebox_override("panel", sb)
+	var box := VBoxContainer.new()
+	box.custom_minimum_size = Vector2(300, 0)
+	panel.add_child(box)
+	var any: bool = false
+	for atk in card.get("attacks", []):
+		var notes: Array = DamageRules.explain(game, live, atk)
+		var head := Label.new()
+		head.text = "%s: %s" % [str(atk.get("name", "Attack")), "%d damage" % DamageRules.preview(game, live, atk) if notes.size() > 1 or int(atk.get("damage", 0)) > 0 else "no fixed damage"]
+		head.add_theme_font_size_override("font_size", 16)
+		box.add_child(head)
+		for n in notes:
+			var l := Label.new()
+			l.text = str(n)
+			l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			l.custom_minimum_size = Vector2(300, 0)
+			l.add_theme_font_size_override("font_size", 13)
+			l.add_theme_color_override("font_color", Color(0.4, 0.95, 0.4) if str(n).begins_with("+") else (Color(1.0, 0.45, 0.45) if str(n).begins_with("-") else Color(0.85, 0.85, 0.85)))
+			box.add_child(l)
+			any = true
+	return panel if any else null
 
 
 func _gui_input(event: InputEvent) -> void:

@@ -537,7 +537,7 @@ func _test_fortress_card_and_board() -> void:
 	var stack: Control = ui._stack_with_attachments(holder_champ, CardView.create(holder_champ.card, 150.0, holder_champ, true, false, false, st))
 	check(stack.get_child_count() == 3, "a champion with 2 attached cards is stacked on 2 cards")
 	var tip: Object = CardView.create(holder_champ.card, 150.0, holder_champ, true, false, false, st)._make_custom_tooltip("")
-	check(tip is HBoxContainer and (tip as HBoxContainer).get_child_count() == 3, "hovering shows the champion and its attached cards")
+	check(tip is HBoxContainer and (tip as HBoxContainer).get_child_count() >= 3, "hovering shows the champion, its attached cards and the attack explanation")
 	var gaia_view := CardView.create(cards["gaia"], 300.0, null, false)
 	check(gaia_view._mana_summon() and not CardView.create(cards["syranite"], 300.0, null, false)._mana_summon(), "a mana summon cost gets the blue number, others do not")
 	var sleeper := CardView.create(g.players[0].champions[0].card, 128.0, g.players[0].champions[0], true, false, true, g)

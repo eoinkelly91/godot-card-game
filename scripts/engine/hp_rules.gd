@@ -1,5 +1,5 @@
 ## hp_rules.gd - Champion HP that changes while the champion is in play: Super Shrink (-20 HP for the opponent's
-## active champions), Fusion (+20 per active champion of the same color), Power Source (+10 per card in hand) and
+## active champions), Fusion (+20 per OTHER active champion of the same color), Power Source (+10 per card in hand) and
 ## Gaia (copies the HP of the opponent's active champion with the most HP, 50 if there is none). All of it is
 ## recalculated after every action (Game._ok) and whenever a champion is destroyed. A champion whose damage is
 ## then at or above its HP is destroyed and the opponent scores a kill.
@@ -43,10 +43,10 @@ static func _update(g: Game) -> void:
 		for c in ps.champions:
 			for att in c.attached:
 				match str(att.get("attach_kind", "")):
-					"fusion":  # +20 for each of your active champions of the same color (itself included when active)
+					"fusion":  # +20 for each OTHER active champion of yours of the same color
 						var same: int = 0
 						for o in ps.active_champions():
-							if o.color() == c.color():
+							if o != c and o.color() == c.color():  # the other champions, not itself
 								same += 1
 						c.hp_mod += 20 * same
 					"power_source":  # +10 for every card in your hand

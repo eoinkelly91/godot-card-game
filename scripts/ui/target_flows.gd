@@ -72,9 +72,10 @@ func spell_target(p: int, hand_index: int, effect_index: int) -> Dictionary:
 		"summon_discount", "wizardry_draw", "type_attack_bonus", "reduce_enemy_attacks", "damage_all_enemies", "shuffle_weak_champions":
 			return _t({})
 		"attach":  # Warrior Idol, Fusion, Power Source: one of your own champions (encamped ones too)
-			if me.champions.is_empty():
-				return _err("You have no champions to attach this card to.")
-			var at: Variant = await _one("Attach %s to which of your champions?" % str(card.get("name", "this card")), _champs(me.champions))
+			var open_ones: Array = me.champions.filter(func(c: Champion) -> bool: return c.attached.size() < int(g.rules.max_attached_cards))
+			if open_ones.is_empty():
+				return _err("None of your champions can carry another attached card (the limit is %d)." % int(g.rules.max_attached_cards))
+			var at: Variant = await _one("Attach %s to which of your champions?" % str(card.get("name", "this card")), _champs(open_ones))
 			return _cancel() if at == null else _t({"champion": at})
 		"mystery_remove":
 			var carrying: Array = foe.champions.filter(func(c: Champion) -> bool: return not c.attached.is_empty())
