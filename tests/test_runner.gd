@@ -52,6 +52,7 @@ func _init() -> void:
 		test_new_cards_gaia_hp_and_attachments,
 		test_new_cards_spells_and_attacks,
 		test_attachment_limit_and_attack_explanation,
+		test_third_batch_of_cards,
 		test_simultaneous_win_is_draw,
 		test_mulligan_limit,
 		test_castle_basics,
@@ -778,8 +779,8 @@ func test_real_card_data() -> void:
 		check(int(c.hp) % 10 == 0, "%s: HP is a multiple of 10" % id)
 		for atk in c.attacks:
 			check(not (atk.has("mana_cost") and atk.has("requires")), "%s: %s does not mix mana and an HP threshold" % [id, atk.name])
-	check(champions == 63, "63 champions load (got %d)" % champions)
-	check(by_color == {"Red": 17, "Blue": 17, "White": 15, "Purple": 14}, "champions per color: %s" % str(by_color))
+	check(champions == 76, "76 champions load (got %d)" % champions)
+	check(by_color == {"Red": 21, "Blue": 22, "White": 15, "Purple": 18}, "champions per color: %s" % str(by_color))
 	check(rc("mersoilder").attacks[1].mana_cost == 2 and rc("mersoilder").attacks[1].coin_bonus == 20, "Mersoilder's Engage costs 2 mana and has a 20 coin bonus")
 	check(rc("harmlobeast").attacks.is_empty() and rc("harmlobeast").has("ability"), "Harmlobeast has an ability and no attack")
 	check(rc("stanter").attacks[1].requires.self_hp_at_least == 70, "Stanter's Divine Wind needs 70 HP")
@@ -1240,7 +1241,7 @@ func test_real_spell_data() -> void:
 		elif str(c.kind) == "enchantment":
 			enchants += 1
 			check(int(c.cost) == 3 or id == "mist_of_grief", "%s costs mana as in the sheet" % id)
-	check(spells == 23 and enchants == 6, "23 spells and 6 enchantments load (got %d and %d)" % [spells, enchants])
+	check(spells == 25 and enchants == 6, "25 spells and 6 enchantments load (got %d and %d)" % [spells, enchants])
 	check(int(rc("heal").cost) == 0 and int(rc("battle_axe").cost) == 1 and int(rc("treason").cost) == 3, "spell costs come from the sheet")
 
 
@@ -1250,10 +1251,10 @@ func test_spells_any_time_after_castle_and_cost_mana() -> void:
 	check(g.step == Game.Step.OPEN, "the turn starts in the castle step")
 	check(g.play_spell(0, 0, 0).ok, "a free spell can be played right after the castle step (Summon step)")
 	check(g.step == Game.Step.OPEN, "playing a spell moves the turn to the Summon step")
-	g.players[0].mana = 1  # after the Fortress mana has arrived
-	check(not g.play_spell(0, 0, 0).ok, "Mumified needs 2 mana")
-	g.players[0].mana = 2
-	check(g.play_spell(0, 0, 0).ok and g.players[0].mana == 0, "Mumified costs 2 mana in the Summon step")
+	g.players[0].mana = 3  # after the Fortress mana has arrived
+	check(not g.play_spell(0, 0, 0).ok, "Mumified needs 4 mana")
+	g.players[0].mana = 4
+	check(g.play_spell(0, 0, 0).ok and g.players[0].mana == 0, "Mumified costs 4 mana")
 	to_attack(g)
 	g.players[0].hand = [rc("crimson_wave")]
 	check(g.play_spell(0, 0, 0).ok, "spells also work in the Attack step")
@@ -1509,29 +1510,29 @@ func test_mumified() -> void:
 	var g := real_game()
 	var sac := spawn(g, 0, "syranite")
 	g.next_step(0)
-	g.players[0].mana = 2
+	g.players[0].mana = 4
 	g.players[0].hand = [rc("mumified"), rc("war_bear")]  # War Bear needs 1 sacrifice
 	g.play_spell(0, 0, 0)
 	check(g.summon(0, 0, []).ok, "with Mumified a 1-sacrifice champion needs no sacrifice")
 	check(g.players[0].champions.has(sac), "nobody was sacrificed")
 	var g2 := real_game()
 	var amustas := rc("amustas")  # 3 sacrifices
-	g2.players[0].mana = 2
+	g2.players[0].mana = 4
 	g2.players[0].hand = [rc("mumified"), amustas]
 	var s1 := spawn(g2, 0, "syranite")
 	var s2 := spawn(g2, 0, "syranite")
 	g2.next_step(0)
-	g2.players[0].mana = 2
+	g2.players[0].mana = 4
 	g2.play_spell(0, 0, 0)
 	check(g2.summon(0, 0, [s1.uid, s2.uid]).ok, "with Mumified a 3-sacrifice champion needs only 2")
 	var g3 := real_game()
 	var elite := rc("war_bear").duplicate(true)
 	elite.summon = {"mana": 2}
 	g3.next_step(0)
-	g3.players[0].mana = 3
+	g3.players[0].mana = 5
 	g3.players[0].hand = [rc("mumified"), elite]
 	g3.play_spell(0, 0, 0)
-	check(g3.players[0].mana == 1, "Mumified cost 2 mana")
+	check(g3.players[0].mana == 1, "Mumified cost 4 mana")
 	check(g3.summon(0, 0, []).ok and g3.players[0].mana == 0, "a 2-mana champion costs 1 less mana with Mumified")
 
 
@@ -2280,3 +2281,87 @@ func test_attachment_limit_and_attack_explanation() -> void:
 	check(str(notes[0]).begins_with("Base damage") and notes.any(func(n: String) -> bool: return "+20" in n and "saved" in n), "the explanation shows the base damage and the saved +20")
 	g2.players[0].buffs.append({"kind": "outgoing_reduction", "amount": 10, "turns_left": 1})
 	check(DamageRules.explain(g2, grimn, grimn.card.attacks[0]).any(func(n: String) -> bool: return n.begins_with("-10")), "and a reduction")
+
+
+func test_third_batch_of_cards() -> void:
+	# Taison: +10 against Spirits (ability), Witch Hunter / Flame Demon bonuses
+	var g := real_game()
+	var taison := spawn(g, 0, "taison")
+	var spirit := spawn(g, 1, "misley")
+	var human := spawn(g, 1, "syranite")
+	var base: int = int(taison.card.attacks[0].damage)
+	check(DamageRules.calc(g, taison, taison.card.attacks[0], spirit, 0) == base + 10 and DamageRules.calc(g, taison, taison.card.attacks[0], human, 0) == base, "Taison does 10 more against Spirits")
+	var hunter := spawn(g, 0, "witch_hunter")
+	check(DamageRules.calc(g, hunter, hunter.card.attacks[0], spirit, 0) == int(hunter.card.attacks[0].damage) + 20, "Witch Hunter does 20 more against Spirits")
+	# K-nit: +10 for good every time it is attacked
+	var g2 := real_game()
+	var knit := spawn(g2, 0, "k_nit")
+	var hitter := spawn(g2, 1, "syranite")
+	g2.end_turn(0)
+	to_attack(g2)
+	g2.attack(1, hitter.uid, 0, {"champion": knit.uid})
+	var one: int = DamageRules.preview(g2, knit, knit.card.attacks[0])
+	hitter.attacked_this_turn = false
+	g2.players[1].colors_used.clear()
+	g2.attack(1, hitter.uid, 0, {"champion": knit.uid})
+	check(DamageRules.preview(g2, knit, knit.card.attacks[0]) == one + 10, "K-nit gains another +10 every time it is attacked, and keeps it")
+	# Water Hound: +10 HP for every OTHER active creature, Wave counts itself
+	var g3 := real_game()
+	var hound := spawn(g3, 0, "water_hound")
+	spawn(g3, 0, "pog")
+	HpRules.recalc(g3)
+	var printed: int = int(hound.card.hp)
+	check(hound.max_hp() == printed + 10, "Water Hound gets +10 HP per other active creature (not itself)")
+	check(DamageRules.preview(g3, hound, hound.card.attacks[0]) == 10 * 2, "Water Hound's Wave counts all your active creatures, itself included")
+	# Angry Wog / Barley shuffle themselves (and their attached cards) into the deck without dying
+	var g4 := real_game()
+	var wog := spawn(g4, 0, "angry_wog")
+	var foe := spawn(g4, 1, "gob")
+	wog.attached = [rc("fusion").duplicate()]
+	var deck_before: int = g4.players[0].deck.size()
+	g4.forced_coins = [false]
+	to_attack(g4)
+	g4.attack(0, wog.uid, 0, {"champion": foe.uid})
+	check(not g4.players[0].champions.has(wog) and g4.players[0].deck.size() == deck_before + 2 and g4.players[1].kills == 0, "on tails Angry Wog and its attached card are shuffled into the deck, no kill for the opponent")
+	# Dragon Soilder heals itself; Viper poisons for a discard; Monster Trap; Retreat Signal; Strella; Minotaur
+	var g5 := real_game()
+	var soil := spawn(g5, 0, "dragon_soilder")
+	var tgt := spawn(g5, 1, "gob")
+	soil.damage = 30
+	to_attack(g5)
+	g5.attack(0, soil.uid, 0, {"champion": tgt.uid})
+	check(soil.damage == 20, "Dragon Soilder removes 10 damage from itself")
+	var g6 := real_game()
+	var viper := spawn(g6, 0, "viper")
+	var victim := spawn(g6, 1, "amustas")
+	g6.players[0].hand = [rc("syranite")]
+	to_attack(g6)
+	g6.attack(0, viper.uid, 0, {"champion": victim.uid, "discard": 0})
+	check(victim.statuses.any(func(st: Dictionary) -> bool: return str(st.kind) == "poison") and g6.players[0].hand.is_empty(), "Viper poisons for a discarded card")
+	var g7 := real_game()
+	var guard := spawn(g7, 1, "gob")
+	guard.attached = [rc("monster_trap").duplicate()]
+	guard.attached[0]["attach_kind"] = "monster_trap"
+	var raider := spawn(g7, 0, "syranite")
+	to_attack(g7)
+	g7.attack(0, raider.uid, 0, {"champion": guard.uid})
+	check(raider.damage == 50 and guard.attached.is_empty() and g7.players[1].discard.any(func(c: Dictionary) -> bool: return str(c.get("id", "")) == "monster_trap"), "Monster Trap hits the attacker for 50 once, then goes to the discard pile")
+	var g8 := real_game()
+	var b1 := spawn(g8, 0, "syranite")
+	var b2 := spawn(g8, 0, "amustas")
+	g8.players[0].hand = [rc("retreat_signal")]
+	g8.players[0].mana = 10
+	check(not g8.play_spell(0, 0, 0, {"champions": [b2.uid]}).ok, "Retreat Signal only takes basic champions")
+	check(g8.play_spell(0, 0, 0, {"champions": [b1.uid]}).ok and not g8.players[0].champions.has(b1), "Retreat Signal shuffles a chosen basic champion into the deck")
+	var g9 := real_game()
+	var strella := spawn(g9, 0, "strella_the_witch")
+	strella.damage = 40
+	g9.forced_coins = [true]
+	trig(g9)
+	check(strella.damage == 0, "Strella's coin flip removes all her damage on heads")
+	var g10 := real_game()
+	spawn(g10, 0, "minotaur")
+	var carrier := spawn(g10, 1, "gob")
+	carrier.attached = [rc("fusion").duplicate()]
+	trig(g10)
+	check(g10.players[0].pending_minotaur == 1 and g10.minotaur_discard(0, carrier.uid, 0).ok and carrier.attached.is_empty(), "Minotaur lets you discard one attached card of an opponent's champion")

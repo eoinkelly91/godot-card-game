@@ -324,6 +324,32 @@
   ]
  },
  {
+  "id": "taison",
+  "name": "Taison",
+  "kind": "champion",
+  "class": "elite",
+  "color": "Blue",
+  "type": "Human",
+  "hp": 80,
+  "summon": {
+   "sacrifice": 1
+  },
+  "attacks": [
+   {
+    "name": "Jaguar Spear",
+    "damage": 40,
+    "self_damage": 10,
+    "text": "40  + This champion does 10 damage to itself."
+   }
+  ],
+  "ability": {
+   "text": "This champion does +10 damage against spirits.",
+   "trigger": "on_attack",
+   "bonus_damage": 10,
+   "vs_type": "Spirit"
+  }
+ },
+ {
   "id": "brickeen",
   "name": "Brickeen",
   "kind": "champion",
@@ -393,5 +419,97 @@
     "text": "This attack does 10 damage for each of your active blue champions."
    }
   ]
+ },
+ {
+  "id": "flame_demon",
+  "name": "Flame Demon",
+  "kind": "champion",
+  "class": "basic",
+  "color": "Blue",
+  "type": "Spirit",
+  "hp": 50,
+  "summon": {},
+  "attacks": [
+   {
+    "name": "Impale",
+    "damage": 10,
+    "bonus_vs_type": {
+     "type": "Human",
+     "amount": 20
+    },
+    "text": "10 + This attack does plus 20 damage against humans."
+   }
+  ]
+ },
+ {
+  "id": "winged_guardian",
+  "name": "Winged Guardian",
+  "kind": "champion",
+  "class": "basic",
+  "color": "Blue",
+  "type": "Spirit",
+  "hp": 50,
+  "summon": {},
+  "attacks": [
+   {
+    "name": "Air Spear",
+    "damage": 10,
+    "optional_discard_bonus": 50,
+    "text": "10 + discard a card for an extra 50 damage."
+   }
+  ]
+ },
+ {
+  "id": "golden_guardian",
+  "name": "Golden Guardian",
+  "kind": "champion",
+  "class": "elite",
+  "color": "Blue",
+  "type": "Spirit",
+  "hp": 70,
+  "summon": {
+   "sacrifice": 1
+  },
+  "attacks": [
+   {
+    "name": "Air Spear",
+    "damage": 20,
+    "optional_discard_bonus": 50,
+    "text": "20 + discard a card for an extra 50 damage."
+   },
+   {
+    "name": "Spear Swipe",
+    "damage": 30,
+    "requires": {
+     "self_hp_at_least": 40
+    }
+   }
+  ]
+ },
+ {
+  "id": "water_hound",
+  "name": "Water Hound",
+  "kind": "champion",
+  "class": "basic",
+  "color": "Blue",
+  "type": "Creature",
+  "hp": 50,
+  "summon": {},
+  "attacks": [
+   {
+    "name": "Wave",
+    "damage": 0,
+    "per_active_type_own": {
+     "type": "Creature",
+     "amount": 10
+    },
+    "text": "Does 10 damage for each of your creatures in play including Water Hound."
+   }
+  ],
+  "ability": {
+   "text": "This champion gets an extra 10HP for each of your own creatures in play.",
+   "trigger": "passive",
+   "hp_per_own_creature": 10
+  }
  }
 ]

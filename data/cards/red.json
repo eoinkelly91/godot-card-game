@@ -400,5 +400,88 @@
     "text": "Flip 2 coins, this attack doe 30 damage per heads. If tails this attack does 10 damage to Suproar."
    }
   ]
+ },
+ {
+  "id": "witch_hunter",
+  "name": "Witch Hunter",
+  "kind": "champion",
+  "class": "basic",
+  "color": "Red",
+  "type": "Human",
+  "hp": 50,
+  "summon": {},
+  "attacks": [
+   {
+    "name": "Hunt",
+    "damage": 10,
+    "bonus_vs_type": {
+     "type": "Spirit",
+     "amount": 20
+    },
+    "text": "10 + This attack does plus 20 damage against spirits."
+   }
+  ]
+ },
+ {
+  "id": "viper",
+  "name": "Viper",
+  "kind": "champion",
+  "class": "basic",
+  "color": "Red",
+  "type": "Creature",
+  "hp": 50,
+  "summon": {},
+  "attacks": [
+   {
+    "name": "Plague",
+    "damage": 10,
+    "optional_discard_poison": {
+     "amount": 10,
+     "turns": -1
+    },
+    "text": "10 + discard a card to poison the enemy champion."
+   }
+  ]
+ },
+ {
+  "id": "minotaur",
+  "name": "Minotaur",
+  "kind": "champion",
+  "class": "elite",
+  "color": "Red",
+  "type": "Creature",
+  "hp": 80,
+  "summon": {
+   "sacrifice": 1
+  },
+  "attacks": [
+   {
+    "name": "Smite",
+    "damage": 20
+   }
+  ],
+  "ability": {
+   "text": "If there are any cards attached to your opponents champions, choose one of them and discard it",
+   "trigger": "start_of_turn",
+   "op": "minotaur_discard"
+  }
+ },
+ {
+  "id": "angry_wog",
+  "name": "Angry Wog",
+  "kind": "champion",
+  "class": "basic",
+  "color": "Red",
+  "type": "Human",
+  "hp": 60,
+  "summon": {},
+  "attacks": [
+   {
+    "name": "Toss",
+    "damage": 30,
+    "coin_tails_shuffle_self": true,
+    "text": "30 + Flip a coin if tails shuffle this champion and all cards attached to it back into your deck."
+   }
+  ]
  }
 ]

@@ -343,5 +343,90 @@
     "damage": 20
    }
   ]
+ },
+ {
+  "id": "strella_the_witch",
+  "name": "Strella the Witch",
+  "kind": "champion",
+  "class": "basic",
+  "color": "Purple",
+  "type": "Spirit",
+  "hp": 40,
+  "summon": {},
+  "attacks": [
+   {
+    "name": "Spark",
+    "damage": 10
+   }
+  ],
+  "ability": {
+   "text": "Flip a coin if heads remove all damage from Strella the Witch",
+   "trigger": "start_of_turn",
+   "op": "coin_heal_all"
+  }
+ },
+ {
+  "id": "dragon_soilder",
+  "name": "Dragon Soilder",
+  "kind": "champion",
+  "class": "basic",
+  "color": "Purple",
+  "type": "Creature",
+  "hp": 50,
+  "summon": {},
+  "attacks": [
+   {
+    "name": "Spear Leap",
+    "damage": 10,
+    "heal_self": 10,
+    "text": "10 + remove 10 damage from Dragon Soilder."
+   }
+  ]
+ },
+ {
+  "id": "barley",
+  "name": "Barley",
+  "kind": "champion",
+  "class": "basic",
+  "color": "Purple",
+  "type": "Spirit",
+  "hp": 60,
+  "summon": {},
+  "attacks": [
+   {
+    "name": "Withdraw",
+    "damage": 0,
+    "no_target": true,
+    "coin_heads_shuffle_self": true,
+    "text": "Flip a coin if heads shuffle Barley and all cards attached to it back into your deck."
+   },
+   {
+    "name": "Harvest",
+    "damage": 10
+   }
+  ]
+ },
+ {
+  "id": "k_nit",
+  "name": "K-nit",
+  "kind": "champion",
+  "class": "elite",
+  "color": "Purple",
+  "type": "Human",
+  "hp": 80,
+  "summon": {
+   "sacrifice": 1
+  },
+  "attacks": [
+   {
+    "name": "Revenge",
+    "damage": 10
+   }
+  ],
+  "ability": {
+   "text": "Every time this champion is attacked by an opponents champion it gains 10 damage to its attack.",
+   "trigger": "passive",
+   "gains_damage_when_attacked": 10
+  }
  }
 ]

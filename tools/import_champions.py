@@ -49,6 +49,16 @@ ATTACK_EFFECTS = {
     ("Hydrostretch", 0): {"damage": 0, "per_active_color_own": {"color": "Blue", "amount": 10}},
     ("Suproar", 0): {"damage": 0, "coins": {"count": 2, "per_heads_damage": 30, "per_tails_self_damage": 10}},
     ("Cyris", 1): {"coin_fizzle": True},
+    ("Taison", 0): {"self_damage": 10},
+    ("Witch Hunter", 0): {"bonus_vs_type": {"type": "Spirit", "amount": 20}},
+    ("Flame Demon", 0): {"bonus_vs_type": {"type": "Human", "amount": 20}},
+    ("Viper", 0): {"optional_discard_poison": {"amount": 10, "turns": -1}},
+    ("Winged Guardian", 0): {"optional_discard_bonus": 50},
+    ("Golden Guardian", 0): {"optional_discard_bonus": 50},
+    ("Dragon Soilder", 0): {"heal_self": 10},
+    ("Angry Wog", 0): {"coin_tails_shuffle_self": True},
+    ("Barley", 0): {"damage": 0, "no_target": True, "coin_heads_shuffle_self": True},
+    ("Water Hound", 0): {"damage": 0, "per_active_type_own": {"type": "Creature", "amount": 10}},
     ("Molten Harry", 1): {"damage": 0, "no_target": True, "coin_extra_attack": True},
     ("Cwelen", 1): {"coin_fizzle": True},
     ("Saisen", 0): {"damage": 0, "coins": {"count": 3, "per_heads_damage": 10}},
@@ -88,6 +98,11 @@ ABILITIES = {
     "Spike": {"trigger": "passive", "sacrifice_as_any_color": True},
     "Fu": {"trigger": "passive", "when_destroyed_damage_attacker": 30},
     "Gaia": {"trigger": "passive", "gaia_hp": True},
+    "Taison": {"trigger": "on_attack", "bonus_damage": 10, "vs_type": "Spirit"},
+    "Strella the Witch": {"trigger": "start_of_turn", "op": "coin_heal_all"},
+    "Minotaur": {"trigger": "start_of_turn", "op": "minotaur_discard"},
+    "Water Hound": {"trigger": "passive", "hp_per_own_creature": 10},
+    "K-nit": {"trigger": "passive", "gains_damage_when_attacked": 10},
 }
 
 

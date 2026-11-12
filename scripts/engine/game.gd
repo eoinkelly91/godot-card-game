@@ -148,6 +148,46 @@ func describe_champion(c: Champion) -> String:
 	return d.substr(0, end) + t + d.substr(end)
 
 
+## A champion leaves play without being destroyed: it and its attached cards are shuffled into its owner's deck.
+func shuffle_champion_into_deck(c: Champion) -> void:
+	var ps: PlayerState = players[c.owner]
+	ps.champions.erase(c)
+	ps.deck.append(c.card)
+	for a in c.attached:
+		var back: Dictionary = (a as Dictionary).duplicate()
+		back.erase("_stacks")
+		back.erase("attach_kind")
+		ps.deck.append(back)
+	c.attached.clear()
+	for i in range(ps.deck.size() - 1, 0, -1):  # shuffle with the game's own random numbers
+		var j: int = rng.randi_range(0, i)
+		var tmp: Variant = ps.deck[i]
+		ps.deck[i] = ps.deck[j]
+		ps.deck[j] = tmp
+	_log("%s and its attached cards are shuffled into P%d's deck." % [c.describe(), c.owner])
+	HpRules.recalc(self)
+
+
+## Minotaur: discard one card attached to one of the opponent's champions (target: champion uid and attached index).
+func minotaur_discard(p: int, champion_uid: int, index: int) -> Dictionary:
+	var chk: Dictionary = TurnRules.require_turn(self, p)
+	if not chk.ok:
+		return chk
+	if players[p].pending_minotaur <= 0:
+		return _fail("You have no Minotaur discard to use.")
+	var c: Champion = _champion_of(players[1 - p], champion_uid)
+	if c == null or index < 0 or index >= c.attached.size():
+		return _fail("Pick one of the cards attached to an opponent's champion.")
+	var card: Dictionary = (c.attached[index] as Dictionary).duplicate()
+	c.attached.remove_at(index)
+	card.erase("_stacks")
+	card.erase("attach_kind")
+	players[1 - p].discard.append(card)
+	players[p].pending_minotaur -= 1
+	_log("P%d's Minotaur discards %s from %s." % [p, str(card.get("name", "a card")), c.card_name()])
+	return _ok()
+
+
 func discard_hand_card(p: int, index: int) -> Dictionary:
 	return TurnRules.discard_hand_card(self, p, index)
 

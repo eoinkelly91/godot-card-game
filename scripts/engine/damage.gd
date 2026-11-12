@@ -59,6 +59,9 @@ static func calc(g: Game, attacker: Champion, atk: Dictionary, target: Champion,
 		if str(sst.kind) == "stored_bonus":
 			total += float(sst.amount)
 			notes.append("+%d saved up by not attacking last turn" % int(sst.amount))
+		elif str(sst.kind) == "permanent_bonus":  # K-nit: +10 every time it has been attacked, for good
+			total += float(sst.amount)
+			notes.append("+%d gained from being attacked (permanent)" % int(sst.amount))
 	# Cards that count things (Brickeen, Hydrostretch, Psyville, Psybar)
 	if atk.has("per_active_named"):
 		var named: int = 0
@@ -74,6 +77,13 @@ static func calc(g: Game, attacker: Champion, atk: Dictionary, target: Champion,
 				colored += 1
 		total += float(int(atk.per_active_color_own.amount) * colored)
 		notes.append("+%d (%d each for %d of your active %s champions)" % [int(atk.per_active_color_own.amount) * colored, int(atk.per_active_color_own.amount), colored, str(atk.per_active_color_own.color)])
+	if atk.has("per_active_type_own"):  # Water Hound's Wave: your active creatures, itself included
+		var of_type: int = 0
+		for c in me.active_champions():
+			if c.champion_type() == str(atk.per_active_type_own.type):
+				of_type += 1
+		total += float(int(atk.per_active_type_own.amount) * of_type)
+		notes.append("+%d (%d each for %d of your active %s champions)" % [int(atk.per_active_type_own.amount) * of_type, int(atk.per_active_type_own.amount), of_type, str(atk.per_active_type_own.type)])
 	var in_play: int = int(atk.get("per_enchantment_in_play", 0)) * (me.enchantments.size() + foe.enchantments.size())
 	if in_play != 0:
 		total += float(in_play)

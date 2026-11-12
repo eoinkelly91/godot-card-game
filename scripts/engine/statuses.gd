@@ -163,6 +163,20 @@ static func _apply_simple_effect(g: Game, p: int, champion: Champion, eff: Dicti
 				LockRules.add(g, 1 - p, str(eff.get("what", "")), int(eff.get("turns", 1)))
 			else:
 				g._log("P%d's coin lands Tails." % p)
+		"coin_heal_all":  # Strella the Witch: heads removes all of her damage
+			if champion != null:
+				if g.flip_coin():
+					champion.damage = 0
+					g._log("Coin: Heads, all damage is removed from %s." % champion.card_name())
+				else:
+					g._log("Coin: Tails, %s keeps its damage." % champion.card_name())
+		"minotaur_discard":  # Minotaur: you may discard one card attached to an opponent's champion
+			var carried: int = 0
+			for oc in g.players[1 - p].champions:
+				carried += oc.attached.size()
+			if carried > 0:
+				ps.pending_minotaur += 1
+				g._log("P%d's Minotaur may discard a card attached to an opponent's champion." % p)
 		"heal_self":
 			if champion != null:
 				champion.damage = maxi(0, champion.damage - int(eff.get("amount", 0)))

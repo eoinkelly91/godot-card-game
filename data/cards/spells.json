@@ -211,7 +211,7 @@
   "id": "mumified",
   "name": "Mumified",
   "kind": "spell",
-  "cost": 2,
+  "cost": 4,
   "text": [
    "Reduces the cost of sacrificing a champion by one this turn."
   ],
@@ -375,6 +375,35 @@
    {
     "op": "attach",
     "kind": "power_source"
+   }
+  ]
+ },
+ {
+  "id": "monster_trap",
+  "name": "Monster Trap",
+  "kind": "spell",
+  "cost": 2,
+  "text": [
+   "Attach this spell to one of your champions, when an opponent attacks it do 50 damage to the attacking champion."
+  ],
+  "effects": [
+   {
+    "op": "attach",
+    "kind": "monster_trap"
+   }
+  ]
+ },
+ {
+  "id": "retreat_signal",
+  "name": "Retreat Signal",
+  "kind": "spell",
+  "cost": 2,
+  "text": [
+   "Shuffle any active basic champions you have into your deck along with any cards attached to them."
+  ],
+  "effects": [
+   {
+    "op": "retreat_basic"
    }
   ]
  }

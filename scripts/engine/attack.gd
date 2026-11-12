@@ -242,12 +242,14 @@ static func attack(g: Game, p: int, attacker_uid: int, attack_index: int, target
 	# Staff Attack: an optional discard from hand for extra damage.
 	var discard_card: Dictionary = {}
 	var discard_bonus: int = 0
-	if atk.has("optional_discard_bonus") and target.has("discard"):
+	var discard_poison: bool = false
+	if (atk.has("optional_discard_bonus") or atk.has("optional_discard_poison")) and target.has("discard"):
 		var di: int = int(target.discard)
 		if di < 0 or di >= me.hand.size() or seen.has(di):
 			return g._fail("Bad discard choice.")
 		discard_card = me.hand[di]
-		discard_bonus = int(atk.optional_discard_bonus)
+		discard_bonus = int(atk.get("optional_discard_bonus", 0))
+		discard_poison = atk.has("optional_discard_poison")  # Viper
 
 	# Commit: pay, mark the color used (even if the attack fizzles), use up the spells.
 	me.mana -= mana_cost + spell_costs
@@ -320,6 +322,27 @@ static func attack(g: Game, p: int, attacker_uid: int, attack_index: int, target
 			g._log("%s cannot be damaged by a champion with over %d HP." % [target_champion.card_name(), int(tab2.immune_to_attackers_max_hp_over)])
 			dmg = 0
 	if target_champion != null:
+		# K-nit gains 10 damage for good every time it is attacked; Monster Trap hits the attacker once
+		if target_champion.has_ability() and target_champion.card.ability.has("gains_damage_when_attacked"):
+			var grown: bool = false
+			for st in target_champion.statuses:
+				if str(st.kind) == "permanent_bonus":
+					st.amount = int(st.amount) + int(target_champion.card.ability.gains_damage_when_attacked)
+					grown = true
+			if not grown:
+				target_champion.statuses.append({"kind": "permanent_bonus", "amount": int(target_champion.card.ability.gains_damage_when_attacked)})
+			g._log("%s gains +%d damage to its attacks." % [target_champion.card_name(), int(target_champion.card.ability.gains_damage_when_attacked)])
+		for att in target_champion.attached.duplicate():
+			if str(att.get("attach_kind", "")) == "monster_trap":
+				target_champion.attached.erase(att)
+				var spent: Dictionary = (att as Dictionary).duplicate()
+				spent.erase("_stacks")
+				spent.erase("attach_kind")
+				g.players[target_champion.owner].discard.append(spent)
+				g._log("Monster Trap springs: %s takes 50 damage." % attacker.card_name())
+				DamageRules.damage_champion(g, attacker, 50, 1 - p)
+		if not me.champions.has(attacker):  # the trap destroyed the attacker
+			return g._ok({"damage": 0, "fizzled": true})
 		var shield: int = StatusRules.incoming_reduction(target_champion)  # Dive / Formation
 		if shield > 0 and dmg > 0:
 			dmg = maxi(0, dmg - shield)
@@ -347,6 +370,8 @@ static func attack(g: Game, p: int, attacker_uid: int, attack_index: int, target
 		var tab3: Dictionary = target_champion.card.ability
 		if tab3.has("when_hit_over_damage_attacker") and dmg > int(tab3.when_hit_over_damage_attacker.over):
 			DamageRules.damage_champion(g, attacker, int(tab3.when_hit_over_damage_attacker.amount), 1 - p)
+	if discard_poison and discard_card.size() > 0 and target_champion != null and foe.champions.has(target_champion):  # Viper's Plague
+		StatusRules.apply_poison(g, target_champion, int(atk.optional_discard_poison.amount), int(atk.optional_discard_poison.turns), p)
 	if coin_recoil > 0 and me.champions.has(attacker) and not g.finished:  # Suproar: 10 for each tails
 		DamageRules.damage_champion(g, attacker, coin_recoil, 1 - p)
 	if not g.finished:

@@ -113,6 +113,14 @@ static func after_damage(g: Game, p: int, attacker: Champion, atk: Dictionary, t
 		else:
 			g._log("Coin: Tails.")
 
+	if atk.has("heal_self") and me.champions.has(attacker):  # Dragon Soilder's Spear Leap
+		attacker.damage = maxi(0, attacker.damage - int(atk.heal_self))
+		g._log("%s removes %d damage from itself." % [attacker.card_name(), int(atk.heal_self)])
+	if (atk.has("coin_tails_shuffle_self") or atk.has("coin_heads_shuffle_self")) and me.champions.has(attacker):  # Angry Wog, Barley
+		var heads: bool = g.flip_coin()
+		g._log("Coin: %s." % ("Heads" if heads else "Tails"))
+		if heads == atk.has("coin_heads_shuffle_self"):
+			g.shuffle_champion_into_deck(attacker)
 	if atk.has("reduce_incoming_self") and me.champions.has(attacker):  # Deep Peed's Dive, Gomosaur's Formation
 		for st in attacker.statuses.duplicate():
 			if str(st.kind) == "reduce_incoming":

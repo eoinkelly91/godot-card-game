@@ -41,6 +41,12 @@ static func _update(g: Game) -> void:
 				for c in g.players[1 - p].active_champions():
 					c.hp_mod += int(ench.hp_aura_enemy)
 		for c in ps.champions:
+			if c.has_ability() and c.card.ability.has("hp_per_own_creature"):  # Water Hound: +10 per OTHER active creature
+				var creatures: int = 0
+				for o in ps.active_champions():
+					if o != c and o.champion_type() == "Creature":
+						creatures += 1
+				c.hp_mod += int(c.card.ability.hp_per_own_creature) * creatures
 			for att in c.attached:
 				match str(att.get("attach_kind", "")):
 					"fusion":  # +20 for each OTHER active champion of yours of the same color

@@ -179,6 +179,7 @@ static func end_turn(g: Game, p: int) -> Dictionary:
 	if not chk.ok:
 		return chk
 	var ps: PlayerState = g.players[p]
+	ps.pending_minotaur = 0  # an unused Minotaur discard is lost at the end of the turn
 	while ps.hand.size() > int(g.rules.max_hand_size):  # hand limit (a player chooses first, see discard_hand_card)
 		var di: int = g.rng.randi_range(0, ps.hand.size() - 1)
 		g._log("P%d must discard down to %d cards and discards %s." % [p, int(g.rules.max_hand_size), str(ps.hand[di].get("name", "a card"))])

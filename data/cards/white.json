@@ -351,7 +351,7 @@
    }
   ],
   "ability": {
-   "text": "Ability: Gaia's HP is equivalent to that of your opponents active champion with the most HP.",
+   "text": "Gaia's HP is equivalent to that of your opponents active champion with the most HP (equivalent to its max HP)",
    "trigger": "passive",
    "gaia_hp": true
   }

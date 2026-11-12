@@ -521,6 +521,7 @@ func _on_reveal() -> void:
 	if not _fortress_options().is_empty():
 		_status.text += "  |  Click your Fortress to castle or uncastle."
 	refresh()
+	call_deferred("_prompt_minotaur")
 
 
 ## Shows what the start-of-turn triggers did (poison damage, coin flips, Fortress mana...) in the status line.
@@ -925,6 +926,34 @@ func _fortress_options() -> Array:
 ## The same condition as the "SUMMONING AVAILABLE" text.
 func _summoning_available(ps: PlayerState) -> bool:
 	return not game.finished and not ps.summoned_this_turn  # summoning works at any time during your turn
+
+
+var _minotaur_prompted_turn: int = -1
+
+
+## Minotaur: at the start of your turn, choose a card attached to an opponent's champion to discard.
+func _prompt_minotaur() -> void:
+	if game == null or game.finished or busy:
+		return
+	var p: int = game.active
+	if viewer != p or _cover.visible or game.players[p].pending_minotaur <= 0 or _minotaur_prompted_turn == game.turn:
+		return
+	_minotaur_prompted_turn = game.turn
+	busy = true
+	while game.players[p].pending_minotaur > 0:
+		var opts: Array = []
+		for c in game.players[1 - p].champions:
+			for i in c.attached.size():
+				opts.append({"label": "%s (on %s)" % [str(c.attached[i].get("name", "?")), game.describe_champion(c)], "value": "%d:%d" % [c.uid, i]})
+		if opts.is_empty():
+			break
+		var pick: Variant = await choose("Minotaur: discard which attached card?", opts, 1, 1)
+		if pick == null or (pick as Array).is_empty():
+			break
+		var parts: PackedStringArray = str((pick as Array)[0]).split(":")
+		_report(game.minotaur_discard(p, int(parts[0]), int(parts[1])))
+	busy = false
+	refresh()
 
 
 ## True when this player has nothing more to do: no champion can attack and no spell or enchantment can be played.

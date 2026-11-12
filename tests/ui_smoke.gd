@@ -133,7 +133,7 @@ func _test_every_spell_flow() -> void:
 				var res: Dictionary = g.play_spell(0, 0, ei, tf.target)
 				check(res.ok, "%s effect %d: the engine accepts it (%s)" % [id, ei, str(res.get("error", ""))])
 				count += 1
-	check(count == 30, "all 30 spell effects went through (%d)" % count)
+	check(count == 32, "all 32 spell effects went through (%d)" % count)
 	# A flow reports problems instead of crashing: no damaged champion for Mist of Despair.
 	var g2 := _fresh_state()
 	for c in g2.players[0].champions:

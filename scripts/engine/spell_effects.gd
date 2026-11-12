@@ -36,6 +36,14 @@ static func validate(g: Game, p: int, hand_index: int, effect: Dictionary, targe
 				return "You can move at most %d counters." % int(effect.get("count", 3))
 		"type_attack_bonus", "reduce_enemy_attacks", "damage_all_enemies", "shuffle_weak_champions":
 			pass
+		"retreat_basic":  # Retreat Signal: target {"champions": [uids]} of your own active basic champions
+			var picked: Array = target.get("champions", [])
+			if picked.is_empty():
+				return "Pick at least one of your active basic champions."
+			for u in picked:
+				var rc: Champion = g._champion_of(me, int(u))
+				if rc == null or not me.active_champions().has(rc) or rc.champion_class() != "basic":
+					return "Only your active basic champions can retreat."
 		"mystery_remove":  # Mystery: target {"champion": uid} of an opponent's champion that has attached cards
 			var mc: Champion = g._champion_of(foe, int(target.get("champion", -1)))
 			if mc == null or foe.castled:
@@ -153,6 +161,11 @@ static func apply(g: Game, p: int, hand_index: int, effect: Dictionary, target: 
 				var tmp: Variant = foe.deck[i]
 				foe.deck[i] = foe.deck[j]
 				foe.deck[j] = tmp
+		"retreat_basic":  # Retreat Signal
+			for u in target.get("champions", []):
+				var rc: Champion = g._champion_of(me, int(u))
+				if rc != null:
+					g.shuffle_champion_into_deck(rc)
 		"mystery_remove":  # Mystery
 			var mc: Champion = g._champion_of(foe, int(target.get("champion", -1)))
 			var removed: int = mc.attached.size()

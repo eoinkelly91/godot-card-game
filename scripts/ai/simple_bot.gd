@@ -16,6 +16,15 @@ static func take_turn(g: Game, p: int) -> void:
 	elif ps.castles_used == 0 and not ps.is_first_turn() and ps.champions.size() == 1 and foe.champions.size() >= 3:
 		g.castle(p)  # only possible with exactly one champion in the active play area
 
+	while ps.pending_minotaur > 0:  # Minotaur: discard the first attached card it finds
+		var done: bool = false
+		for c in g.players[1 - p].champions:
+			if not c.attached.is_empty():
+				g.minotaur_discard(p, c.uid, 0)
+				done = true
+				break
+		if not done:
+			ps.pending_minotaur = 0
 	# Summon (the turn has no steps: summoning, spells and enchantments are possible at any time).
 	for i in range(ps.hand.size() - 1, -1, -1):
 		if i < ps.hand.size() and str(ps.hand[i].get("kind", "")) == "enchantment":

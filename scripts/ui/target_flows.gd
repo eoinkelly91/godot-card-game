@@ -71,6 +71,12 @@ func spell_target(p: int, hand_index: int, effect_index: int) -> Dictionary:
 		"lock", "draw", "gain_mana", "buff_attack", "drain_mana", "drain_mana_per_card", "gain_mana_per_enchantment", "opponent_discards", \
 		"summon_discount", "wizardry_draw", "type_attack_bonus", "reduce_enemy_attacks", "damage_all_enemies", "shuffle_weak_champions":
 			return _t({})
+		"retreat_basic":  # Retreat Signal: any number of your active basic champions
+			var basics: Array = me.active_champions().filter(func(c: Champion) -> bool: return c.champion_class() == "basic")
+			if basics.is_empty():
+				return _err("You have no active basic champions.")
+			var rs: Variant = await _many("Shuffle which active basic champions into your deck?", _champs(basics), 1, basics.size())
+			return _cancel() if rs == null else _t({"champions": rs})
 		"attach":  # Warrior Idol, Fusion, Power Source: one of your own champions (encamped ones too)
 			var open_ones: Array = me.champions.filter(func(c: Champion) -> bool: return c.attached.size() < int(g.rules.max_attached_cards))
 			if open_ones.is_empty():
@@ -291,9 +297,10 @@ func attack_target(p: int, attacker: Champion, atk_index: int) -> Dictionary:
 			if one == null:
 				return _cancel()
 			target = {"champion": one}
-	if atk.has("optional_discard_bonus") and not me.hand.is_empty():
+	if (atk.has("optional_discard_bonus") or atk.has("optional_discard_poison")) and not me.hand.is_empty():
 		var opts: Array = _hand_options(me, -1, "")
-		var d: Variant = await _many("Discard a card for +%d damage? (pick none to skip)" % int(atk.optional_discard_bonus), opts, 0, 1)
+		var what: String = ("for +%d damage" % int(atk.optional_discard_bonus)) if atk.has("optional_discard_bonus") else "to poison the target"
+		var d: Variant = await _many("Discard a card %s? (pick none to skip)" % what, opts, 0, 1)
 		if d == null:
 			return _cancel()
 		if not (d as Array).is_empty():

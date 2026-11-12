@@ -41,6 +41,8 @@ SPELLS = {
     "Grand Shield": [{"op": "reduce_enemy_attacks", "amount": 20}],
     "Rain of Dragons": [{"op": "type_attack_bonus", "type": "Creature", "amount": 20}],
     "Power Source": [{"op": "attach", "kind": "power_source"}],
+    "Monster Trap": [{"op": "attach", "kind": "monster_trap"}],
+    "Retreat Signal": [{"op": "retreat_basic"}],
 }
 
 ENCHANTMENTS = {

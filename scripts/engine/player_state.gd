@@ -22,6 +22,7 @@ var castled: bool = false     # true: Fortress is in the active play area, champ
 var castles_used: int = 0     # castling is limited per game
 var castled_turns: int = 0    # own turns spent castled so far, counting the turn they castled on
 var buffs: Array = []         # duration effects on this player, e.g. {"kind": "attack", "amount": 10, "turns_left": 1}
+var pending_minotaur: int = 0  # Minotaur: attached cards of the opponent that this player may still discard this turn
 var summoned_this_turn: bool = false
 var colors_used: Array = []   # colors that have attacked this turn
 var extra_attacks: Array = []  # Volcanic Horn tokens: uid of the champion that granted each extra attack
