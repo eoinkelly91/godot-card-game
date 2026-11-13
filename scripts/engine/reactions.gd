@@ -25,7 +25,7 @@ static func run(g: Game, attacker_player: int, attacker: Champion, atk: Dictiona
 				DamageRules.damage_champion(g, attacker, int(eff.get("amount", 0)), 1 - attacker_player)
 		if bool(rx.get("one_shot", false)):
 			defender.enchantments.erase(ench)
-			defender.discard.append(ench)
+			defender.discard.append(g.enchantment_as_card(ench))
 		if g.finished or not g.players[attacker_player].champions.has(attacker):
 			break
 	return negated

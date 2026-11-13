@@ -11,7 +11,7 @@ const COLORS := {
 }
 const NEUTRAL := Color(0.25, 0.3, 0.28)
 const HAND_CARD_W := 245.0  # the starting size; the hand grows or shrinks to fill the window (see _fit_hand_size)
-const BOARD_CARD_W := 150.0
+const BOARD_CARD_W := 140.0
 const BOARD_CARD_H := BOARD_CARD_W * 650.0 / 490.0
 
 var game: Game
@@ -141,14 +141,13 @@ func _build_ui() -> void:
 	left.add_child(_opp_box)
 	_me_info = _info_label()
 	left.add_child(_me_info)
-	_me_box = VBoxContainer.new()
-	left.add_child(_me_box)
-
-	_attack_hint = Label.new()
+	_attack_hint = Label.new()  # directly under the "Player N (YOUR TURN)" bar
 	_attack_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_attack_hint.add_theme_font_size_override("font_size", 13)
 	_attack_hint.add_theme_color_override("font_color", Color(0.6, 0.85, 1.0))
 	left.add_child(_attack_hint)
+	_me_box = VBoxContainer.new()
+	left.add_child(_me_box)
 	_hand_label = Label.new()  # no longer shown (the board info line has the mana)
 	_hand_label.visible = false
 	left.add_child(_hand_label)
@@ -695,55 +694,75 @@ func _render_board(box: VBoxContainer, info: RichTextLabel, p: int, is_active: b
 	info.text = "Player %d%s   Mana %d   Deck %d   Hand %d   Kills %d/%d   Castles used %d/%d%s%s" % [
 		p, "  (YOUR TURN)" if is_active else "", ps.mana, ps.deck.size(), ps.hand.size(), ps.kills,
 		int(game.rules.annihilation_goal), ps.castles_used, int(game.rules.castles_per_game),
-		"   [color=#ffd940]SUMMONING AVAILABLE[/color]" if summoning else "",
+		("   [color=#ffd940]SUMMONING AVAILABLE%s[/color]" % _summons_suffix(ps)) if summoning else "",
 		("   [CASTLED: Fortress vulnerable to attack, champions encamped, turns remaining:%d]" % maxi(0, int(game.rules.max_castled_turns) - ps.castled_turns)) if ps.castled else ""]
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 10)
 	var champs: Control = _champion_flow(ps, is_active)
-	champs.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(champs)
 	var mine: bool = is_active and viewer == p and not game.finished and not _cover.visible
-	var glow: bool = mine and not _fortress_options().is_empty()  # yellow border: the Fortress has something to offer
+	var glow: bool = mine and not ps.castled and not _fortress_options().is_empty()  # yellow border: the Fortress has something to offer
 	var fv := CardView.create(fortress_card(ps), BOARD_CARD_W, null, true, glow, ps.castled, game)
 	if is_active:  # clicking the enemy Fortress does nothing
 		fv.pressed.connect(_on_fortress_clicked)
+	_wire_drop(fv, {"kind": "fortress", "owner": p})
 	row.add_child(fv)
 	row.add_child(_enchantment_area(ps))
-	box.add_child(_zone_row(row, false))
+	box.add_child(_zone_row(row, p))
 
 
-func _zone_row(content: Control, encamped: bool) -> PanelContainer:
-	var panel := PanelContainer.new()
+## The whole row of one player is a drop area for spells ("drop them anywhere on the board").
+func _zone_row(content: Control, p: int) -> DropZone:
+	var panel := DropZone.new()
 	panel.custom_minimum_size = Vector2(0, BOARD_CARD_H + 10.0 + _attachment_room)
 	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.06, 0.06, 0.09) if encamped else Color(0.11, 0.12, 0.18)
+	sb.bg_color = Color(0.11, 0.12, 0.18)
 	sb.set_content_margin_all(3)
 	panel.add_theme_stylebox_override("panel", sb)
 	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	panel.add_child(content)
+	_wire_drop(panel, {"kind": "board", "owner": p})
 	return panel
 
 
+
+## Six fixed champion slots. Each slot is a drop area: a card dragged here is summoned into it.
 func _champion_flow(ps: PlayerState, is_active: bool) -> Control:
-	# Own scroll area: a crowded row scrolls instead of pushing the hand off the bottom of the window.
-	var scroll := ScrollContainer.new()
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	var flow := HFlowContainer.new()
-	flow.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	flow.add_theme_constant_override("h_separation", 6)
-	flow.add_theme_constant_override("v_separation", 6)
-	scroll.add_child(flow)
-	if ps.champions.is_empty():
-		var none := Label.new()
-		none.text = "(no champions)"
-		none.add_theme_color_override("font_color", Color(0.6, 0.6, 0.65))
-		flow.add_child(none)
-	for c in ps.champions:
-		var v := CardView.create(c.card, BOARD_CARD_W, c, true, c.attacked_this_turn and is_active, ps.castled, game, Color(0.95, 0.15, 0.15))  # red once it has attacked
-		if is_active:
-			v.pressed.connect(_on_own_champion.bind(c.uid))
-		flow.add_child(_stack_with_attachments(c, v))
-	return scroll
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 6)
+	var limit: int = int(game.rules.board_limit)
+	for slot in limit:
+		var c: Champion = ps.slot_champion(slot)
+		var zone := DropZone.new()
+		zone.custom_minimum_size = Vector2(BOARD_CARD_W + _attachment_room + 4.0, BOARD_CARD_H + _attachment_room)
+		var empty := StyleBoxFlat.new()
+		empty.bg_color = Color(0.08, 0.09, 0.13) if c == null else Color(0, 0, 0, 0)
+		empty.set_border_width_all(1)
+		empty.border_color = Color(0.22, 0.24, 0.32) if c == null else Color(0, 0, 0, 0)
+		empty.set_content_margin_all(2)
+		var hover := empty.duplicate() as StyleBoxFlat
+		hover.set_border_width_all(4)
+		hover.border_color = Color(1.0, 0.9, 0.25)
+		zone.normal_style = empty
+		zone.hover_style = hover
+		zone.add_theme_stylebox_override("panel", empty)
+		if c == null:
+			var l := Label.new()
+			l.text = "Slot %d" % (slot + 1)
+			l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+			l.add_theme_color_override("font_color", Color(0.4, 0.42, 0.5))
+			l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			zone.add_child(l)
+		else:
+			var v := CardView.create(c.card, BOARD_CARD_W, c, true, c.attacked_this_turn and is_active, ps.castled, game, Color(0.95, 0.15, 0.15))  # red once it has attacked
+			if is_active:
+				v.pressed.connect(_on_own_champion.bind(c.uid))
+			_wire_drop(v, {"kind": "champion", "owner": ps.index, "slot": slot, "champion": c.uid})
+			zone.add_child(_stack_with_attachments(c, v))
+		_wire_drop(zone, {"kind": "slot", "owner": ps.index, "slot": slot, "champion": c.uid if c != null else -1})
+		row.add_child(zone)
+	return row
 
 
 ## A champion with attached cards is drawn stacked on top of them: the attached cards peek out behind it, to the
@@ -806,21 +825,42 @@ func _discard_pile(ps: PlayerState, p: int, width: float = BOARD_CARD_W) -> Cont
 	return holder
 
 
+## The enchantment slots (the enchantment limit): each one is a drop area. Dropping onto a card when all slots are
+## full replaces that enchantment.
 func _enchantment_area(ps: PlayerState) -> Control:
-	var panel := PanelContainer.new()
-	var limit: int = int(game.rules.enchantment_limit)
-	panel.custom_minimum_size = Vector2(limit * (BOARD_CARD_W + 6.0), BOARD_CARD_H)
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 6)
-	panel.add_child(row)
-	if ps.enchantments.is_empty():
-		var l := Label.new()
-		l.text = "Enchantments (0/%d)" % limit
-		l.add_theme_color_override("font_color", Color(0.6, 0.6, 0.65))
-		row.add_child(l)
-	for e in ps.enchantments:
-		row.add_child(CardView.create(e, BOARD_CARD_W, null, true))
-	return panel
+	var limit: int = int(game.rules.enchantment_limit)
+	for i in limit:
+		var zone := DropZone.new()
+		zone.custom_minimum_size = Vector2(BOARD_CARD_W + 4.0, BOARD_CARD_H)
+		var empty := StyleBoxFlat.new()
+		empty.bg_color = Color(0.08, 0.09, 0.13) if i >= ps.enchantments.size() else Color(0, 0, 0, 0)
+		empty.set_border_width_all(1)
+		empty.border_color = Color(0.2, 0.34, 0.24) if i >= ps.enchantments.size() else Color(0, 0, 0, 0)
+		empty.set_content_margin_all(2)
+		var hover := empty.duplicate() as StyleBoxFlat
+		hover.set_border_width_all(4)
+		hover.border_color = Color(1.0, 0.9, 0.25)
+		zone.normal_style = empty
+		zone.hover_style = hover
+		zone.add_theme_stylebox_override("panel", empty)
+		if i < ps.enchantments.size():
+			var v := CardView.create(ps.enchantments[i], BOARD_CARD_W, null, true)
+			_wire_drop(v, {"kind": "ench", "owner": ps.index, "index": i})
+			zone.add_child(v)
+		else:
+			var l := Label.new()
+			l.text = "Enchantment\nslot %d" % (i + 1)
+			l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+			l.add_theme_color_override("font_color", Color(0.4, 0.5, 0.42))
+			l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			zone.add_child(l)
+		_wire_drop(zone, {"kind": "ench", "owner": ps.index, "index": i})
+		row.add_child(zone)
+	return row
+
 
 
 func _render_hand() -> void:
@@ -833,6 +873,7 @@ func _render_hand() -> void:
 	_hand_label.text = "Your hand (%d cards) · Mana %d · Colors that attacked this turn: %s" % [ps.hand.size(), ps.mana, ", ".join(ps.colors_used) if not ps.colors_used.is_empty() else "none"]
 	for i in ps.hand.size():
 		var v := CardView.create(ps.hand[i], _hand_w)
+		v.drag_data = {"hand_index": i, "kind": str(ps.hand[i].get("kind", "")), "player": p}  # drag it onto the board
 		v.pressed.connect(_on_hand_card.bind(i))
 		_hand_row.add_child(v)
 	call_deferred("_fix_hand_scroll")
@@ -925,7 +966,14 @@ func _fortress_options() -> Array:
 
 ## The same condition as the "SUMMONING AVAILABLE" text.
 func _summoning_available(ps: PlayerState) -> bool:
-	return not game.finished and not ps.summoned_this_turn  # summoning works at any time during your turn
+	return not game.finished and ps.summons_this_turn < game.summons_allowed(ps.index)  # summoning works at any time during your turn
+
+
+## " (2)" while castled (two summons left), " (1)" when one of the two is left; nothing when it is the usual single summon.
+func _summons_suffix(ps: PlayerState) -> String:
+	if game.summons_allowed(ps.index) <= 1:
+		return ""
+	return " (%d)" % (game.summons_allowed(ps.index) - ps.summons_this_turn)
 
 
 var _minotaur_prompted_turn: int = -1
@@ -972,9 +1020,8 @@ func _nothing_left_to_do() -> bool:
 			var kind: String = str(card.get("kind", ""))
 			if kind == "spell" and not LockRules.is_locked(game, p, "spell") and int(card.get("cost", 0)) <= ps.mana:
 				return false
-			if kind == "enchantment" and not LockRules.is_locked(game, p, "enchantment") and int(card.get("cost", 0)) <= ps.mana \
-					and ps.enchantments.size() < int(game.rules.enchantment_limit):
-				return false
+			if kind == "enchantment" and not LockRules.is_locked(game, p, "enchantment") and int(card.get("cost", 0)) <= ps.mana:
+				return false  # (with every enchantment slot full it can still replace one)
 	return true
 
 
@@ -1076,17 +1123,67 @@ func _on_view_discard(p: int) -> void:
 	busy = false
 
 
-func _on_hand_card(i: int) -> void:
+## Cards are played by dragging them onto the board, so a plain click only says so.
+func _on_hand_card(_i: int) -> void:
 	if not _my_turn():
 		return
+	_status.text = "Drag the card onto the board to play it: champions into a slot, enchantments into an enchantment slot, spells anywhere (onto a champion to target it)."
+
+
+# ================================================================ drag and drop
+
+## Connects a board control (a DropZone or a CardView) to the drop rules for the given target description.
+func _wire_drop(ctrl: Control, target: Dictionary) -> void:
+	var check := _can_drop.bind(target)
+	var done := _on_drop.bind(target)
+	if ctrl is DropZone:
+		(ctrl as DropZone).check = check
+		(ctrl as DropZone).done = done
+	elif ctrl is CardView:
+		(ctrl as CardView).drop_check = check
+		(ctrl as CardView).drop_do = done
+
+
+## Whether the dragged hand card may land on this target (this only decides the highlight; the reasons it may
+## still be refused are shown in the messages bar when it is dropped).
+func _can_drop(data: Variant, target: Dictionary) -> bool:
+	if not (data is Dictionary) or not (data as Dictionary).has("hand_index") or not _my_turn():
+		return false
+	var p: int = game.active
+	if int((data as Dictionary).get("player", -1)) != p:
+		return false
+	match str(data.kind):
+		"champion":  # into one of your slots (on an occupied slot only to sacrifice)
+			return int(target.get("owner", -1)) == p and (str(target.kind) == "slot" or str(target.kind) == "champion")
+		"enchantment":
+			return int(target.get("owner", -1)) == p and (str(target.kind) == "ench")
+		"spell":
+			return true
+	return false
+
+
+func _on_drop(data: Variant, target: Dictionary) -> void:
+	if not _can_drop(data, target) or busy:
+		return
+	var ctx: Dictionary = {}
+	match str(target.kind):
+		"slot", "champion":
+			ctx["slot"] = int(target.get("slot", -1))
+			ctx["champion"] = int(target.get("champion", -1))
+			ctx["owner"] = int(target.owner)
+		"ench":
+			ctx["ench_index"] = int(target.get("index", -1))
+		_:
+			ctx["owner"] = int(target.get("owner", -1))
 	busy = true
-	await play_hand_card(i)
+	await play_hand_card(int(data.hand_index), ctx)
 	busy = false
 	refresh()
 
 
-## Everything that happens when a hand card is clicked: the action menu, then its choices, then the engine call.
-func play_hand_card(i: int) -> Dictionary:
+## Everything that happens when a hand card is played: its choices, then the engine call. ctx says where it was
+## dropped: {"slot", "champion", "owner"} on a champion slot, {"ench_index"} on an enchantment slot, {"owner"} on the board.
+func play_hand_card(i: int, ctx: Dictionary = {}) -> Dictionary:
 	var p: int = game.active
 	var ps: PlayerState = game.players[p]
 	var card: Dictionary = ps.hand[i]
@@ -1097,9 +1194,21 @@ func play_hand_card(i: int) -> Dictionary:
 		"champion":
 			problem = Preflight.summon_problem(game, p, i)
 		"enchantment":
-			problem = Preflight.enchantment_problem(game, p, i)
+			var full: bool = ps.enchantments.size() >= int(game.rules.enchantment_limit)
+			var replace_at: int = int(ctx.get("ench_index", -1)) if full else -1
+			if full and (replace_at < 0 or replace_at >= ps.enchantments.size()):
+				problem = "You already have the maximum number of enchantments (%d): drop it onto one of them to replace it." % int(game.rules.enchantment_limit)
+			else:
+				problem = Preflight.enchantment_problem(game, p, i, full)
 		"spell":
 			problem = Preflight.spell_problem(game, p, i)
+	if problem == "" and kind == "champion":
+		var req: Dictionary = card.get("summon", {})
+		var sac_need: int = maxi(0, int(req.get("sacrifice", 0)) - ps.summon_discount) if int(req.get("sacrifice", 0)) > 0 else 0
+		if sac_need == 0 and ps.champions.size() >= int(game.rules.board_limit):
+			problem = "Your play area is full."
+		elif sac_need == 0 and int(ctx.get("slot", -1)) >= 0 and int(ctx.get("champion", -1)) >= 0:
+			problem = "That slot is already taken: drop it on an empty slot."
 	if problem != "":
 		_status.text = problem
 		return {"ok": false, "error": problem}
@@ -1117,15 +1226,28 @@ func play_hand_card(i: int) -> Dictionary:
 				if sac != null:
 					carried += sac.damage
 			var new_hp: int = int(card.get("hp", 0))
+			if not ps.castled:  # Super Shrink (and the like) already applies to the champion that is about to arrive
+				for e in game.players[1 - p].enchantments:
+					new_hp += int(e.get("hp_aura_enemy", 0))
+				new_hp = maxi(0, new_hp)
 			if carried >= new_hp and new_hp > 0:
 				var ok: Variant = await choose(
 					"WARNING: %d damage carries over to %s (%d HP). It will be destroyed the moment it is summoned, and your opponent scores an Annihilation point." % [carried, card.get("name", "this champion"), new_hp],
 					[{"label": "Summon it anyway", "value": "go"}, {"label": "Cancel", "value": "cancel"}], 1, 1)
 				if ok == null or (ok as Array).is_empty() or str((ok as Array)[0]) != "go":
 					return {"ok": false, "error": ""}
-			res = game.summon(p, i, sc.sacrifices)
+			res = game.summon(p, i, sc.sacrifices, "", int(ctx.get("slot", -1)))
 	elif kind == "enchantment":
-		res = game.play_enchantment(p, i)
+		var full2: bool = ps.enchantments.size() >= int(game.rules.enchantment_limit)
+		if full2:
+			var old: Dictionary = ps.enchantments[int(ctx.ench_index)]
+			var ans: Variant = await choose("Replace %s with %s?" % [old.get("name", "this enchantment"), card.get("name", "the new one")],
+					[{"label": "Replace %s with %s" % [old.get("name", "?"), card.get("name", "?")], "value": "go"}, {"label": "Cancel", "value": "cancel"}], 1, 1)
+			if ans == null or (ans as Array).is_empty() or str((ans as Array)[0]) != "go":
+				return {"ok": false, "error": ""}
+			res = game.replace_enchantment(p, i, int(ctx.ench_index))
+		else:
+			res = game.play_enchantment(p, i)
 	elif kind == "spell":
 		var effects: Array = card.effects
 		var effect_index: int = 0
@@ -1137,7 +1259,7 @@ func play_hand_card(i: int) -> Dictionary:
 			if pick == null or (pick as Array).is_empty():
 				return {"ok": false, "error": ""}
 			effect_index = int((pick as Array)[0])
-		var tf: Dictionary = await flows.spell_target(p, i, effect_index)
+		var tf: Dictionary = await flows.spell_target(p, i, effect_index, int(ctx.get("champion", -1)))
 		if tf.has("error"):
 			res = {"ok": false, "error": tf.error}
 		elif tf.has("cancelled"):
@@ -1192,6 +1314,14 @@ func attack_with(uid: int) -> Dictionary:
 		return {"ok": false, "error": tf.error}
 	if tf.has("cancelled"):
 		return {"ok": false, "error": ""}
+	var mark: int = game.log_lines.size()
 	var res: Dictionary = game.attack(p, uid, ai2, tf.target)
 	_report(res)
+	if res.ok:  # show the coin flips this attack made, so a Heads or Tails result is never missed
+		var coins: Array = []
+		for line in game.log_lines.slice(mark):
+			if str(line).begins_with("Coin") or "Heads out of" in str(line):
+				coins.append(str(line))
+		if not coins.is_empty():
+			_status.text = "  ".join(coins)
 	return res

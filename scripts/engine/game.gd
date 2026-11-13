@@ -38,6 +38,7 @@ const DEFAULT_RULES := {
 	"max_turns": 400,                        # safety net for simulations (counts every player's turn)
 	"fortress": {"hp": 500},   # the default Fortress; a deck's Fortress card replaces it (hp and its ability)
 	"max_attached_cards": 2,   # a champion can carry at most this many attached cards
+	"castled_summons": 2,      # champions you may summon in a turn while castled (1 otherwise)
 	"mana_per_turn": 1,        # every player always gets this much mana at the start of their turn
 }
 
@@ -202,12 +203,16 @@ func next_step(p: int) -> Dictionary:
 	return TurnRules.next_step(self, p)
 
 
-func summon(p: int, hand_index: int, sacrifice_uids: Array = [], discount_on: String = "") -> Dictionary:
-	return SummonRules.summon(self, p, hand_index, sacrifice_uids, discount_on)
+func summon(p: int, hand_index: int, sacrifice_uids: Array = [], discount_on: String = "", slot: int = -1) -> Dictionary:
+	return SummonRules.summon(self, p, hand_index, sacrifice_uids, discount_on, slot)
 
 
 func play_enchantment(p: int, hand_index: int) -> Dictionary:
 	return SummonRules.play_enchantment(self, p, hand_index)
+
+
+func replace_enchantment(p: int, hand_index: int, replace_index: int) -> Dictionary:
+	return SummonRules.replace_enchantment(self, p, hand_index, replace_index)
 
 
 func play_spell(p: int, hand_index: int, effect_index: int, target: Dictionary = {}) -> Dictionary:
@@ -247,11 +252,32 @@ func _is_locked(p: int, what: String) -> bool:
 func spawn_champion(p: int, card: Dictionary, slot: int = -1) -> Champion:
 	var champion := Champion.new(_next_uid, card, p)
 	_next_uid += 1
-	if slot < 0 or slot > players[p].champions.size():
-		players[p].champions.append(champion)
-	else:
-		players[p].champions.insert(slot, champion)
+	var ps: PlayerState = players[p]
+	var limit: int = int(rules.board_limit)
+	if slot < 0 or slot >= limit or ps.slot_champion(slot) != null:
+		slot = ps.first_free_slot(limit)
+		if slot < 0:  # a full board (tests and sims ignore limits): take the next number along
+			slot = ps.champions.size()
+	champion.slot = slot
+	var at: int = ps.champions.size()
+	for i in ps.champions.size():  # the list stays in slot order
+		if ps.champions[i].slot > slot:
+			at = i
+			break
+	ps.champions.insert(at, champion)
 	return champion
+
+
+## How many champions p may summon this turn: 2 while castled, otherwise 1.
+func summons_allowed(p: int) -> int:
+	return int(rules.castled_summons) if players[p].castled else 1
+
+
+## An enchantment card as it goes to the discard pile or back to a hand (without its running turn counter).
+func enchantment_as_card(ench: Dictionary) -> Dictionary:
+	var card: Dictionary = ench.duplicate()
+	card.erase("turns_left")
+	return card
 
 
 func _champion_of(ps: PlayerState, uid: int) -> Champion:

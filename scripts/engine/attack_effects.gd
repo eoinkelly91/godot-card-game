@@ -125,7 +125,7 @@ static func after_damage(g: Game, p: int, attacker: Champion, atk: Dictionary, t
 		for st in attacker.statuses.duplicate():
 			if str(st.kind) == "reduce_incoming":
 				attacker.statuses.erase(st)
-		attacker.statuses.append({"kind": "reduce_incoming", "amount": int(atk.reduce_incoming_self), "turns_left": 2})
+		attacker.statuses.append({"kind": "reduce_incoming", "amount": int(atk.reduce_incoming_self), "turns_left": 2, "label": str(atk.get("name", ""))})
 		g._log("Attacks targeting %s are reduced by %d until its owner's next turn." % [attacker.card_name(), int(atk.reduce_incoming_self)])
 
 	# Self damage comes last. A champion destroyed by its own recoil scores a point for the opponent.

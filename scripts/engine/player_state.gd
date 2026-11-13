@@ -23,7 +23,8 @@ var castles_used: int = 0     # castling is limited per game
 var castled_turns: int = 0    # own turns spent castled so far, counting the turn they castled on
 var buffs: Array = []         # duration effects on this player, e.g. {"kind": "attack", "amount": 10, "turns_left": 1}
 var pending_minotaur: int = 0  # Minotaur: attached cards of the opponent that this player may still discard this turn
-var summoned_this_turn: bool = false
+var summoned_this_turn: bool = false  # true once at least one champion was summoned this turn
+var summons_this_turn: int = 0  # champions summoned this turn (castled players may summon twice)
 var colors_used: Array = []   # colors that have attacked this turn
 var extra_attacks: Array = []  # Volcanic Horn tokens: uid of the champion that granted each extra attack
 var summon_discount: int = 0   # Mumified: sacrifices or mana taken off this turn's summon
@@ -35,11 +36,27 @@ func _init(p_index: int) -> void:
 
 func reset_for_turn() -> void:
 	summoned_this_turn = false
+	summons_this_turn = 0
 	colors_used.clear()
 	summon_discount = 0
 	extra_attacks.clear()
 	for c in champions:
 		c.attacked_this_turn = false
+
+
+## The first free slot (0-5), or -1 when the board is full.
+func first_free_slot(limit: int) -> int:
+	for s in limit:
+		if slot_champion(s) == null:
+			return s
+	return -1
+
+
+func slot_champion(s: int) -> Champion:
+	for c in champions:
+		if c.slot == s:
+			return c
+	return null
 
 
 func is_first_turn() -> bool:

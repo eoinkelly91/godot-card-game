@@ -10,7 +10,8 @@
   "start_of_turn": {
    "op": "heal_all",
    "amount": 10
-  }
+  },
+  "turns": 6
  },
  {
   "id": "enchanted_forest",
@@ -23,7 +24,8 @@
   "start_of_turn": {
    "op": "gain_mana_per_champion",
    "amount": 1
-  }
+  },
+  "turns": 4
  },
  {
   "id": "battlements",
@@ -36,7 +38,8 @@
   "fortress_defense": {
    "prevent": 20,
    "damage_attacker": 20
-  }
+  },
+  "turns": 3
  },
  {
   "id": "siege_works",
@@ -49,7 +52,8 @@
   "start_of_turn": {
    "op": "fortress_damage_per_active_champion",
    "amount": 10
-  }
+  },
+  "turns": 3
  },
  {
   "id": "mist_of_grief",
@@ -61,7 +65,8 @@
   ],
   "on_champion_lost_to_attack": {
    "gain_mana": 1
-  }
+  },
+  "turns": 10
  },
  {
   "id": "super_shrink",
@@ -71,6 +76,7 @@
   "text": [
    "All your opponents active champions have their HP reduced by 20"
   ],
-  "hp_aura_enemy": -20
+  "hp_aura_enemy": -20,
+  "turns": 3
  }
 ]

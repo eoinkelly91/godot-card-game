@@ -207,7 +207,7 @@ static func apply(g: Game, p: int, hand_index: int, effect: Dictionary, target: 
 		"remove_enchantment":
 			var ench: Dictionary = foe.enchantments[int(target.enchantment)]
 			foe.enchantments.remove_at(int(target.enchantment))
-			foe.discard.append(ench)
+			foe.discard.append(g.enchantment_as_card(ench))
 			g._log("%s is removed from P%d's enchantments." % [ench.get("name", "?"), 1 - p])
 		"move_all_damage":
 			var a: Champion = g._champion_of(me, int(target.from))
@@ -284,7 +284,7 @@ static func apply(g: Game, p: int, hand_index: int, effect: Dictionary, target: 
 				var hi: int = int(target.hand_index) - (1 if int(target.hand_index) > hand_index else 0)
 				ench2 = me.hand[hi]
 				me.hand.remove_at(hi)
-			me.discard.append(ench2)
+			me.discard.append(g.enchantment_as_card(ench2))
 			me.mana += int(effect.get("amount", 5))
 			g._log("P%d discards %s and gains %d mana." % [p, ench2.get("name", "an enchantment"), int(effect.get("amount", 5))])
 		"summon_discount":

@@ -105,6 +105,13 @@ func _init() -> void:
 		test_castle_needs_exactly_one_active_champion,
 		test_castled_players_draw_two,
 		test_start_of_turn_summary_and_poison,
+		test_just_attacked_cannot_be_sacrificed,
+		test_enchantments_expire_after_their_turns,
+		test_super_shrink_three_turns_and_sacrifice_summons,
+		test_castled_players_summon_twice,
+		test_fixed_slots,
+		test_replace_enchantment,
+		test_volcanic_horn_coin_is_fair,
 	]
 	for t in tests:
 		var before_failed := failed
@@ -2365,3 +2372,143 @@ func test_third_batch_of_cards() -> void:
 	carrier.attached = [rc("fusion").duplicate()]
 	trig(g10)
 	check(g10.players[0].pending_minotaur == 1 and g10.minotaur_discard(0, carrier.uid, 0).ok and carrier.attached.is_empty(), "Minotaur lets you discard one attached card of an opponent's champion")
+
+
+func test_just_attacked_cannot_be_sacrificed() -> void:
+	var g := real_game()
+	var a := spawn(g, 0, "syranite")
+	var b := spawn(g, 0, "capeasant")
+	var foe := spawn(g, 1, "gob")
+	g.players[0].hand = [rc("molten_harry")]
+	check(g.attack(0, a.uid, 0, {"champion": foe.uid}).ok, "attack with the first champion")
+	var r: Dictionary = g.summon(0, 0, [a.uid])
+	check(not r.ok and "just attacked" in str(r.error), "a champion that has just attacked cannot be sacrificed")
+	check(g.summon(0, 0, [b.uid]).ok, "one that has not attacked can")
+
+
+func test_enchantments_expire_after_their_turns() -> void:
+	var g := real_game()
+	spawn(g, 0, "syranite")
+	g.players[0].mana = 10
+	g.players[0].hand = [rc("siege_works")]
+	check(g.play_enchantment(0, 0).ok, "play Siege Works (3 turns)")
+	check(int(g.players[0].enchantments[0].turns_left) == 3, "the play turn does not count: 3 turns left")
+	g.end_turn(0)
+	g.end_turn(1)  # P0's turn: start trigger, then 3 -> 2
+	check(g.players[0].enchantments.size() == 1 and int(g.players[0].enchantments[0].turns_left) == 2, "2 turns left after the first own turn")
+	g.end_turn(0)
+	g.end_turn(1)
+	g.end_turn(0)
+	g.end_turn(1)  # third own turn starts: 1 -> 0, it expires
+	check(g.players[0].enchantments.is_empty(), "the enchantment expires after its turns")
+	var back: Dictionary = g.players[0].discard.back()
+	check(str(back.get("id", "")) == "siege_works" and not back.has("turns_left"), "it goes to the discard pile as a normal card")
+
+
+func test_super_shrink_three_turns_and_sacrifice_summons() -> void:
+	var g := real_game()
+	g.players[0].mana = 10
+	spawn(g, 0, "syranite")
+	var victim := spawn(g, 1, "gob")
+	g.players[0].hand = [rc("super_shrink")]
+	check(g.play_enchantment(0, 0).ok, "play Super Shrink")
+	check(victim.max_hp() == 20, "the opponent's champion is shrunk by 20")
+	g.end_turn(0)
+	g.players[1].hand = [rc("grey_goblin")]
+	check(g.summon(1, 0, [victim.uid]).ok, "the opponent sacrifices the shrunken champion")
+	var fresh: Champion = g.players[1].champions[0]
+	check(fresh.hp_mod == -20 and fresh.max_hp() == int(fresh.card.hp) - 20, "the champion summoned by sacrifice is shrunk too")
+	for i in 5:
+		if g.players[0].enchantments.is_empty():
+			break
+		g.end_turn(g.active)
+	check(g.players[0].enchantments.is_empty() and fresh.hp_mod == 0, "after 3 of its owner's turns Super Shrink ends and the HP comes back")
+
+
+func test_castled_players_summon_twice() -> void:
+	var g := real_game()
+	spawn(g, 0, "syranite")
+	g.players[0].castled = true
+	g.players[0].hand = [rc("gob"), rc("cyris"), rc("psyville")]
+	check(g.summon(0, 0).ok and g.summon(0, 0).ok, "a castled player may summon two champions")
+	var r: Dictionary = g.summon(0, 0)
+	check(not r.ok and "two champions" in str(r.error), "but not three")
+	var g2 := real_game()
+	g2.players[0].hand = [rc("gob"), rc("cyris")]
+	check(g2.summon(0, 0).ok and not g2.summon(0, 0).ok, "an uncastled player may summon only one")
+	var g3 := real_game()  # summoned first, castled afterwards: the second summon is still allowed
+	spawn(g3, 0, "syranite")
+	g3.players[0].hand = [rc("gob"), rc("cyris")]
+	g3.players[0].turns_taken = 9
+	g3.players[0].castles_used = 0
+	g3.players[0].champions.clear()
+	g3.spawn_champion(0, rc("syranite"))
+	check(g3.summon(0, 0).ok, "summon first")
+	g3.players[0].champions.remove_at(0)
+	check(g3.castle(0).ok and g3.summon(0, 0).ok, "castle after summoning, then summon again")
+
+
+func test_fixed_slots() -> void:
+	var g := real_game()
+	var a := spawn(g, 0, "syranite")
+	var b := spawn(g, 0, "capeasant")
+	var c := spawn(g, 0, "gorth")
+	check(a.slot == 0 and b.slot == 1 and c.slot == 2, "champions fill slots in order")
+	DamageRules.destroy_champion(g, b, 1)
+	check(g.players[0].slot_champion(1) == null and c.slot == 2, "a destroyed champion leaves its slot empty and the others stay put")
+	g.players[0].hand = [rc("gob"), rc("gob"), rc("gob")]
+	var r: Dictionary = g.summon(0, 0, [], "", 0)
+	check(not r.ok and "taken" in str(r.error), "a basic champion cannot be dropped on an occupied slot")
+	check(g.summon(0, 0, [], "", 4).ok and g.players[0].slot_champion(4) != null, "dropped on an empty slot it goes there")
+	var g2 := real_game()
+	var x := spawn(g2, 0, "syranite")
+	var y := spawn(g2, 0, "capeasant")
+	g2.players[0].hand = [rc("molten_harry")]
+	check(g2.summon(0, 0, [y.uid], "", 3).ok and g2.players[0].slot_champion(3) != null, "sacrifice summon goes to the empty slot it was dropped on")
+	var g3 := real_game()
+	var p := spawn(g3, 0, "syranite")
+	var q := spawn(g3, 0, "capeasant")
+	g3.players[0].hand = [rc("molten_harry")]
+	check(g3.summon(0, 0, [q.uid], "", 0).ok, "dropped on an occupied slot")
+	check(g3.players[0].slot_champion(2) != null and g3.players[0].slot_champion(1) == null, "it goes into the first empty slot")
+	var g4 := real_game()
+	for id in ["syranite", "capeasant", "suburn", "small_troll", "gorth", "gomosaur"]:
+		spawn(g4, 0, id)
+	g4.players[0].hand = [rc("molten_harry")]
+	var victim: Champion = g4.players[0].slot_champion(4)
+	check(g4.summon(0, 0, [victim.uid], "", 0).ok and g4.players[0].slot_champion(4) != null and g4.players[0].champions.size() == 6, "on a full board it takes the sacrificed champion's slot")
+	var g5 := real_game()
+	for id in ["syranite", "capeasant", "suburn", "small_troll", "gorth", "gomosaur"]:
+		spawn(g5, 0, id)
+	g5.players[0].hand = [rc("gob")]
+	var r5: Dictionary = g5.summon(0, 0)
+	check(not r5.ok and "full" in str(r5.error), "a basic champion cannot be summoned onto a full board")
+
+
+func test_replace_enchantment() -> void:
+	var g := real_game()
+	spawn(g, 0, "syranite")
+	g.players[0].mana = 20
+	g.rules.enchantment_limit = 2
+	g.players[0].hand = [rc("field_medics"), rc("siege_works"), rc("mist_of_grief")]
+	check(g.play_enchantment(0, 0).ok and g.play_enchantment(0, 0).ok, "fill both enchantment slots")
+	check(not g.play_enchantment(0, 0).ok, "a third cannot be played normally")
+	check(g.replace_enchantment(0, 0, 0).ok, "but it can replace one")
+	var names: Array = g.players[0].enchantments.map(func(e: Dictionary) -> String: return str(e.id))
+	check(names == ["siege_works", "mist_of_grief"] and str(g.players[0].discard.back().id) == "field_medics", "the old enchantment is discarded and the new one takes its place")
+
+
+func test_volcanic_horn_coin_is_fair() -> void:
+	# Real (unforced) coin flips over many games: Volcanic Horn gives an extra attack on Heads about half the time.
+	var heads := 0
+	for i in 200:
+		var g := real_game()
+		g.rng.seed = i + 1
+		g.players[0].mana = 5
+		var mh := spawn(g, 0, "molten_harry")
+		spawn(g, 0, "syranite")
+		spawn(g, 1, "gob")
+		g.attack(0, mh.uid, 1, {})
+		if g.players[0].extra_attacks.size() > 0:
+			heads += 1
+	check(heads > 70 and heads < 130, "Volcanic Horn flips a fair coin (%d heads in 200)" % heads)

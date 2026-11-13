@@ -66,3 +66,39 @@ static func _update(g: Game) -> void:
 						continue
 					best = maxi(best, o.max_hp())
 				c.hp_override = best if best >= 0 else GAIA_FALLBACK_HP
+
+
+## Where a champion's current max HP comes from, one line each, for the hover panel. Empty when nothing changes it.
+## The first line is the base HP, then every change (for example "-20 from Super Shrink").
+static func explain(g: Game, c: Champion) -> Array:
+	var notes: Array = []
+	var ps: PlayerState = g.players[c.owner]
+	var foe: PlayerState = g.players[1 - c.owner]
+	if c.has_ability() and bool(c.card.ability.get("gaia_hp", false)):
+		notes.append("Copies the HP of the strongest enemy active champion (%d)." % c.base_hp())
+	for ench in foe.enchantments:
+		if ench.has("hp_aura_enemy") and foe.active_champions().size() >= 0 and not ps.castled:
+			notes.append("%+d from %s" % [int(ench.hp_aura_enemy), str(ench.get("name", "an enchantment"))])
+	if c.has_ability() and c.card.ability.has("hp_per_own_creature"):
+		var creatures: int = 0
+		for o in ps.active_champions():
+			if o != c and o.champion_type() == "Creature":
+				creatures += 1
+		if creatures > 0:
+			notes.append("%+d from %d other active creature(s)" % [int(c.card.ability.hp_per_own_creature) * creatures, creatures])
+	for att in c.attached:
+		match str(att.get("attach_kind", "")):
+			"fusion":
+				var same: int = 0
+				for o in ps.active_champions():
+					if o != c and o.color() == c.color():
+						same += 1
+				if same > 0:
+					notes.append("%+d from Fusion (%d other %s champion(s))" % [20 * same, same, c.color()])
+			"power_source":
+				if not ps.hand.is_empty():
+					notes.append("%+d from Power Source (%d cards in hand)" % [10 * ps.hand.size(), ps.hand.size()])
+	if notes.is_empty():
+		return notes
+	notes.push_front("Base HP: %d" % int(c.card.get("hp", 0)) if c.hp_override < 0 else "Printed HP: %d" % int(c.card.get("hp", 0)))
+	return notes

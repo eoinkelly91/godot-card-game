@@ -91,8 +91,8 @@ static func summon_problem(g: Game, p: int, hand_index: int) -> String:
 	var me: PlayerState = g.players[p]
 	if LockRules.is_locked(g, p, "summon"):
 		return "You cannot summon this turn."
-	if me.summoned_this_turn:
-		return "You already summoned a champion this turn."
+	if me.summons_this_turn >= g.summons_allowed(p):
+		return "You already summoned %s this turn." % ("two champions" if g.summons_allowed(p) > 1 else "a champion")
 	var req: Dictionary = me.hand[hand_index].get("summon", {})
 	var mana: int = int(req.get("mana", 0))
 	if int(req.get("sacrifice", 0)) == 0 and me.summon_discount > 0:
@@ -102,7 +102,7 @@ static func summon_problem(g: Game, p: int, hand_index: int) -> String:
 	return ""
 
 
-static func enchantment_problem(g: Game, p: int, hand_index: int) -> String:
+static func enchantment_problem(g: Game, p: int, hand_index: int, replacing: bool = false) -> String:
 	var basic: String = _basic(g, p)
 	if basic != "":
 		return basic
@@ -111,7 +111,7 @@ static func enchantment_problem(g: Game, p: int, hand_index: int) -> String:
 		return "You cannot play enchantments on your first turn."
 	if LockRules.is_locked(g, p, "enchantment"):
 		return "Your enchantments are locked."
-	if me.enchantments.size() >= int(g.rules.enchantment_limit):
+	if not replacing and me.enchantments.size() >= int(g.rules.enchantment_limit):
 		return "You already have the maximum number of enchantments (%d)." % int(g.rules.enchantment_limit)
 	var cost: int = int(me.hand[hand_index].get("cost", 0))
 	if me.mana < cost:

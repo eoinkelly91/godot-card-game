@@ -61,12 +61,32 @@ func _enemy_champions_ok(p: int) -> String:
 
 # ---------------------------------------------------------------- spells
 
-func spell_target(p: int, hand_index: int, effect_index: int) -> Dictionary:
+## preset: the uid of a champion the card was dropped on (-1 if none); it answers the "which champion?" question
+## for spells that need one, as long as it is a champion the spell can use.
+func spell_target(p: int, hand_index: int, effect_index: int, preset: int = -1) -> Dictionary:
 	var me: PlayerState = g.players[p]
 	var foe: PlayerState = g.players[1 - p]
 	var card: Dictionary = me.hand[hand_index]
 	var effect: Dictionary = card.effects[effect_index]
 	var op: String = str(effect.get("op", ""))
+	var pc: Champion = g._find_champion(preset) if preset >= 0 else null
+	if pc != null:
+		var mine: bool = pc.owner == p
+		match op:
+			"attach", "heal", "cleanse", "bonus_damage":
+				if mine:
+					if op == "attach" and pc.attached.size() >= int(g.rules.max_attached_cards):
+						return _err("%s already has %d cards attached." % [pc.card_name(), int(g.rules.max_attached_cards)])
+					if op == "bonus_damage" and Preflight.attack_problem(g, p, pc) != "":
+						return _err("%s cannot attack this turn, so the bonus would be wasted." % pc.card_name())
+					return _t({"champion": preset})
+			"poison", "no_attack", "damage", "mystery_remove":
+				if not mine:
+					if foe.castled:
+						return _err("The opponent's champions are encamped and cannot be targeted.")
+					if op == "mystery_remove" and pc.attached.is_empty():
+						return _err("%s has no cards attached." % pc.card_name())
+					return _t({"champion": preset})
 	match op:
 		"lock", "draw", "gain_mana", "buff_attack", "drain_mana", "drain_mana_per_card", "gain_mana_per_enchantment", "opponent_discards", \
 		"summon_discount", "wizardry_draw", "type_attack_bonus", "reduce_enemy_attacks", "damage_all_enemies", "shuffle_weak_champions":
@@ -321,10 +341,12 @@ func summon_choices(p: int, hand_index: int) -> Dictionary:
 		return {"sacrifices": []}
 	var pool: Array = []
 	for c in me.champions:
+		if c.attacked_this_turn:  # a champion that has just attacked cannot be sacrificed
+			continue
 		var any_color: bool = c.has_ability() and bool(c.card.ability.get("sacrifice_as_any_color", false))
 		if str(card.get("color", "")) == "White" or any_color or c.color() == str(card.get("color", "")):
 			pool.append(c)
 	if pool.size() < need:
-		return _err("You need %d champion(s) of the right color to sacrifice." % need)
+		return _err("You need %d champion(s) of the right color to sacrifice (a champion that has just attacked cannot be sacrificed)." % need)
 	var picked: Variant = await _many("Sacrifice %d champion(s) for %s (their damage carries over)" % [need, card.get("name", "?")], _champs(pool), need, need)
 	return _cancel() if picked == null else {"sacrifices": picked}

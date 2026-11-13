@@ -2,7 +2,7 @@
 """Converts data/source/spells_enchantments.xlsx into data/cards/spells.json and enchantments.json.
 
 Run from the project folder:  python3 tools/import_spells.py      (needs openpyxl)
-The sheet gives each card's name, class, cost and the effect text. The machine-readable effects live in
+The sheet gives each card's name, class, cost, TURNS (enchantments) and the effect text. The machine-readable effects live in
 SPELLS / ENCHANTMENTS below, keyed by card name. A card with two effects lets the player CHOOSE ONE
 (play_spell takes an effect_index). The script checks that the sheet and these tables agree on names and costs.
 """
@@ -97,6 +97,7 @@ def main():
             fortresses.append(card)
         else:
             card.update(ENCHANTMENTS[d["name"]])
+            card["turns"] = int(d["TURNS"])  # how many of its owner's turns the enchantment stays in play
             enchants.append(card)
     missing = (set(SPELLS) | set(ENCHANTMENTS) | set(FORTRESSES)) - seen
     if missing:

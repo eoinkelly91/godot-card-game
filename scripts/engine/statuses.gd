@@ -114,6 +114,21 @@ static func run_start_of_turn(g: Game, p: int) -> void:
 	for ench in ps.enchantments.duplicate():
 		if typeof(ench.get("start_of_turn")) == TYPE_DICTIONARY:
 			_apply_simple_effect(g, p, null, ench.start_of_turn)
+	_count_down_enchantments(g, p)
+
+
+## Each of its owner's turns (not the turn it was played) an enchantment loses one turn, after its start-of-turn
+## effect has happened. At 0 it expires and goes to the discard pile.
+static func _count_down_enchantments(g: Game, p: int) -> void:
+	var ps: PlayerState = g.players[p]
+	for ench in ps.enchantments.duplicate():
+		if not ench.has("turns_left"):
+			continue
+		ench["turns_left"] = int(ench.turns_left) - 1
+		if int(ench.turns_left) <= 0:
+			ps.enchantments.erase(ench)
+			ps.discard.append(g.enchantment_as_card(ench))
+			g._log("%s has run out and expires." % ench.get("name", "An enchantment"))
 
 
 ## Simple passive effects: gain_mana, draw, heal_self (champions only).

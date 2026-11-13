@@ -93,11 +93,11 @@ func _make_custom_tooltip(_for_text: String) -> Object:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 8)
 	row.add_child(main)
-	for a in live.attached:
-		row.add_child(CardView.create(a, 260.0, null, false))
-	var explain: Control = _attack_explanation()
+	var explain: Control = _attack_explanation()  # the black panel sits right beside the champion, left of its attached cards
 	if explain != null:
 		row.add_child(explain)
+	for a in live.attached:
+		row.add_child(CardView.create(a, 260.0, null, false))
 	return row
 
 
@@ -114,6 +114,16 @@ func _attack_explanation() -> Control:
 	box.custom_minimum_size = Vector2(300, 0)
 	panel.add_child(box)
 	var any: bool = false
+	if live.owner < game.players.size():
+		var hp_notes: Array = HpRules.explain(game, live)  # Super Shrink, Fusion, Power Source...: above the attack numbers
+		if not hp_notes.is_empty():
+			var hh := Label.new()
+			hh.text = "HP: %d / %d" % [live.current_hp(), live.max_hp()]
+			hh.add_theme_font_size_override("font_size", 16)
+			box.add_child(hh)
+			for n in hp_notes:
+				_panel_line(box, str(n))
+			any = true
 	for atk in card.get("attacks", []):
 		var notes: Array = DamageRules.explain(game, live, atk)
 		var head := Label.new()
@@ -129,12 +139,74 @@ func _attack_explanation() -> Control:
 			l.add_theme_color_override("font_color", Color(0.4, 0.95, 0.4) if str(n).begins_with("+") else (Color(1.0, 0.45, 0.45) if str(n).begins_with("-") else Color(0.85, 0.85, 0.85)))
 			box.add_child(l)
 			any = true
+	# Under the attack information: status effects, and why this champion cannot attack right now
+	var status: Array = _status_tags()
+	var cannot: String = ""
+	if live.owner < game.players.size() and game.active == live.owner and not game.finished:
+		cannot = Preflight.attack_problem(game, live.owner, live, -1)
+	if not status.is_empty() or cannot != "":
+		var sh := Label.new()
+		sh.text = "Status"
+		sh.add_theme_font_size_override("font_size", 16)
+		box.add_child(sh)
+		for t in status:
+			if cannot != "" and (str(t).begins_with("SUMMONED") or str(t).begins_with("CHAINED") or str(t) == "ENCAMPED"):
+				continue  # the reason below already says it
+			_panel_line(box, str(t).substr(0, 1) + str(t).substr(1).to_lower())
+		if cannot != "":
+			_panel_line(box, "Cannot attack: " + cannot, Color(1.0, 0.45, 0.45))
+		any = true
 	return panel if any else null
 
 
+func _panel_line(box: VBoxContainer, text: String, color: Color = Color(-1, 0, 0)) -> void:
+	var l := Label.new()
+	l.text = text
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	l.custom_minimum_size = Vector2(300, 0)
+	l.add_theme_font_size_override("font_size", 13)
+	if color.r < 0.0:  # no colour given: reductions red, increases green, the rest grey
+		color = Color(0.4, 0.95, 0.4) if text.begins_with("+") else (Color(1.0, 0.45, 0.45) if text.begins_with("-") else Color(0.85, 0.85, 0.85))
+	l.add_theme_color_override("font_color", color)
+	box.add_child(l)
+
+
+## Drag and drop. A card with drag_data can be picked up (the hand); a card with drop_check/drop_do accepts drops
+## (champions on the board). The functions are set by the screen: drop_check(data) -> bool, drop_do(data).
+var drag_data: Variant = null
+var drop_check: Callable = Callable()
+var drop_do: Callable = Callable()
+
+
+func _get_drag_data(_at_position: Vector2) -> Variant:
+	if drag_data == null:
+		return null
+	var ghost: CardView = CardView.create(card, 150.0, null, true)
+	ghost.modulate = Color(1, 1, 1, 0.85)
+	ghost.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ghost.position = -ghost.size * 0.5
+	var holder := Control.new()
+	holder.add_child(ghost)
+	set_drag_preview(holder)
+	return drag_data
+
+
+func _can_drop_data(_at_position: Vector2, data: Variant) -> bool:
+	return drop_check.is_valid() and bool(drop_check.call(data))
+
+
+func _drop_data(_at_position: Vector2, data: Variant) -> void:
+	if drop_do.is_valid():
+		drop_do.call(data)
+
+
 func _gui_input(event: InputEvent) -> void:
-	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-		pressed.emit()
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+		if drag_data != null:  # a draggable card clicks on release (a drag takes the release away)
+			if not event.pressed:
+				pressed.emit()
+		elif event.pressed:
+			pressed.emit()
 
 
 # ---------------------------------------------------------------- colours
@@ -478,13 +550,18 @@ func _draw_attack_box(y: float, h: float, atk: Dictionary) -> void:
 		_label(caption, 0, y + h * 0.5 + 4.0, SIDE_W, 24.0, 12, req_color)
 	# damage (right): a fixed number, "3X10" for coin attacks, or a dash
 	var dmg: int = int(atk.get("damage", 0))
+	var shown_zero: bool = false
 	var dmg_color: Color = req_color
 	if live != null and game != null and not atk.has("coins") and live.owner < game.players.size():
 		var now: int = DamageRules.preview(game, live, atk)  # what the attack would do right now
-		if now != dmg and now > 0:
+		if dmg > 0 and now < dmg:  # reduced (Grand Shield...): the real number, in red, even when it is 0
+			dmg = now
+			dmg_color = Color(0.85, 0.1, 0.1)
+			shown_zero = now == 0
+		elif now != dmg and now > 0:
 			dmg = now
 			dmg_color = Color(0.0, 0.45, 0.1)
-	var dmg_text: String = str(dmg) if dmg > 0 else "-"
+	var dmg_text: String = str(dmg) if (dmg > 0 or shown_zero) else "-"
 	if atk.has("coins"):
 		dmg_text = "%dX%d" % [int(atk.coins.count), int(atk.coins.per_heads_damage)]
 	_label(dmg_text, DW - SIDE_W, y, SIDE_W, h, 30 if dmg_text.length() < 4 else 21, dmg_color)
@@ -523,15 +600,22 @@ func _draw_description_boxes(texts: Array, with_labels: bool) -> void:
 		_box(0, y, DW, h, _base_color())
 		var text: String = str(texts[i]) if i < texts.size() else ""
 		var label: String = "Effect %d:" % (i + 1) if with_labels and n > 1 else ("Effect:" if with_labels else "")
+		var ench: bool = _kind() == "enchantment"
 		if _kind() == "fortress":
 			label = "Ability:"
 		if compact and _kind() == "fortress":  # the ability text is in the hover card
 			_label("ABILITY", 0, y + h * 0.1, DW, h * 0.5, 30, on_base)
 			_label("(hover for info)", 0, y + h * 0.58, DW, h * 0.3, 20, on_base, HORIZONTAL_ALIGNMENT_CENTER, false)
+		elif compact and ench:  # the turns circle sits underneath, so the word moves up
+			_label("ENCHANTMENT", 0, y, DW, h * 0.5, 30, on_base)
 		elif compact:
 			_label(("EFFECT %d" % (i + 1)) if with_labels and n > 1 else ("SPELL" if with_labels else "ENCHANTMENT"), 0, y, DW, h, 30, on_base)
+		elif ench:
+			_rich(label, text, 0, y, DW, h * 0.6, on_base)
 		else:
 			_rich(label, text, 0, y, DW, h, on_base)
+		if ench:
+			_draw_turns_circle(y, h)
 		y += h
 		if i < n - 1 and strip > 0.0:  # you choose ONE effect
 			_box(0, y, DW, strip, Color(0.96, 0.96, 0.96))
@@ -539,8 +623,11 @@ func _draw_description_boxes(texts: Array, with_labels: bool) -> void:
 			y += strip
 
 
-func _draw_live_tags() -> void:
+## The pop-up tags of a champion in play, like "POISONED: 10 DMG PER TURN".
+func _status_tags() -> Array:
 	var tags: Array = []
+	if live == null:
+		return tags
 	if encamped:
 		tags.append("ENCAMPED")
 	elif game != null and live.summoned_turn == game.turn:
@@ -561,6 +648,40 @@ func _draw_live_tags() -> void:
 				tags.append("NEXT ATTACK +%d DMG" % int(st.get("amount", 0)))
 			"stored_bonus":
 				tags.append("GNAW +%d DMG" % int(st.get("amount", 0)))
+			"reduce_incoming":  # Gomosaur's Formation, Deep Peed's Dive
+				var lab: String = str(st.get("label", "")).to_upper()
+				tags.append("%sACTIVE: ATTACKS ON IT -%d" % [(lab + " ") if lab != "" else "", int(st.get("amount", 0))])
+	return tags
+
+
+## Enchantments: the number of turns left (in play) or the number of turns it will last (in hand) in a circle.
+func _draw_turns_circle(y: float, h: float) -> void:
+	var turns: int = -1
+	if card.has("turns_left"):
+		turns = int(card.turns_left)
+	elif card.has("turns"):
+		turns = int(card.turns)
+	if turns < 0:
+		return
+	var r: float = 38.0
+	var cx: float = DW * 0.5
+	var cy: float = y + h * 0.77
+	var circle := Panel.new()
+	circle.position = Vector2(cx - r, cy - r) * k
+	circle.size = Vector2(r * 2.0, r * 2.0) * k
+	circle.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(1, 1, 1)
+	sb.set_corner_radius_all(int(r * k) + 1)
+	sb.set_border_width_all(maxi(1, int(3.0 * k)))
+	sb.border_color = DARK
+	circle.add_theme_stylebox_override("panel", sb)
+	add_child(circle)
+	_label(str(turns), cx - r, cy - r, r * 2.0, r * 2.0, 44, DARK)
+
+
+func _draw_live_tags() -> void:
+	var tags: Array = _status_tags()
 	if tags.is_empty():
 		return
 	var strip := ColorRect.new()

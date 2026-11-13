@@ -52,6 +52,7 @@ func _run() -> void:
 	await _test_castle_reveal_scroll_and_tags()
 	_test_optional_none_row()
 	await _test_fortress_card_and_board()
+	await _test_drag_and_drop_and_new_display()
 	_test_art_fits_box()
 	print("\n%d UI checks passed, %d failed" % [passed, failed])
 	quit(1 if failed > 0 else 0)
@@ -376,7 +377,7 @@ func _test_early_messages_and_previews() -> void:
 	# Summon problems up front
 	var g9 := _fresh_state()
 	g9.next_step(0)
-	g9.players[0].summoned_this_turn = true
+	g9.players[0].summons_this_turn = 1
 	g9.players[0].hand = [cards["gob"]]
 	check("already summoned" in Preflight.summon_problem(g9, 0, 0), "a second summon is refused up front")
 
@@ -483,7 +484,7 @@ func _test_fortress_card_and_board() -> void:
 	ui.refresh()
 	check(not ui._nothing_left_to_do() and not ui._btn_end.has_theme_stylebox_override("normal"), "END TURN is not highlighted while summoning is available")
 	check(ui._me_info.text.contains("[color=#ffd940]SUMMONING AVAILABLE"), "SUMMONING AVAILABLE is yellow")
-	nl.players[0].summoned_this_turn = true
+	nl.players[0].summons_this_turn = 1
 	for c in nl.players[0].champions:
 		c.attacked_this_turn = true
 	nl.players[0].colors_used = ["Red", "Blue", "White", "Purple"]
@@ -546,3 +547,121 @@ func _test_fortress_card_and_board() -> void:
 	# The enemy Fortress does nothing when clicked: no handler is connected for the inactive player
 	var fv := CardView.create(ui.fortress_card(g.players[1]), 108.0, null, true)
 	check(fv.pressed.get_connections().is_empty(), "an enemy Fortress card has no click action")
+
+
+func _test_drag_and_drop_and_new_display() -> void:
+	var g := _fresh_state()
+	ui.game = g
+	ui.flows = TargetFlows.new(g, ui)
+	ui.viewer = 0
+	ui._cover.visible = false
+	var p0: PlayerState = g.players[0]
+	p0.enchantments.clear()
+	p0.hand = [cards["gob"], cards["molten_harry"], cards["field_medics"], cards["heal"], cards["fusion"], cards["syranite"]]
+	ui.refresh()
+	# the attack hint sits directly under the "Player N (YOUR TURN)" bar
+	var left: Node = ui._me_info.get_parent()
+	check(ui._attack_hint.get_parent() == left and ui._attack_hint.get_index() == ui._me_info.get_index() + 1 and ui._me_box.get_index() == ui._attack_hint.get_index() + 1, "the attackers line is under the player info bar")
+	# a hand card is draggable
+	var first: CardView = ui._hand_row.get_child(0)
+	check(first.drag_data is Dictionary and int(first.drag_data.hand_index) == 0, "hand cards carry drag data")
+	var d_champ: Dictionary = {"hand_index": 0, "kind": "champion", "player": 0}
+	var d_sac: Dictionary = {"hand_index": 1, "kind": "champion", "player": 0}
+	var d_ench: Dictionary = {"hand_index": 2, "kind": "enchantment", "player": 0}
+	var d_spell: Dictionary = {"hand_index": 3, "kind": "spell", "player": 0}
+	check(ui._can_drop(d_champ, {"kind": "slot", "owner": 0, "slot": 5, "champion": -1}), "a champion can be dropped on one of my slots")
+	check(not ui._can_drop(d_champ, {"kind": "slot", "owner": 1, "slot": 5, "champion": -1}), "but not on the opponent's slots")
+	check(not ui._can_drop(d_champ, {"kind": "board", "owner": 0}), "and not just anywhere on the board")
+	check(ui._can_drop(d_spell, {"kind": "board", "owner": 1}) and ui._can_drop(d_spell, {"kind": "champion", "owner": 0, "slot": 0, "champion": 1}), "a spell can be dropped anywhere on the board")
+	check(ui._can_drop(d_ench, {"kind": "ench", "owner": 0, "index": 1}) and not ui._can_drop(d_ench, {"kind": "slot", "owner": 0, "slot": 4, "champion": -1}), "an enchantment goes only into an enchantment slot")
+	# basic champion: occupied slot refused, empty slot accepted
+	var occupied: Champion = p0.slot_champion(0)
+	var r: Dictionary = await ui.play_hand_card(0, {"slot": 0, "champion": occupied.uid, "owner": 0})
+	check(not r.ok and "already taken" in ui._status.text, "a basic champion dropped on an occupied slot is refused")
+	var r2: Dictionary = await ui.play_hand_card(0, {"slot": 4, "champion": -1, "owner": 0})
+	check(r2.ok and p0.slot_champion(4) != null and p0.slot_champion(4).card_name() == "Gob", "dropped on an empty slot it is summoned there")
+	# a full board warns
+	g.spawn_champion(0, cards["syranite"])
+	g.spawn_champion(0, cards["syranite"])
+	check(p0.champions.size() == 6, "board is full")
+	p0.summons_this_turn = 0
+	var r3: Dictionary = await ui.play_hand_card(4 if p0.hand.size() > 4 else 0, {"slot": 3, "champion": -1, "owner": 0})
+	check(not r3.ok and ui._status.text == "Your play area is full.", "a basic champion on a full board says the play area is full")
+	# enchantments: slots full -> replace with a confirmation
+	g.rules.enchantment_limit = 1
+	p0.enchantments = [SummonRules._running(cards["battlements"])]
+	var hi: int = p0.hand.find(cards["field_medics"])
+	var r4: Dictionary = await ui.play_hand_card(hi, {})
+	check(not r4.ok and "replace" in ui._status.text, "with all enchantment slots full it must be dropped onto one")
+	var r5: Dictionary = await ui.play_hand_card(hi, {"ench_index": 0})
+	check(r5.ok and p0.enchantments.size() == 1 and str(p0.enchantments[0].id) == "field_medics", "dropped onto an enchantment it replaces it (auto-confirmed)")
+	check(int(p0.enchantments[0].turns_left) == int(cards["field_medics"].turns), "the new enchantment starts with its full turns")
+	# castled: summoning available (2)
+	p0.castled = true
+	p0.summons_this_turn = 0
+	ui.refresh()
+	check(ui._me_info.text.contains("SUMMONING AVAILABLE (2)"), "castled: SUMMONING AVAILABLE (2)")
+	p0.summons_this_turn = 1
+	ui.refresh()
+	check(ui._me_info.text.contains("SUMMONING AVAILABLE (1)"), "castled with one summon used: (1)")
+	p0.summons_this_turn = 2
+	ui.refresh()
+	check(not ui._me_info.text.contains("SUMMONING AVAILABLE"), "both summons used: no message")
+	p0.castled = false
+	ui.refresh()
+	# the Fortress has no yellow outline while castled
+	p0.castled = true
+	check(not ui._fortress_options().is_empty(), "a castled player still has the uncastle option")
+	ui.refresh()
+	var fortress_view: CardView = null
+	for n in ui._me_box.find_children("*", "CardView", true, false):
+		if str((n as CardView).card.get("kind", "")) == "fortress":
+			fortress_view = n
+	check(fortress_view != null and fortress_view.encamped and not fortress_view.selected, "castled Fortress: orange border only, no yellow outline")
+	p0.castled = false
+	# card display: true damage after a reduction, in red, and the turns circle
+	var foe_attacker: Champion = g.players[1].champions[1]
+	g.players[1].buffs.append({"kind": "outgoing_reduction", "amount": 20, "turns_left": 2})
+	var v: CardView = CardView.create(foe_attacker.card, 200.0, foe_attacker, true, false, false, g)
+	var texts: Array = []
+	for it in v._layer.items:
+		texts.append(str(it.text))
+	check(texts.has("0"), "an attack reduced to 0 shows 0 on the card")
+	var ev: CardView = CardView.create(p0.enchantments[0], 200.0, null, true)
+	var circle_found: bool = false
+	for it in ev._layer.items:
+		if str(it.text) == str(int(p0.enchantments[0].turns_left)):
+			circle_found = true
+	check(circle_found, "an enchantment card shows its turns in a circle")
+	# hover panel: HP breakdown above the attacks, status and reasons below
+	g.players[1].enchantments.clear()
+	p0.enchantments = [SummonRules._running(cards["super_shrink"])]
+	HpRules.recalc(g)
+	var tgt: Champion = g.players[1].champions[1]
+	var tv: CardView = CardView.create(tgt.card, 200.0, tgt, true, false, false, g)
+	var tip: Control = tv._make_custom_tooltip("")
+	check(tip is HBoxContainer and tip.get_child(0) is CardView and not (tip.get_child(1) is CardView), "the info panel sits right beside the champion")
+	var labels: Array = []
+	for l in tip.get_child(1).find_children("*", "Label", true, false):
+		labels.append((l as Label).text)
+	var hp_at: int = labels.find("-20 from Super Shrink")
+	var atk_at: int = -1
+	for i in labels.size():
+		if "damage" in str(labels[i]) and atk_at < 0 and i > 0:
+			atk_at = i
+	check(hp_at >= 0 and (atk_at < 0 or hp_at < atk_at), "Super Shrink is listed above the attack information")
+	# status: a champion summoned this turn says why it cannot attack, under the attack information
+	var fresh: Champion = g.spawn_champion(1, cards["gob"])
+	g.active = 1
+	fresh.summoned_turn = g.turn
+	var fv: CardView = CardView.create(fresh.card, 200.0, fresh, true, false, false, g)
+	var tip2: Control = fv._make_custom_tooltip("")
+	var l2: Array = []
+	for l in tip2.get_child(1).find_children("*", "Label", true, false):
+		l2.append((l as Label).text)
+	var has_reason: bool = false
+	for t in l2:
+		if str(t).begins_with("Cannot attack:"):
+			has_reason = true
+	check(has_reason, "the hover panel says why a champion cannot attack")
+	g.active = 0
