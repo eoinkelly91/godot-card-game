@@ -157,6 +157,10 @@ static func _apply_simple_effect(g: Game, p: int, champion: Champion, eff: Dicti
 					ps.hand.append(ps.deck.pop_back())
 			else:
 				g._log("Coin: Tails, P%d's Fortress draws nothing." % p)
+		"clear_damage_if":  # Dynamo: at the start of its owner's turn, 50 or more damage on it is removed
+			if champion != null and champion.damage >= int(eff.get("at_least", 50)):
+				g._log("%s removes all its damage." % champion.card_name())
+				champion.damage = 0
 		"heal_all":  # heal every champion you control (active and encamped)
 			for c in ps.champions:
 				c.damage = maxi(0, c.damage - int(eff.get("amount", 0)))

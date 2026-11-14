@@ -85,6 +85,21 @@
   "id": "battle_axe",
   "name": "Battle Axe",
   "kind": "spell",
+  "cost": 3,
+  "text": [
+   "Attach this card to one of your champions, it increases its attack damage by 20 until the champion is destroyed or Battle Axe is removed"
+  ],
+  "effects": [
+   {
+    "op": "attach",
+    "kind": "battle_axe"
+   }
+  ]
+ },
+ {
+  "id": "daggers",
+  "name": "Daggers",
+  "kind": "spell",
   "cost": 1,
   "text": [
    "Add plus 30 damage to one of your champions attacks.",
@@ -171,7 +186,7 @@
   "id": "parasite",
   "name": "Parasite",
   "kind": "spell",
-  "cost": 2,
+  "cost": 5,
   "text": [
    "Your opponent loses 1 mana for every card in their hand.",
    "Your opponent must discard two cards from their hand."

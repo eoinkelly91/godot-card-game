@@ -45,9 +45,9 @@
    }
   ],
   "ability": {
-   "text": "Your opponent cannot play spell cards while this champion is in play (active or encamped)",
+   "text": "Your opponent cannot play enchantments while this champion is in play (active or encamped)",
    "trigger": "passive",
-   "lock_enemy": "spell"
+   "lock_enemy": "enchantment"
   }
  },
  {
@@ -213,7 +213,7 @@
    }
   ],
   "ability": {
-   "text": "Add +10 damage to this champoins attack for each of your active champions.",
+   "text": "Add +10 damage to this champions attack for each of your active champions.",
    "trigger": "on_attack",
    "bonus_per": {
     "count": "own_champions",
@@ -239,7 +239,7 @@
    }
   ],
   "ability": {
-   "text": "Add +10 damage to this champoins attack for each of your and your opponents active Spirit champions.",
+   "text": "Add +10 damage to this champions attack for each of your and your opponents active spirit champions.",
    "trigger": "on_attack",
    "bonus_per": {
     "count": "spirits_in_play",

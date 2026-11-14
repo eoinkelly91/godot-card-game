@@ -213,7 +213,7 @@
   "class": "heroic",
   "color": "Purple",
   "type": "Spirit",
-  "hp": 170,
+  "hp": 100,
   "summon": {
    "sacrifice": 2
   },
@@ -360,7 +360,7 @@
    }
   ],
   "ability": {
-   "text": "Flip a coin if heads remove all damage from Strella the Witch",
+   "text": "Flip a coin if heads remove all damage from Strella the Witch.",
    "trigger": "start_of_turn",
    "op": "coin_heal_all"
   }
@@ -424,7 +424,7 @@
    }
   ],
   "ability": {
-   "text": "Every time this champion is attacked by an opponents champion it gains 10 damage to its attack.",
+   "text": "Every time this champion is attacked by an opponents champion it permanently gains 10 damage to its attack.",
    "trigger": "passive",
    "gains_damage_when_attacked": 10
   }

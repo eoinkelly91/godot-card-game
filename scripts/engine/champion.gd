@@ -9,6 +9,7 @@ var card: Dictionary
 var owner: int
 var damage: int = 0
 var attached: Array = []  # spell cards attached to this champion (Warrior Idol, Fusion, Power Source): card dictionaries
+var hp_effects: Array = []   # what changed hp_mod, as {"text", "delta"} (set by HpRules; for the hover panel and the HP colour)
 var hp_mod: int = 0        # HP changes from Super Shrink, Fusion, Power Source (set by HpRules.recalc)
 var hp_override: int = -1  # Gaia: the HP it is currently copying (-1 = the printed HP)
 var slot: int = -1          # fixed position on the board (0-5); a destroyed champion leaves its slot empty

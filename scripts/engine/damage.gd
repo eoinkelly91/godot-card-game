@@ -104,6 +104,9 @@ static func calc(g: Game, attacker: Champion, atk: Dictionary, target: Champion,
 			if str(att.get("attach_kind", "")) == "warrior_idol":
 				total += 10.0 * float(int(att.get("_stacks", 1)))
 				notes.append("+%d from Warrior Idol (+10 for every turn it has been attached)" % (10 * int(att.get("_stacks", 1))))
+			elif str(att.get("attach_kind", "")) == "battle_axe":  # +20 on every attack while it stays attached
+				total += 20.0
+				notes.append("+20 from Battle Axe")
 	var lair: int = int(g.players[attacker.owner].fortress_def.get("creature_bonus_damage", 0))  # Beasts Lair
 	if lair > 0 and total > 0.0 and attacker.champion_type() == "Creature":
 		total += float(lair)
@@ -206,10 +209,6 @@ static func damage_champion(g: Game, champion: Champion, amount: int, credit_pla
 			champion.damage = champion.max_hp() - 10
 			return
 		destroy_champion(g, champion, credit_player)
-	elif champion.has_ability() and champion.card.ability.has("clear_damage_at") \
-			and champion.damage >= int(champion.card.ability.clear_damage_at):
-		g._log("%s removes all its damage." % champion.card_name())
-		champion.damage = 0
 
 
 ## A champion with a "protected" status takes no damage (set by a successful Mist or Glide coin flip).

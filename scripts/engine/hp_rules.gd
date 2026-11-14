@@ -34,19 +34,25 @@ static func _update(g: Game) -> void:
 		for c in ps.champions:
 			c.hp_mod = 0
 			c.hp_override = -1
+			c.hp_effects = []
 	for p in 2:
 		var ps: PlayerState = g.players[p]
 		for ench in ps.enchantments:  # Super Shrink
 			if ench.has("hp_aura_enemy"):
 				for c in g.players[1 - p].active_champions():
 					c.hp_mod += int(ench.hp_aura_enemy)
+					c.hp_effects.append({"text": "from %s" % str(ench.get("name", "an enchantment")), "delta": int(ench.hp_aura_enemy)})
 		for c in ps.champions:
 			if c.has_ability() and c.card.ability.has("hp_per_own_creature"):  # Water Hound: +10 per OTHER active creature
 				var creatures: int = 0
-				for o in ps.active_champions():
-					if o != c and o.champion_type() == "Creature":
+				for o in ps.active_champions():  # Water Hound counts itself too
+					if o.champion_type() == "Creature":
 						creatures += 1
+				if not ps.active_champions().has(c) and c.champion_type() == "Creature":
+					creatures += 1
 				c.hp_mod += int(c.card.ability.hp_per_own_creature) * creatures
+				if creatures > 0:
+					c.hp_effects.append({"text": "from %s (%d of your creatures in play, including itself)" % [c.card_name(), creatures], "delta": int(c.card.ability.hp_per_own_creature) * creatures})
 			for att in c.attached:
 				match str(att.get("attach_kind", "")):
 					"fusion":  # +20 for each OTHER active champion of yours of the same color
@@ -55,8 +61,12 @@ static func _update(g: Game) -> void:
 							if o != c and o.color() == c.color():  # the other champions, not itself
 								same += 1
 						c.hp_mod += 20 * same
+						if same > 0:
+							c.hp_effects.append({"text": "from Fusion (%d other %s champion(s))" % [same, c.color()], "delta": 20 * same})
 					"power_source":  # +10 for every card in your hand
 						c.hp_mod += 10 * ps.hand.size()
+						if ps.hand.size() > 0:
+							c.hp_effects.append({"text": "from Power Source (%d cards in hand)" % ps.hand.size(), "delta": 10 * ps.hand.size()})
 	for p in 2:  # Gaia: the most HP among the opponent's active champions (other Gaias are not copied)
 		for c in g.players[p].champions:
 			if c.has_ability() and bool(c.card.ability.get("gaia_hp", false)):
@@ -70,35 +80,22 @@ static func _update(g: Game) -> void:
 
 ## Where a champion's current max HP comes from, one line each, for the hover panel. Empty when nothing changes it.
 ## The first line is the base HP, then every change (for example "-20 from Super Shrink").
-static func explain(g: Game, c: Champion) -> Array:
+static func explain(_g: Game, c: Champion) -> Array:
 	var notes: Array = []
-	var ps: PlayerState = g.players[c.owner]
-	var foe: PlayerState = g.players[1 - c.owner]
-	if c.has_ability() and bool(c.card.ability.get("gaia_hp", false)):
-		notes.append("Copies the HP of the strongest enemy active champion (%d)." % c.base_hp())
-	for ench in foe.enchantments:
-		if ench.has("hp_aura_enemy") and foe.active_champions().size() >= 0 and not ps.castled:
-			notes.append("%+d from %s" % [int(ench.hp_aura_enemy), str(ench.get("name", "an enchantment"))])
-	if c.has_ability() and c.card.ability.has("hp_per_own_creature"):
-		var creatures: int = 0
-		for o in ps.active_champions():
-			if o != c and o.champion_type() == "Creature":
-				creatures += 1
-		if creatures > 0:
-			notes.append("%+d from %d other active creature(s)" % [int(c.card.ability.hp_per_own_creature) * creatures, creatures])
-	for att in c.attached:
-		match str(att.get("attach_kind", "")):
-			"fusion":
-				var same: int = 0
-				for o in ps.active_champions():
-					if o != c and o.color() == c.color():
-						same += 1
-				if same > 0:
-					notes.append("%+d from Fusion (%d other %s champion(s))" % [20 * same, same, c.color()])
-			"power_source":
-				if not ps.hand.is_empty():
-					notes.append("%+d from Power Source (%d cards in hand)" % [10 * ps.hand.size(), ps.hand.size()])
-	if notes.is_empty():
+	if c.hp_effects.is_empty():
 		return notes
-	notes.push_front("Base HP: %d" % int(c.card.get("hp", 0)) if c.hp_override < 0 else "Printed HP: %d" % int(c.card.get("hp", 0)))
+	notes.append("Base HP: %d" % int(c.card.get("hp", 0)))
+	for e in c.hp_effects:
+		notes.append("%+d %s" % [int(e.delta), str(e.text)])
 	return notes
+
+
+## How the HP text is coloured: "negative" (red), "positive" (green), "balanced" (yellow: effects are working on it
+## but the HP is the same as normal), or "" (nothing affects it). The sum of all effects decides.
+static func hp_mood(c: Champion) -> String:
+	if c.hp_effects.is_empty():
+		return ""
+	var net: int = 0
+	for e in c.hp_effects:
+		net += int(e.delta)
+	return "negative" if net < 0 else ("positive" if net > 0 else "balanced")

@@ -89,8 +89,10 @@ func spell_target(p: int, hand_index: int, effect_index: int, preset: int = -1) 
 					return _t({"champion": preset})
 	match op:
 		"lock", "draw", "gain_mana", "buff_attack", "drain_mana", "drain_mana_per_card", "gain_mana_per_enchantment", "opponent_discards", \
-		"summon_discount", "wizardry_draw", "type_attack_bonus", "reduce_enemy_attacks", "damage_all_enemies", "shuffle_weak_champions":
+		"summon_discount", "type_attack_bonus", "reduce_enemy_attacks", "damage_all_enemies", "shuffle_weak_champions":
 			return _t({})
+		"wizardry_draw":  # the discard is chosen afterwards, once the cards are drawn (Game.wizardry_discard)
+			return _t({"defer_discard": true})
 		"retreat_basic":  # Retreat Signal: any number of your active basic champions
 			var basics: Array = me.active_champions().filter(func(c: Champion) -> bool: return c.champion_class() == "basic")
 			if basics.is_empty():

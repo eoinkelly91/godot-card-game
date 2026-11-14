@@ -14,7 +14,7 @@ static func add(g: Game, affected_player: int, what: String, turns: int) -> void
 
 static func is_locked(g: Game, p: int, what: String) -> bool:
 	# Passive ability locks: while an enemy champion with "lock_enemy" is in play (active or encamped).
-	if what == "spell" or what == "fortress":
+	if what == "spell" or what == "fortress" or what == "enchantment":
 		for c in g.players[1 - p].champions:
 			if c.has_ability() and str(c.card.ability.get("lock_enemy", "")) == what:
 				return true

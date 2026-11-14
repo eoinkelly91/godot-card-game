@@ -39,7 +39,7 @@ func _init() -> void:
 		test_sheet_update_round,
 		test_start_mana_castle_lock_and_poison,
 		test_turn_order_summoning_sickness_hand_limit_and_decks,
-		test_enchantments_anytime_and_battle_axe_target,
+		test_enchantments_anytime_and_daggers_target,
 		test_reaction_destroys_attacker,
 		test_reaction_spell_played_earlier_in_turn,
 		test_annihilation_points,
@@ -84,7 +84,8 @@ func _init() -> void:
 		test_mist_of_despair,
 		test_treason,
 		test_mana_and_hand_spells,
-		test_battle_axe,
+		test_daggers,
+		test_battle_axe_attaches,
 		test_reconstruction_and_ancient_script,
 		test_spirit_chain,
 		test_wizardry_archaeology_decoder,
@@ -112,6 +113,8 @@ func _init() -> void:
 		test_fixed_slots,
 		test_replace_enchantment,
 		test_volcanic_horn_coin_is_fair,
+		test_wizardry_discard_and_remove_enchantment,
+		test_ramaire_blocks_enchantments_and_water_hound_counts_itself,
 	]
 	for t in tests:
 		var before_failed := failed
@@ -591,7 +594,7 @@ func test_fortress_abilities() -> void:
 	var beast := spawn(g4, 0, "pog")
 	var human := spawn(g4, 0, "syranite")
 	check(DamageRules.preview(g4, beast, beast.card.attacks[0]) == 20 and DamageRules.preview(g4, human, human.card.attacks[0]) == 20, "Beasts Lair: a Creature's Puff does 10 + 10, a Human's Jab is unchanged")
-	check(int((real.beasts_lair as Dictionary).hp) == 400 and int((real.wizards_enclave as Dictionary).hp) == 300 and int((real.pirate_cove as Dictionary).hp) == 450, "each Fortress has its own HP")
+	check(int((real.beasts_lair as Dictionary).hp) == 400 and int((real.wizards_enclave as Dictionary).hp) == 300 and int((real.pirate_cove as Dictionary).hp) == 350, "each Fortress has its own HP")
 
 
 func test_simultaneous_win_is_draw() -> void:
@@ -1110,11 +1113,11 @@ func test_reactive_abilities() -> void:
 
 func test_passive_locks() -> void:
 	var g := real_game()
-	spawn(g, 1, "ramaire")
+	spawn(g, 1, "warlord")
 	g.players[0].hand = [rc("crimson_wave")]
 	spawn(g, 0, "pog")
 	to_attack(g)
-	check(not g.play_spell(0, 0, 0, {"champion": g.players[1].champions[0].uid}).ok, "Ramaire locks the opponent's spells")
+	check(not g.play_spell(0, 0, 0, {"champion": g.players[1].champions[0].uid}).ok, "Warlord locks the opponent's spells")
 	var g2 := real_game()
 	var w := spawn(g2, 1, "warlord")
 	g2.players[0].hand = [rc("crimson_wave")]
@@ -1182,7 +1185,14 @@ func test_protection_and_blackthorn() -> void:
 	DamageRules.damage_champion(g3, dyn, 40, 1)
 	check(dyn.damage == 40, "Dynamo keeps 40 damage")
 	DamageRules.damage_champion(g3, dyn, 10, 1)
-	check(dyn.damage == 0, "Dynamo removes all its damage at 50")
+	check(dyn.damage == 50, "Dynamo keeps its damage until the start of its owner's turn")
+	g3.end_turn(0)
+	g3.end_turn(1)  # P0's next turn starts: Dynamo's ability triggers
+	check(dyn.damage == 0, "Dynamo removes all its damage at the start of its owner's turn when it has 50 or more")
+	DamageRules.damage_champion(g3, dyn, 40, 1)
+	g3.end_turn(0)
+	g3.end_turn(1)
+	check(dyn.damage == 40, "but not when it has less than 50")
 
 
 func test_poison_discard_and_hand_effects() -> void:
@@ -1247,9 +1257,9 @@ func test_real_spell_data() -> void:
 			check(not c.has("color"), "%s is colorless" % id)
 		elif str(c.kind) == "enchantment":
 			enchants += 1
-			check(int(c.cost) == 3 or id == "mist_of_grief", "%s costs mana as in the sheet" % id)
-	check(spells == 25 and enchants == 6, "25 spells and 6 enchantments load (got %d and %d)" % [spells, enchants])
-	check(int(rc("heal").cost) == 0 and int(rc("battle_axe").cost) == 1 and int(rc("treason").cost) == 3, "spell costs come from the sheet")
+			check(int(c.cost) == 3 or id == "mist_of_grief" or id == "super_shrink", "%s costs mana as in the sheet" % id)
+	check(spells == 26 and enchants == 6, "26 spells and 6 enchantments load (got %d and %d)" % [spells, enchants])
+	check(int(rc("heal").cost) == 0 and int(rc("daggers").cost) == 1 and int(rc("battle_axe").cost) == 3 and int(rc("treason").cost) == 3, "spell costs come from the sheet")
 
 
 func test_spells_any_time_after_castle_and_cost_mana() -> void:
@@ -1371,7 +1381,7 @@ func test_mana_and_hand_spells() -> void:
 	g3.next_step(0)
 	g3.players[1].mana = 6
 	g3.players[1].hand = [rc("syranite"), rc("syranite"), rc("syranite")]
-	g3.players[0].mana = 4
+	g3.players[0].mana = 10
 	g3.players[0].hand = [rc("parasite"), rc("parasite")]
 	g3.play_spell(0, 0, 0)
 	check(g3.players[1].mana == 3 and g3.players[1].hand.size() == 3, "Parasite effect 1: lose 1 mana per card in hand, no discards")
@@ -1399,14 +1409,14 @@ func test_mana_and_hand_spells() -> void:
 	check(g6.players[0].hand.is_empty() and g6.players[0].mana == 10, "Decoder effect 2 also takes an enchantment from your hand")
 
 
-func test_battle_axe() -> void:
+func test_daggers() -> void:
 	var g := real_game()
 	var a := spawn(g, 0, "syranite")
 	var b := spawn(g, 0, "syranite")
 	var t := spawn(g, 1, "amustas")
 	g.players[0].mana = 1
-	g.players[0].hand = [rc("battle_axe")]
-	check(g.play_spell(0, 0, 0, {"champion": a.uid}).ok, "Battle Axe effect 1 names a champion")
+	g.players[0].hand = [rc("daggers")]
+	check(g.play_spell(0, 0, 0, {"champion": a.uid}).ok, "Daggers effect 1 names a champion")
 	to_attack(g)
 	var r := g.attack(0, a.uid, 0, {"champion": t.uid})
 	check(r.damage == 50, "its next attack does +30 (20 + 30)")
@@ -1415,7 +1425,7 @@ func test_battle_axe() -> void:
 	var a2 := spawn(g2, 0, "syranite")
 	var t2 := spawn(g2, 1, "amustas")
 	g2.players[0].mana = 1
-	g2.players[0].hand = [rc("battle_axe")]
+	g2.players[0].hand = [rc("daggers")]
 	g2.play_spell(0, 0, 0, {"champion": a2.uid})
 	g2.end_turn(0)
 	check(a2.statuses.is_empty(), "an unused bonus does not carry over to the next turn")
@@ -1427,24 +1437,24 @@ func test_battle_axe() -> void:
 	var f3 := spawn(g3, 1, "amustas")
 	var f4 := spawn(g3, 1, "amustas")
 	g3.players[0].mana = 1
-	g3.players[0].hand = [rc("battle_axe")]
+	g3.players[0].hand = [rc("daggers")]
 	check(not g3.play_spell(0, 0, 1, {"champions": [f1.uid, f2.uid]}).ok, "effect 2 needs three different champions when they have four")
 	g3.play_spell(0, 0, 1, {"champions": [f1.uid, f2.uid, f3.uid]})
 	check(f1.damage == 10 and f2.damage == 10 and f3.damage == 10 and f4.damage == 0, "effect 2: 10 damage to three enemy champions")
 	var g4 := real_game()
 	var only := spawn(g4, 1, "amustas")
 	g4.players[0].mana = 1
-	g4.players[0].hand = [rc("battle_axe")]
+	g4.players[0].hand = [rc("daggers")]
 	g4.play_spell(0, 0, 1, {"champions": [only.uid]})
 	check(only.damage == 10, "with fewer than three enemy champions it hits them all")
 	var g5 := real_game()
 	var a5 := spawn(g5, 0, "syranite")
 	var t5 := spawn(g5, 1, "amustas")
 	g5.players[0].mana = 1
-	g5.players[0].hand = [rc("battle_axe")]
+	g5.players[0].hand = [rc("daggers")]
 	to_attack(g5)
 	g5.players[0].mana = 1
-	check(g5.attack(0, a5.uid, 0, {"champion": t5.uid}, [{"hand_index": 0, "effect_index": 0}]).damage == 50, "Battle Axe can also be attached to the attack")
+	check(g5.attack(0, a5.uid, 0, {"champion": t5.uid}, [{"hand_index": 0, "effect_index": 0}]).damage == 50, "Daggers can also be attached to the attack")
 	check(g5.players[0].mana == 0, "the attached spell's mana cost is paid")
 
 
@@ -2013,7 +2023,7 @@ func test_sheet_update_round() -> void:
 	check(r5.ok and g4.players[0].mana == mana + 2, "Crimson Wave effect 2 gives 1 mana per enchantment")
 	var cards: Dictionary = CardDB.load_cards()
 	var f: Dictionary = CardDB.default_fortress(cards)
-	check(str(f.get("name", "")) == "Castle" and int(f.get("hp", 0)) == 500 and str(f.get("kind", "")) == "fortress", "the Castle fortress card loads")
+	check(str(f.get("name", "")) == "Castle" and int(f.get("hp", 0)) == 400 and str(f.get("kind", "")) == "fortress", "the Castle fortress card loads")
 	check(int(cards.ancient_script.cost) == 3, "Ancient Script costs 3 mana")
 
 
@@ -2099,7 +2109,7 @@ func test_turn_order_summoning_sickness_hand_limit_and_decks() -> void:
 	check(CardDB.expected_class(real.amustas) == "legendary" and CardDB.expected_class(real.blackthorn_dragon) == "heroic", "classes follow the summons needed")
 
 
-func test_enchantments_anytime_and_battle_axe_target() -> void:
+func test_enchantments_anytime_and_daggers_target() -> void:
 	var g := real_game()
 	g.next_step(0)
 	var a := spawn(g, 0, "syranite")
@@ -2110,7 +2120,7 @@ func test_enchantments_anytime_and_battle_axe_target() -> void:
 	check(g.play_enchantment(0, 0).ok, "an enchantment can be played after attacking, like a spell")
 	# Battle Axe cannot be wasted on a champion that cannot attack (just summoned, chained)
 	var g2 := real_game()
-	g2.players[0].hand = [rc("syranite"), rc("battle_axe")]
+	g2.players[0].hand = [rc("syranite"), rc("daggers")]
 	g2.summon(0, 0)
 	var fresh: Champion = g2.players[0].champions[0]
 	var r: Dictionary = g2.play_spell(0, 0, 0, {"champion": fresh.uid})
@@ -2318,7 +2328,7 @@ func test_third_batch_of_cards() -> void:
 	spawn(g3, 0, "pog")
 	HpRules.recalc(g3)
 	var printed: int = int(hound.card.hp)
-	check(hound.max_hp() == printed + 10, "Water Hound gets +10 HP per other active creature (not itself)")
+	check(hound.max_hp() == printed + 20, "Water Hound gets +10 HP per creature of yours in play, itself included")
 	check(DamageRules.preview(g3, hound, hound.card.attacks[0]) == 10 * 2, "Water Hound's Wave counts all your active creatures, itself included")
 	# Angry Wog / Barley shuffle themselves (and their attached cards) into the deck without dying
 	var g4 := real_game()
@@ -2512,3 +2522,73 @@ func test_volcanic_horn_coin_is_fair() -> void:
 		if g.players[0].extra_attacks.size() > 0:
 			heads += 1
 	check(heads > 70 and heads < 130, "Volcanic Horn flips a fair coin (%d heads in 200)" % heads)
+
+
+func test_wizardry_discard_and_remove_enchantment() -> void:
+	var g := real_game()
+	spawn(g, 0, "syranite")
+	g.players[0].mana = 10
+	g.players[0].hand = [rc("wizardry")]
+	var hand_before: int = 0
+	check(g.play_spell(0, 0, 0, {"defer_discard": true}).ok, "play Wizardry with the discard left to the player")
+	check(g.players[0].pending_wizardry.size() == 3 and g.players[0].hand.size() == 3, "three cards are drawn and nothing is discarded yet")
+	var keep: String = str(g.players[0].pending_wizardry[0].name)
+	var drop: String = str(g.players[0].pending_wizardry[2].name)
+	var discard_before: int = g.players[0].discard.size()
+	check(g.wizardry_discard(0, 2).ok and g.players[0].hand.size() == 2 and g.players[0].discard.size() == discard_before + 1, "the chosen card is discarded")
+	check(str(g.players[0].discard.back().name) == drop and g.players[0].pending_wizardry.is_empty(), "it is the one that was picked (%s, kept %s)" % [drop, keep])
+	# ending the turn with the question unanswered discards one at random instead of getting stuck
+	var g2 := real_game()
+	spawn(g2, 0, "syranite")
+	g2.players[0].mana = 10
+	g2.players[0].hand = [rc("wizardry")]
+	g2.play_spell(0, 0, 0, {"defer_discard": true})
+	var n: int = g2.players[0].hand.size()
+	g2.end_turn(0)
+	check(g2.players[0].pending_wizardry.is_empty() and g2.players[0].hand.size() == n - 1, "an unanswered Wizardry discard is made at random at end of turn")
+	# removing your own enchantment
+	var g3 := real_game()
+	g3.players[0].mana = 10
+	g3.players[0].hand = [rc("super_shrink")]
+	spawn(g3, 1, "gob")
+	g3.play_enchantment(0, 0)
+	check(g3.players[1].champions[0].hp_mod == -20, "Super Shrink in play")
+	check(g3.remove_own_enchantment(0, 0).ok and g3.players[0].enchantments.is_empty(), "an enchantment in play can be removed")
+	check(g3.players[1].champions[0].hp_mod == 0 and str(g3.players[0].discard.back().id) == "super_shrink", "it goes to the discard pile and its effect ends")
+	g3.end_turn(0)
+	check(not g3.remove_own_enchantment(0, 0).ok, "only on your own turn")
+
+
+func test_battle_axe_attaches() -> void:
+	var g := real_game()
+	var a := spawn(g, 0, "syranite")
+	var t := spawn(g, 1, "amustas")
+	g.players[0].mana = 3
+	g.players[0].hand = [rc("battle_axe")]
+	check(g.play_spell(0, 0, 0, {"champion": a.uid}).ok and g.players[0].mana == 0, "Battle Axe costs 3 and attaches to a champion")
+	check(a.attached.size() == 1, "it is attached")
+	to_attack(g)
+	check(g.attack(0, a.uid, 0, {"champion": t.uid}).damage == 40, "its attack does +20 (20 + 20)")
+	g.end_turn(0)
+	g.end_turn(1)
+	var t2 := g.players[1].champions[0]
+	check(g.attack(0, a.uid, 0, {"champion": t2.uid}).damage == 40, "and again the next turn, while it stays attached")
+	DamageRules.destroy_champion(g, a, 1)
+	check(g.players[0].discard.any(func(c: Dictionary) -> bool: return str(c.get("id", "")) == "battle_axe"), "when the champion is destroyed the axe is discarded")
+
+
+func test_ramaire_blocks_enchantments_and_water_hound_counts_itself() -> void:
+	var g := real_game()
+	spawn(g, 1, "ramaire")
+	g.players[0].mana = 10
+	g.players[0].turns_taken = 2
+	g.players[0].hand = [rc("field_medics"), rc("heal")]
+	check(not g.play_enchantment(0, 0).ok, "Ramaire: the opponent cannot play enchantments")
+	check(Preflight.spell_problem(g, 0, 1) == "", "but spells are not blocked by Ramaire")
+	var g2 := real_game()
+	var wh := spawn(g2, 0, "water_hound")
+	HpRules.recalc(g2)
+	check(wh.max_hp() == 40 + 10, "Water Hound counts itself: 40 + 10")
+	spawn(g2, 0, "gorth")
+	HpRules.recalc(g2)
+	check(wh.max_hp() == 40 + 20, "and each other creature of yours in play (+10 each)")

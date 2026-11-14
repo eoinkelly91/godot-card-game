@@ -24,6 +24,7 @@ var castled_turns: int = 0    # own turns spent castled so far, counting the tur
 var buffs: Array = []         # duration effects on this player, e.g. {"kind": "attack", "amount": 10, "turns_left": 1}
 var pending_minotaur: int = 0  # Minotaur: attached cards of the opponent that this player may still discard this turn
 var summoned_this_turn: bool = false  # true once at least one champion was summoned this turn
+var pending_wizardry: Array = []  # cards just drawn by Wizardry; the player still has to discard one of them
 var summons_this_turn: int = 0  # champions summoned this turn (castled players may summon twice)
 var colors_used: Array = []   # colors that have attacked this turn
 var extra_attacks: Array = []  # Volcanic Horn tokens: uid of the champion that granted each extra attack

@@ -53,6 +53,7 @@ func _run() -> void:
 	_test_optional_none_row()
 	await _test_fortress_card_and_board()
 	await _test_drag_and_drop_and_new_display()
+	await _test_second_batch()
 	_test_art_fits_box()
 	print("\n%d UI checks passed, %d failed" % [passed, failed])
 	quit(1 if failed > 0 else 0)
@@ -134,7 +135,7 @@ func _test_every_spell_flow() -> void:
 				var res: Dictionary = g.play_spell(0, 0, ei, tf.target)
 				check(res.ok, "%s effect %d: the engine accepts it (%s)" % [id, ei, str(res.get("error", ""))])
 				count += 1
-	check(count == 32, "all 32 spell effects went through (%d)" % count)
+	check(count == 33, "all 33 spell effects went through (%d)" % count)
 	# A flow reports problems instead of crashing: no damaged champion for Mist of Despair.
 	var g2 := _fresh_state()
 	for c in g2.players[0].champions:
@@ -330,11 +331,16 @@ func _test_art_fits_box() -> void:
 
 
 func _test_early_messages_and_previews() -> void:
-	# Ramaire: the spell is refused before any menu.
+	# Warlord: the spell is refused before any menu; Ramaire does the same for enchantments.
 	var g := _fresh_state()
-	g.spawn_champion(1, cards["ramaire"])
+	g.spawn_champion(1, cards["warlord"])
 	g.players[0].hand = [cards["heal"]]
-	check("Ramaire" in Preflight.spell_problem(g, 0, 0), "Ramaire's lock is explained before any menu")
+	check("Warlord" in Preflight.spell_problem(g, 0, 0), "Warlord's lock is explained before any menu")
+	g.spawn_champion(1, cards["ramaire"])
+	g.players[0].hand = [cards["field_medics"]]
+	g.players[0].mana = 10
+	g.players[0].turns_taken = 2
+	check("Ramaire" in Preflight.enchantment_problem(g, 0, 0), "Ramaire's lock on enchantments is explained")
 	# Chained champion, HP threshold, colour already used, ability-only
 	var g2 := _fresh_state()
 	var mine: Champion = g2.players[0].champions[0]
@@ -419,7 +425,7 @@ func _test_castle_reveal_scroll_and_tags() -> void:
 	ui._on_reveal()
 	check(g3.step == Game.Step.OPEN and "Click your Fortress" in ui._status.text, "with a castle possible, the turn waits in the Castle step and says to click the Fortress")
 	# The hand's scroll bar is always shown and a smaller hand starts at the left edge
-	check(ui._hand_scroll.horizontal_scroll_mode == ScrollContainer.SCROLL_MODE_SHOW_ALWAYS, "the hand scroll bar is always shown")
+	check(ui._hand_row is HandFan, "the hand is a fan of cards (no scrolling)")
 	# Status tags are spelled out
 	var g4 := _fresh_state()
 	var grimn: Champion = g4.spawn_champion(0, cards["grimn"])
@@ -561,40 +567,36 @@ func _test_drag_and_drop_and_new_display() -> void:
 	ui.refresh()
 	# the attack hint sits directly under the "Player N (YOUR TURN)" bar
 	var left: Node = ui._me_info.get_parent()
-	check(ui._attack_hint.get_parent() == left and ui._attack_hint.get_index() == ui._me_info.get_index() + 1 and ui._me_box.get_index() == ui._attack_hint.get_index() + 1, "the attackers line is under the player info bar")
+	check(ui._attack_hint.get_parent() == left and ui._attack_hint.get_index() == ui._me_info.get_index() + 1 and ui._me_box.get_index() < ui._me_info.get_index(), "the info bar and the attackers line sit below the play area, above the hand")
 	# a hand card is draggable
-	var first: CardView = ui._hand_row.get_child(0)
+	var first: CardView = ui._hand_row.get_views()[0]
 	check(first.drag_data is Dictionary and int(first.drag_data.hand_index) == 0, "hand cards carry drag data")
 	var d_champ: Dictionary = {"hand_index": 0, "kind": "champion", "player": 0}
 	var d_sac: Dictionary = {"hand_index": 1, "kind": "champion", "player": 0}
 	var d_ench: Dictionary = {"hand_index": 2, "kind": "enchantment", "player": 0}
 	var d_spell: Dictionary = {"hand_index": 3, "kind": "spell", "player": 0}
-	check(ui._can_drop(d_champ, {"kind": "slot", "owner": 0, "slot": 5, "champion": -1}), "a champion can be dropped on one of my slots")
-	check(not ui._can_drop(d_champ, {"kind": "slot", "owner": 1, "slot": 5, "champion": -1}), "but not on the opponent's slots")
-	check(not ui._can_drop(d_champ, {"kind": "board", "owner": 0}), "and not just anywhere on the board")
-	check(ui._can_drop(d_spell, {"kind": "board", "owner": 1}) and ui._can_drop(d_spell, {"kind": "champion", "owner": 0, "slot": 0, "champion": 1}), "a spell can be dropped anywhere on the board")
-	check(ui._can_drop(d_ench, {"kind": "ench", "owner": 0, "index": 1}) and not ui._can_drop(d_ench, {"kind": "slot", "owner": 0, "slot": 4, "champion": -1}), "an enchantment goes only into an enchantment slot")
-	# basic champion: occupied slot refused, empty slot accepted
-	var occupied: Champion = p0.slot_champion(0)
-	var r: Dictionary = await ui.play_hand_card(0, {"slot": 0, "champion": occupied.uid, "owner": 0})
-	check(not r.ok and "already taken" in ui._status.text, "a basic champion dropped on an occupied slot is refused")
-	var r2: Dictionary = await ui.play_hand_card(0, {"slot": 4, "champion": -1, "owner": 0})
-	check(r2.ok and p0.slot_champion(4) != null and p0.slot_champion(4).card_name() == "Gob", "dropped on an empty slot it is summoned there")
+	check(ui._can_drop(d_champ, {"kind": "play", "owner": 0}), "a champion can be dropped into my play area")
+	check(not ui._can_drop(d_champ, {"kind": "play", "owner": 1}), "but not into the opponent's")
+	check(not ui._can_drop(d_champ, {"kind": "ench", "owner": 0}), "and not into the enchantment area")
+	check(ui._can_drop(d_spell, {"kind": "board", "owner": 1}) and ui._can_drop(d_spell, {"kind": "play", "owner": 0}), "a spell can be dropped anywhere on the board")
+	check(ui._can_drop(d_ench, {"kind": "ench", "owner": 0}) and not ui._can_drop(d_ench, {"kind": "play", "owner": 0}), "an enchantment goes only into the enchantment area")
+	# a basic champion dropped into the play area is summoned
+	var before_n: int = p0.champions.size()
+	var r2: Dictionary = await ui.play_hand_card(0, {"owner": 0})
+	check(r2.ok and p0.champions.size() == before_n + 1 and p0.champions.back().card_name() == "Gob", "dropped into the play area it is summoned")
 	# a full board warns
 	g.spawn_champion(0, cards["syranite"])
 	g.spawn_champion(0, cards["syranite"])
 	check(p0.champions.size() == 6, "board is full")
 	p0.summons_this_turn = 0
-	var r3: Dictionary = await ui.play_hand_card(4 if p0.hand.size() > 4 else 0, {"slot": 3, "champion": -1, "owner": 0})
+	var r3: Dictionary = await ui.play_hand_card(4 if p0.hand.size() > 4 else 0, {"owner": 0})
 	check(not r3.ok and ui._status.text == "Your play area is full.", "a basic champion on a full board says the play area is full")
 	# enchantments: slots full -> replace with a confirmation
 	g.rules.enchantment_limit = 1
 	p0.enchantments = [SummonRules._running(cards["battlements"])]
 	var hi: int = p0.hand.find(cards["field_medics"])
-	var r4: Dictionary = await ui.play_hand_card(hi, {})
-	check(not r4.ok and "replace" in ui._status.text, "with all enchantment slots full it must be dropped onto one")
-	var r5: Dictionary = await ui.play_hand_card(hi, {"ench_index": 0})
-	check(r5.ok and p0.enchantments.size() == 1 and str(p0.enchantments[0].id) == "field_medics", "dropped onto an enchantment it replaces it (auto-confirmed)")
+	var r5: Dictionary = await ui.play_hand_card(hi, {"owner": 0})  # the menu asks which to replace (the test chooser takes the first)
+	check(r5.ok and p0.enchantments.size() == 1 and str(p0.enchantments[0].id) == "field_medics", "with all enchantment places full, a menu asks which one to replace")
 	check(int(p0.enchantments[0].turns_left) == int(cards["field_medics"].turns), "the new enchantment starts with its full turns")
 	# castled: summoning available (2)
 	p0.castled = true
@@ -665,3 +667,86 @@ func _test_drag_and_drop_and_new_display() -> void:
 			has_reason = true
 	check(has_reason, "the hover panel says why a champion cannot attack")
 	g.active = 0
+
+
+func _texts_of(v: CardView) -> Array:
+	var out: Array = []
+	for it in v._layer.items:
+		out.append(str(it.text))
+	return out
+
+
+func _hp_color_of(v: CardView) -> Color:
+	for it in v._layer.items:
+		if str(it.text).ends_with("HP") and "/" in str(it.text):
+			return it.color
+	return Color(-1, -1, -1)
+
+
+func _test_second_batch() -> void:
+	var g := _fresh_state()
+	ui.game = g
+	ui.flows = TargetFlows.new(g, ui)
+	ui.viewer = 0
+	ui._cover.visible = false
+	var p0: PlayerState = g.players[0]
+	# HP colours: red (net negative), green (net positive), yellow (effects cancel out), plain otherwise
+	var tgt: Champion = g.players[1].champions[1]
+	var plain: Color = _hp_color_of(CardView.create(tgt.card, 200.0, tgt, true, false, false, g))
+	p0.enchantments = [SummonRules._running(cards["super_shrink"])]
+	HpRules.recalc(g)
+	var red: Color = _hp_color_of(CardView.create(tgt.card, 200.0, tgt, true, false, false, g))
+	check(red.r > 0.7 and red.g < 0.3, "HP lowered by Super Shrink is red")
+	tgt.hp_effects = [{"text": "from Super Shrink", "delta": -20}, {"text": "from Water Hound", "delta": 30}]
+	var green: Color = _hp_color_of(CardView.create(tgt.card, 200.0, tgt, true, false, false, g))
+	check(green.g > 0.45 and green.r < 0.2, "-20 and +30 together: the net +10 makes the HP green")
+	tgt.hp_effects = [{"text": "from Super Shrink", "delta": -20}, {"text": "from Fusion", "delta": 20}]
+	var yellow: Color = _hp_color_of(CardView.create(tgt.card, 200.0, tgt, true, false, false, g))
+	check(yellow.r > 0.7 and yellow.g > 0.5 and yellow.b < 0.2, "effects that cancel out: yellow")
+	tgt.hp_effects = []
+	check(_hp_color_of(CardView.create(tgt.card, 200.0, tgt, true, false, false, g)) == plain, "no effects: normal colour")
+	# labels
+	var ench_view: CardView = CardView.create(cards["field_medics"], 200.0, null, true)
+	check(_texts_of(ench_view).has("(hover for info)"), "enchantments in play say (hover for info)")
+	var fv: CardView = CardView.create(ui.fortress_card(p0), 200.0, null, true, false, false, g)
+	check(_texts_of(fv).has("EFFECT") and not _texts_of(fv).has("ABILITY"), "the Fortress says EFFECT, not ABILITY")
+	# attached cards are behind the champion at the same height, so a slot never changes size
+	var c0: Champion = p0.champions[0]
+	c0.attached.clear()
+	ui.refresh()
+	var w0: float = _first_champion_holder().custom_minimum_size.x
+	c0.attached = [cards["fusion"], cards["power_source"]]
+	ui.refresh()
+	var holder: Control = _first_champion_holder()
+	check(absf(holder.custom_minimum_size.x - w0 - 2.0 * ui.ATTACH_STEP) < 0.01, "attached cards widen only that champion's space, by a little")
+	var backs: Array = holder.get_children().filter(func(n: Node) -> bool: return n is CardView and (n as CardView).live == null)
+	check(backs.size() == 2 and (backs[0] as CardView).position.y == 0.0 and (backs[1] as CardView).position.y == 0.0, "attached cards sit at the same height as the champion")
+	check(absf(holder.custom_minimum_size.y - ui.BOARD_CARD_H) < 0.01, "stacking adds no height")
+	c0.attached.clear()
+	# Wizardry asks which drawn card to discard
+	p0.hand = [cards["wizardry"]]
+	p0.deck = [cards["gob"], cards["syranite"], cards["capeasant"], cards["gorth"]]
+	p0.mana = 10
+	var drawn_expected: Array = [p0.deck[3], p0.deck[2], p0.deck[1]]
+	var r: Dictionary = await ui.play_hand_card(0)
+	check(r.ok and p0.pending_wizardry.is_empty() and p0.hand.size() == 2, "Wizardry through the screen: three drawn, one discarded")
+	# right-click removal
+	p0.enchantments = [SummonRules._running(cards["field_medics"])]
+	ui.refresh()
+	await ui._on_enchantment_right_click(0)  # the test chooser takes the first option: remove
+	check(p0.enchantments.is_empty() and str(p0.discard.back().id) == "field_medics", "right-clicking an enchantment can remove it")
+	# Dynamo's text and start-of-turn trigger
+	check(str(cards["dynamo"].ability.trigger) == "start_of_turn", "Dynamo's ability triggers at the start of the turn")
+
+
+func _first_champion_holder() -> Control:
+	var play: Node = null
+	for z in ui._me_box.find_children("*", "DropZone", true, false):
+		if (z as DropZone).get_child_count() > 0 and (z as DropZone).get_child(0) is HBoxContainer and (z as DropZone).size_flags_horizontal == Control.SIZE_EXPAND_FILL:
+			play = z
+			break
+	var row: Node = play.get_child(0)
+	var first: Control = row.get_child(0)
+	if first is CardView:  # no attached cards: wrap-less view; give it a holder-like size
+		return first
+	return first

@@ -225,7 +225,37 @@ func attack(p: int, attacker_uid: int, attack_index: int, target: Dictionary,
 
 
 func end_turn(p: int) -> Dictionary:
+	if not players[p].pending_wizardry.is_empty():  # an unanswered Wizardry discard is made at random
+		wizardry_discard(p, rng.randi_range(0, players[p].pending_wizardry.size() - 1))
 	return TurnRules.end_turn(self, p)
+
+
+## Wizardry: discard one of the cards it just drew (pick = index into ps.pending_wizardry).
+func wizardry_discard(p: int, pick: int) -> Dictionary:
+	var ps: PlayerState = players[p]
+	if ps.pending_wizardry.is_empty():
+		return _fail("There is nothing to discard.")
+	pick = clampi(pick, 0, ps.pending_wizardry.size() - 1)
+	var card: Dictionary = ps.pending_wizardry[pick]
+	ps.hand.erase(card)
+	ps.discard.append(card)
+	ps.pending_wizardry = []
+	_log("P%d discards %s." % [p, card.get("name", "a card")])
+	return _ok()
+
+
+## Removes one of the player's own enchantments in play (right-click on the screen); it goes to the discard pile.
+func remove_own_enchantment(p: int, index: int) -> Dictionary:
+	var ps: PlayerState = players[p]
+	if finished or active != p:
+		return _fail("It is not your turn.")
+	if index < 0 or index >= ps.enchantments.size():
+		return _fail("No such enchantment.")
+	var ench: Dictionary = ps.enchantments[index]
+	ps.enchantments.remove_at(index)
+	ps.discard.append(enchantment_as_card(ench))
+	_log("P%d removes enchantment %s." % [p, ench.get("name", "?")])
+	return _ok()
 
 
 ## Passing is the same as ending your turn.

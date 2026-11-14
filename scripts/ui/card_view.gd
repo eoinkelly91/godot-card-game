@@ -8,6 +8,7 @@ class_name CardView
 extends Control
 
 signal pressed
+signal right_pressed
 
 const DW := 490.0
 const DH := 650.0
@@ -181,14 +182,22 @@ var drop_do: Callable = Callable()
 func _get_drag_data(_at_position: Vector2) -> Variant:
 	if drag_data == null:
 		return null
-	var ghost: CardView = CardView.create(card, 150.0, null, true)
-	ghost.modulate = Color(1, 1, 1, 0.85)
+	var ghost: CardView = CardView.create(card, maxf(160.0, size.x * 0.75), null, true)
+	ghost.modulate = Color(1, 1, 1, 0.9)
 	ghost.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	ghost.position = -ghost.size * 0.5
 	var holder := Control.new()
+	holder.z_index = 3000  # in front of the hand and everything else, from the very first pixel of the drag
+	holder.z_as_relative = false
 	holder.add_child(ghost)
 	set_drag_preview(holder)
+	modulate.a = 0.3  # the card stays in the hand, faded, until the drag ends
 	return drag_data
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_DRAG_END:
+		modulate.a = 1.0
 
 
 func _can_drop_data(_at_position: Vector2, data: Variant) -> bool:
@@ -201,7 +210,9 @@ func _drop_data(_at_position: Vector2, data: Variant) -> void:
 
 
 func _gui_input(event: InputEvent) -> void:
-	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_RIGHT:
+		right_pressed.emit()
+	elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 		if drag_data != null:  # a draggable card clicks on release (a drag takes the release away)
 			if not event.pressed:
 				pressed.emit()
@@ -230,6 +241,11 @@ func _on_base() -> Color:
 
 
 # ---------------------------------------------------------------- building blocks
+
+## The width of a box border in card units (the border is drawn at a whole number of pixels).
+func _border_units() -> float:
+	return float(maxi(1, int(2.0 * k))) / k
+
 
 func _box(x: float, y: float, w: float, h: float, fill: Color, border: float = 1.0) -> Panel:
 	var p := Panel.new()
@@ -488,7 +504,7 @@ func _draw_stats_row() -> void:
 	var color_name: String = str(card.get("color", ""))
 	var white := Color(1, 1, 1)
 	_box(0, STAT_Y, 365, STAT_H, white)
-	_box(365, STAT_Y, 125, STAT_H, white)
+	_box(365 - _border_units(), STAT_Y, 125 + _border_units(), STAT_H, white)
 	var big: float = 1.2 if compact else 1.0  # board cards are small, so their stats are drawn larger
 	# Class and type together ("Legendary Creature"), in the champion's colour instead of a colour word
 	var class_type: String = ("%s %s" % [str(card.get("class", "")).capitalize(), str(card.get("type", ""))]).strip_edges()
@@ -498,7 +514,16 @@ func _draw_stats_row() -> void:
 		hp_text = "%d/%dHP" % [live.current_hp(), live.max_hp()]
 	# shrink the HP text so "100/100HP" always fits its cell
 	var hp_px: float = minf(24.0 * big, (125.0 - 12.0) / (float(hp_text.length()) * 0.74))
-	_label(hp_text, 365, STAT_Y, 125, STAT_H, hp_px, DARK)
+	var hp_color: Color = DARK
+	if live != null:  # red: HP is lowered, green: raised, yellow: effects are at work but the HP is the normal amount
+		match HpRules.hp_mood(live):
+			"negative":
+				hp_color = Color(0.85, 0.1, 0.1)
+			"positive":
+				hp_color = Color(0.0, 0.55, 0.1)
+			"balanced":
+				hp_color = Color(0.85, 0.62, 0.0)
+	_label(hp_text, 365, STAT_Y, 125, STAT_H, hp_px, hp_color)
 
 
 func _draw_champion_body() -> void:
@@ -531,8 +556,9 @@ func _draw_ability_box(y: float, h: float, text: String) -> void:
 func _draw_attack_box(y: float, h: float, atk: Dictionary) -> void:
 	var white := Color(1, 1, 1)
 	var base: Color = _base_color()
+	var bw: float = _border_units()  # neighbouring boxes overlap by one border so the line between them is single
 	_box(0, y, SIDE_W, h, white)
-	_box(SIDE_W, y, DW - SIDE_W * 2.0, h, base)
+	_box(SIDE_W - bw, y, DW - SIDE_W * 2.0 + bw * 2.0, h, base)
 	_box(DW - SIDE_W, y, SIDE_W, h, white)
 	# requirement (left): HP threshold or mana
 	var number: String = ""
@@ -602,12 +628,13 @@ func _draw_description_boxes(texts: Array, with_labels: bool) -> void:
 		var label: String = "Effect %d:" % (i + 1) if with_labels and n > 1 else ("Effect:" if with_labels else "")
 		var ench: bool = _kind() == "enchantment"
 		if _kind() == "fortress":
-			label = "Ability:"
+			label = "Effect:"
 		if compact and _kind() == "fortress":  # the ability text is in the hover card
-			_label("ABILITY", 0, y + h * 0.1, DW, h * 0.5, 30, on_base)
+			_label("EFFECT", 0, y + h * 0.1, DW, h * 0.5, 30, on_base)
 			_label("(hover for info)", 0, y + h * 0.58, DW, h * 0.3, 20, on_base, HORIZONTAL_ALIGNMENT_CENTER, false)
 		elif compact and ench:  # the turns circle sits underneath, so the word moves up
-			_label("ENCHANTMENT", 0, y, DW, h * 0.5, 30, on_base)
+			_label("ENCHANTMENT", 0, y + h * 0.05, DW, h * 0.28, 30, on_base)
+			_label("(hover for info)", 0, y + h * 0.33, DW, h * 0.18, 20, on_base, HORIZONTAL_ALIGNMENT_CENTER, false)
 		elif compact:
 			_label(("EFFECT %d" % (i + 1)) if with_labels and n > 1 else ("SPELL" if with_labels else "ENCHANTMENT"), 0, y, DW, h, 30, on_base)
 		elif ench:
@@ -650,7 +677,7 @@ func _status_tags() -> Array:
 				tags.append("GNAW +%d DMG" % int(st.get("amount", 0)))
 			"reduce_incoming":  # Gomosaur's Formation, Deep Peed's Dive
 				var lab: String = str(st.get("label", "")).to_upper()
-				tags.append("%sACTIVE: ATTACKS ON IT -%d" % [(lab + " ") if lab != "" else "", int(st.get("amount", 0))])
+				tags.append("%s: DAMAGE REDUCED -%d" % [lab if lab != "" else "DEFENCE", int(st.get("amount", 0))])
 	return tags
 
 

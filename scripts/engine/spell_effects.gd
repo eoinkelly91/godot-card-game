@@ -244,6 +244,10 @@ static func apply(g: Game, p: int, hand_index: int, effect: Dictionary, target: 
 				var card: Dictionary = me.deck.pop_back()
 				me.hand.append(card)
 				drawn.append(card)
+			if bool(target.get("defer_discard", false)):  # the screen asks which one to discard (Game.wizardry_discard)
+				me.pending_wizardry = drawn
+				g._log("P%d draws %d cards and must discard one of them." % [p, drawn.size()])
+				return
 			var choice: int = int(target.get("discard_choice", g.rng.randi_range(0, drawn.size() - 1)))
 			choice = clampi(choice, 0, drawn.size() - 1)
 			me.hand.erase(drawn[choice])

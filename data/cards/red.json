@@ -439,7 +439,7 @@
      "amount": 10,
      "turns": -1
     },
-    "text": "10 + discard a card to poison the enemy champion."
+    "text": "10 + optionally discard a card to poison the enemy champion."
    }
   ]
  },
@@ -461,7 +461,7 @@
    }
   ],
   "ability": {
-   "text": "If there are any cards attached to your opponents champions, choose one of them and discard it",
+   "text": "If there are any cards attached to your opponents champions, at hte start of your turn choose one of them and discard it.",
    "trigger": "start_of_turn",
    "op": "minotaur_discard"
   }
@@ -473,14 +473,14 @@
   "class": "basic",
   "color": "Red",
   "type": "Human",
-  "hp": 60,
+  "hp": 40,
   "summon": {},
   "attacks": [
    {
     "name": "Toss",
-    "damage": 30,
+    "damage": 20,
     "coin_tails_shuffle_self": true,
-    "text": "30 + Flip a coin if tails shuffle this champion and all cards attached to it back into your deck."
+    "text": "20 + Flip a coin if tails shuffle this champion and all cards attached to it back into your deck."
    }
   ]
  }

@@ -10,9 +10,10 @@ const COLORS := {
 	"White": Color(0.78, 0.78, 0.74), "Purple": Color(0.42, 0.2, 0.58),
 }
 const NEUTRAL := Color(0.25, 0.3, 0.28)
-const HAND_CARD_W := 245.0  # the starting size; the hand grows or shrinks to fill the window (see _fit_hand_size)
+const HAND_CARD_W := 245.0  # hand cards are the same size as on the mulligan screen
 const BOARD_CARD_W := 140.0
 const BOARD_CARD_H := BOARD_CARD_W * 650.0 / 490.0
+const ATTACH_STEP := 14.0  # how far each attached card peeks out sideways behind its champion
 
 var game: Game
 var cards: Dictionary = {}
@@ -27,8 +28,9 @@ signal _choice_done(result)
 
 var _opp_box: VBoxContainer
 var _me_box: VBoxContainer
-var _hand_row: HBoxContainer
-var _hand_scroll: ScrollContainer
+var _hand_row: HandFan
+var _my_deck_box: VBoxContainer
+var _opp_deck_label: Label
 var _hand_label: Label
 var _status: Label
 var _attack_hint: Label
@@ -56,7 +58,7 @@ var _mull_btn: Button
 var _choice: Control
 var _choice_title: Label
 var _choice_hint: Label
-var _choice_list: ItemList
+var _choice_list: CardItemList
 var _choice_ok: Button
 var _choice_min: int = 1
 var _choice_max: int = 1
@@ -74,6 +76,28 @@ func _ready() -> void:
 	_build_ui()
 	_show_setup()
 	_fit_window()
+	_set_cursor(false)
+
+
+## The mouse pointer is a pointing gauntlet; while a card is being dragged it is a fist.
+func _set_cursor(dragging: bool) -> void:
+	var pointer: Texture2D = load("res://art/ui/mouse_point.png")
+	var fist: Texture2D = load("res://art/ui/mouse_fist.png")
+	if pointer == null or fist == null:
+		return
+	var point_spot := Vector2(pointer.get_width() * 0.33, 2.0)  # the tip of the finger
+	var fist_spot := Vector2(fist.get_width() * 0.5, fist.get_height() * 0.4)
+	Input.set_custom_mouse_cursor(fist if dragging else pointer, Input.CURSOR_ARROW, fist_spot if dragging else point_spot)
+	Input.set_custom_mouse_cursor(pointer, Input.CURSOR_POINTING_HAND, point_spot)  # over buttons
+	for shape in [Input.CURSOR_DRAG, Input.CURSOR_CAN_DROP, Input.CURSOR_FORBIDDEN]:
+		Input.set_custom_mouse_cursor(fist, shape, fist_spot)
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_DRAG_BEGIN:
+		_set_cursor(true)
+	elif what == NOTIFICATION_DRAG_END:
+		_set_cursor(false)
 
 
 ## Opens the window as big as the screen allows (the layout is designed at 1740 x 980 and scaled up; a 4K screen gets ~2x).
@@ -114,7 +138,6 @@ func _build_ui() -> void:
 	margin.add_child(outer)
 	var left := VBoxContainer.new()
 	_left_box = left
-	left.resized.connect(_fit_hand_size)
 	left.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	left.add_theme_constant_override("separation", 3)
 	outer.add_child(left)
@@ -137,34 +160,34 @@ func _build_ui() -> void:
 	opp_head.add_child(_opp_info)
 	_opp_discard_btn = _button("Opponents Discard Pile", _on_view_opp_discard)
 	opp_head.add_child(_opp_discard_btn)
+	_opp_deck_label = Label.new()
+	_opp_deck_label.add_theme_font_size_override("font_size", 13)
+	opp_head.add_child(_opp_deck_label)
 	_opp_box = VBoxContainer.new()
 	left.add_child(_opp_box)
-	_me_info = _info_label()
+	_me_box = VBoxContainer.new()
+	left.add_child(_me_box)
+	_me_info = _info_label()  # below the play area, above the hand
 	left.add_child(_me_info)
 	_attack_hint = Label.new()  # directly under the "Player N (YOUR TURN)" bar
 	_attack_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_attack_hint.add_theme_font_size_override("font_size", 13)
 	_attack_hint.add_theme_color_override("font_color", Color(0.6, 0.85, 1.0))
 	left.add_child(_attack_hint)
-	_me_box = VBoxContainer.new()
-	left.add_child(_me_box)
 	_hand_label = Label.new()  # no longer shown (the board info line has the mana)
 	_hand_label.visible = false
 	left.add_child(_hand_label)
 	var bottom := HBoxContainer.new()
 	bottom.add_theme_constant_override("separation", 10)
 	left.add_child(bottom)
-	_hand_scroll = ScrollContainer.new()
-	_hand_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_hand_scroll.custom_minimum_size = Vector2(0, _hand_w * 650.0 / 490.0 + 24.0)
-	_hand_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	_hand_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_ALWAYS  # the bar stays (hidden when not needed)
-	_hand_scroll.gui_input.connect(_on_hand_gui_input)
-	_hand_scroll.resized.connect(_fix_hand_scroll)
-	bottom.add_child(_hand_scroll)
-	_hand_row = HBoxContainer.new()
-	_hand_row.add_theme_constant_override("separation", 6)
-	_hand_scroll.add_child(_hand_row)
+	_my_deck_box = VBoxContainer.new()  # the deck, beside the hand
+	bottom.add_child(_my_deck_box)
+	_hand_row = HandFan.new()
+	_hand_row.card_w = _hand_w
+	_hand_row.card_h = _hand_w * 650.0 / 490.0
+	_hand_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_hand_row.custom_minimum_size = Vector2(0, _hand_row.card_h + 30.0)
+	bottom.add_child(_hand_row)
 	var side := VBoxContainer.new()  # to the right of the hand: the discard pile, with END TURN underneath
 	side.add_theme_constant_override("separation", 4)
 	bottom.add_child(side)
@@ -192,6 +215,7 @@ func _build_ui() -> void:
 	_log_panel.offset_bottom = -34.0
 	_log_panel.offset_right = -6.0
 	_log_panel.visible = false
+	_log_panel.z_index = 900
 	var lsb := StyleBoxFlat.new()  # solid, so the board behind it does not show through the text
 	lsb.bg_color = Color(0.05, 0.06, 0.09)
 	lsb.set_border_width_all(2)
@@ -243,6 +267,7 @@ func _overlay(parent: Control, dim: float) -> Control:
 	var root := Control.new()
 	root.set_anchors_preset(Control.PRESET_FULL_RECT)
 	root.mouse_filter = Control.MOUSE_FILTER_STOP
+	root.z_index = 1000  # above the hand, whose cards are drawn with a z_index
 	var shade := ColorRect.new()
 	shade.color = Color(0, 0, 0, dim)
 	shade.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -317,16 +342,14 @@ func _build_overlays() -> void:
 
 	# Mulligan
 	_mull = _overlay(self, 1.0)
-	var mb := _centered_box(_mull, 1560)  # 7 cards fit without scrolling
+	var mb := _centered_box(_mull, 1500)
 	_mull_label = Label.new()
 	_mull_label.add_theme_font_size_override("font_size", 20)
 	mb.add_child(_mull_label)
-	var ms := ScrollContainer.new()
-	ms.custom_minimum_size = Vector2(0, HAND_CARD_W * 650.0 / 490.0 + 24.0)
-	ms.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	mb.add_child(ms)
-	_mull_hand = HBoxContainer.new()
-	ms.add_child(_mull_hand)
+	_mull_hand = HBoxContainer.new()  # every card on screen at once: the cards are sized to fit (see _show_mulligan)
+	_mull_hand.add_theme_constant_override("separation", 6)
+	_mull_hand.alignment = BoxContainer.ALIGNMENT_CENTER
+	mb.add_child(_mull_hand)
 	var mrow := HBoxContainer.new()
 	mrow.add_child(_button("Keep this hand", _on_keep))
 	_mull_btn = _button("Mulligan", _on_mulligan)
@@ -340,7 +363,7 @@ func _build_overlays() -> void:
 	_choice_title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_choice_title.add_theme_font_size_override("font_size", 18)
 	chb.add_child(_choice_title)
-	_choice_list = ItemList.new()
+	_choice_list = CardItemList.new()
 	_choice_list.custom_minimum_size = Vector2(0, 260)
 	_choice_list.allow_reselect = true
 	chb.add_child(_choice_list)
@@ -375,6 +398,7 @@ func choose(title: String, options: Array, min_n: int = 1, max_n: int = 1) -> Va
 	_choice_min = min_n
 	_choice_max = max_n
 	_choice_list.clear()
+	_choice_list.cards.clear()
 	_choice_list.select_mode = ItemList.SELECT_MULTI if max_n > 1 else ItemList.SELECT_SINGLE
 	# When choosing is optional (min 0), add an explicit "None" row at the top (index shift handled on return).
 	var none_row: bool = min_n == 0 and max_n > 0
@@ -387,6 +411,9 @@ func choose(title: String, options: Array, min_n: int = 1, max_n: int = 1) -> Va
 		_choice_list.set_item_disabled(idx, bool(o.get("disabled", false)))
 		if o.has("tooltip"):
 			_choice_list.set_item_tooltip(idx, str(o.tooltip))
+		elif o.has("card"):  # hovering the row shows the card itself
+			_choice_list.cards[idx] = o.card
+			_choice_list.set_item_tooltip(idx, "card:%d" % idx)
 	if max_n == 0:
 		_choice_hint.text = "Read only."
 	elif min_n == max_n:
@@ -471,8 +498,11 @@ func _show_mulligan_hand() -> void:
 	_mull_btn.disabled = ps.mulligans >= int(game.rules.max_mulligans)
 	for c in _mull_hand.get_children():
 		c.queue_free()
+	var n: int = maxi(1, ps.hand.size())  # size the cards so that the whole hand fits on screen without scrolling
+	var avail: float = maxf(400.0, get_viewport_rect().size.x - 80.0)
+	var w: float = clampf((avail - 6.0 * float(n - 1)) / float(n), 120.0, HAND_CARD_W)
 	for card in ps.hand:
-		_mull_hand.add_child(CardView.create(card, HAND_CARD_W))
+		_mull_hand.add_child(CardView.create(card, w))
 
 
 func _on_keep() -> void:
@@ -664,8 +694,10 @@ func refresh() -> void:
 	var mine: bool = viewer == p and not game.finished and not _cover.visible
 	_render_board(_opp_box, _opp_info, 1 - p, false)
 	_render_board(_me_box, _me_info, p, true)
-	call_deferred("_fit_hand_size")
 	_opp_discard_btn.text = "Opponents Discard Pile (%d)" % game.players[1 - p].discard.size()
+	_clear(_my_deck_box)
+	_my_deck_box.add_child(_deck_pile(game.players[p], _hand_w - 18.0))  # the same size as the discard pile
+	_opp_deck_label.text = "   Opponent's deck: %d" % game.players[1 - p].deck.size()
 	_clear(_my_discard_box)
 	_my_discard_box.add_child(_discard_pile(game.players[p], p, _hand_w - 18.0))  # as tall as the hand, with END TURN under it
 	_render_hand()
@@ -682,101 +714,81 @@ func refresh() -> void:
 		_end.visible = true
 
 
-## One player's row: champions (left, encamped ones faded and asleep), then the Fortress, then the enchantments.
+## One player's row: the play area (champions, encamped ones faded and asleep), then the Fortress, then the
+## enchantment area. The play area and the enchantment area are where hand cards are dropped.
 func _render_board(box: VBoxContainer, info: RichTextLabel, p: int, is_active: bool) -> void:
 	_clear(box)
 	var ps: PlayerState = game.players[p]
 	var summoning: bool = is_active and _summoning_available(ps)
-	var most: int = 0
-	for ch in game.players[0].champions + game.players[1].champions:
-		most = maxi(most, ch.attached.size())
-	_attachment_room = 14.0 * most
-	info.text = "Player %d%s   Mana %d   Deck %d   Hand %d   Kills %d/%d   Castles used %d/%d%s%s" % [
-		p, "  (YOUR TURN)" if is_active else "", ps.mana, ps.deck.size(), ps.hand.size(), ps.kills,
+	info.text = "Player %d%s   Mana %d   Hand %d   Kills %d/%d   Castles used %d/%d%s%s" % [
+		p, "  (YOUR TURN)" if is_active else "", ps.mana, ps.hand.size(), ps.kills,
 		int(game.rules.annihilation_goal), ps.castles_used, int(game.rules.castles_per_game),
 		("   [color=#ffd940]SUMMONING AVAILABLE%s[/color]" % _summons_suffix(ps)) if summoning else "",
 		("   [CASTLED: Fortress vulnerable to attack, champions encamped, turns remaining:%d]" % maxi(0, int(game.rules.max_castled_turns) - ps.castled_turns)) if ps.castled else ""]
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 10)
-	var champs: Control = _champion_flow(ps, is_active)
-	row.add_child(champs)
+	var play := _area_zone(Color(0.11, 0.12, 0.18), {"kind": "play", "owner": p})  # champions are dropped here
+	play.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	play.add_child(_champion_flow(ps, is_active))
+	row.add_child(play)
+	var divider := VSeparator.new()  # a thin line, with space on both sides, between the play area and the Fortress
+	divider.custom_minimum_size = Vector2(22, 0)
+	row.add_child(divider)
 	var mine: bool = is_active and viewer == p and not game.finished and not _cover.visible
 	var glow: bool = mine and not ps.castled and not _fortress_options().is_empty()  # yellow border: the Fortress has something to offer
 	var fv := CardView.create(fortress_card(ps), BOARD_CARD_W, null, true, glow, ps.castled, game)
 	if is_active:  # clicking the enemy Fortress does nothing
 		fv.pressed.connect(_on_fortress_clicked)
-	_wire_drop(fv, {"kind": "fortress", "owner": p})
+	_wire_drop(fv, {"kind": "board", "owner": p})
 	row.add_child(fv)
-	row.add_child(_enchantment_area(ps))
-	box.add_child(_zone_row(row, p))
+	var ench := _area_zone(Color(0.1, 0.15, 0.12), {"kind": "ench", "owner": p})  # enchantments are dropped here
+	ench.custom_minimum_size = Vector2(3.0 * (BOARD_CARD_W + 6.0) + 6.0, BOARD_CARD_H + 10.0)
+	ench.add_child(_enchantment_area(ps))
+	row.add_child(ench)
+	box.add_child(row)
 
 
-## The whole row of one player is a drop area for spells ("drop them anywhere on the board").
-func _zone_row(content: Control, p: int) -> DropZone:
+## A panel that accepts dragged cards, outlined in yellow while a card that may land there is over it.
+func _area_zone(color: Color, target: Dictionary) -> DropZone:
 	var panel := DropZone.new()
-	panel.custom_minimum_size = Vector2(0, BOARD_CARD_H + 10.0 + _attachment_room)
+	panel.custom_minimum_size = Vector2(0, BOARD_CARD_H + 10.0)
 	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.11, 0.12, 0.18)
-	sb.set_content_margin_all(3)
+	sb.bg_color = color
+	sb.set_content_margin_all(4)
+	var hover := sb.duplicate() as StyleBoxFlat
+	hover.set_border_width_all(4)
+	hover.border_color = Color(1.0, 0.9, 0.25)
+	panel.normal_style = sb
+	panel.hover_style = hover
 	panel.add_theme_stylebox_override("panel", sb)
-	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	panel.add_child(content)
-	_wire_drop(panel, {"kind": "board", "owner": p})
+	_wire_drop(panel, target)
 	return panel
 
 
-
-## Six fixed champion slots. Each slot is a drop area: a card dragged here is summoned into it.
+## The champions of one player, in a row. Each champion is also a drop target (it counts as the play area).
 func _champion_flow(ps: PlayerState, is_active: bool) -> Control:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 6)
-	var limit: int = int(game.rules.board_limit)
-	for slot in limit:
-		var c: Champion = ps.slot_champion(slot)
-		var zone := DropZone.new()
-		zone.custom_minimum_size = Vector2(BOARD_CARD_W + _attachment_room + 4.0, BOARD_CARD_H + _attachment_room)
-		var empty := StyleBoxFlat.new()
-		empty.bg_color = Color(0.08, 0.09, 0.13) if c == null else Color(0, 0, 0, 0)
-		empty.set_border_width_all(1)
-		empty.border_color = Color(0.22, 0.24, 0.32) if c == null else Color(0, 0, 0, 0)
-		empty.set_content_margin_all(2)
-		var hover := empty.duplicate() as StyleBoxFlat
-		hover.set_border_width_all(4)
-		hover.border_color = Color(1.0, 0.9, 0.25)
-		zone.normal_style = empty
-		zone.hover_style = hover
-		zone.add_theme_stylebox_override("panel", empty)
-		if c == null:
-			var l := Label.new()
-			l.text = "Slot %d" % (slot + 1)
-			l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-			l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-			l.add_theme_color_override("font_color", Color(0.4, 0.42, 0.5))
-			l.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			zone.add_child(l)
-		else:
-			var v := CardView.create(c.card, BOARD_CARD_W, c, true, c.attacked_this_turn and is_active, ps.castled, game, Color(0.95, 0.15, 0.15))  # red once it has attacked
-			if is_active:
-				v.pressed.connect(_on_own_champion.bind(c.uid))
-			_wire_drop(v, {"kind": "champion", "owner": ps.index, "slot": slot, "champion": c.uid})
-			zone.add_child(_stack_with_attachments(c, v))
-		_wire_drop(zone, {"kind": "slot", "owner": ps.index, "slot": slot, "champion": c.uid if c != null else -1})
-		row.add_child(zone)
+	for c in ps.champions:
+		var v := CardView.create(c.card, BOARD_CARD_W, c, true, c.attacked_this_turn and is_active, ps.castled, game, Color(0.95, 0.15, 0.15))  # red once it has attacked
+		if is_active:
+			v.pressed.connect(_on_own_champion.bind(c.uid))
+		_wire_drop(v, {"kind": "play", "owner": ps.index})
+		row.add_child(_stack_with_attachments(c, v))
 	return row
 
 
-## A champion with attached cards is drawn stacked on top of them: the attached cards peek out behind it, to the
-## lower right, one step for each card. (Hover the champion to see the champion and the attached cards in full.)
+## A champion with attached cards is drawn in front of them, at the same height: the attached cards sit behind it
+## and peek out to the right, one step for each card. (Hover the champion to see everything in full.)
 func _stack_with_attachments(c: Champion, view: CardView) -> Control:
 	var n: int = c.attached.size()
 	if n == 0:
 		return view
-	var step: float = 14.0
 	var holder := Control.new()
-	holder.custom_minimum_size = Vector2(BOARD_CARD_W + step * n, BOARD_CARD_H + step * n)
+	holder.custom_minimum_size = Vector2(BOARD_CARD_W + ATTACH_STEP * n, BOARD_CARD_H)
 	for i in range(n - 1, -1, -1):  # the furthest back is drawn first
 		var back: CardView = CardView.create(c.attached[i], BOARD_CARD_W, null, true)
-		back.position = Vector2(step * (i + 1), step * (i + 1))
+		back.position = Vector2(ATTACH_STEP * (i + 1), 0.0)
 		back.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		holder.add_child(back)
 	view.position = Vector2.ZERO
@@ -798,6 +810,41 @@ func fortress_card(ps: PlayerState) -> Dictionary:
 	f["hp"] = int(f.get("hp", 500))
 	f["hp_now"] = ps.fortress_hp
 	return f
+
+
+## The deck: the card back (art/ui/card_background.png) as a stack, with the number of cards in it.
+func _deck_pile(ps: PlayerState, width: float) -> Control:
+	var holder := Control.new()
+	holder.custom_minimum_size = Vector2(width, width * 650.0 / 490.0)
+	var back: Texture2D = load("res://art/ui/card_background.png")
+	var layers: int = mini(3, ps.deck.size())
+	for i in range(layers - 1, -1, -1):  # a little stack: the lower cards peek out
+		var r := TextureRect.new()
+		r.texture = back
+		r.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		r.stretch_mode = TextureRect.STRETCH_SCALE
+		r.position = Vector2(float(i) * 3.0, float(i) * -3.0)
+		r.size = Vector2(width - 8.0, width * 650.0 / 490.0 - 8.0) + Vector2(0, 8)
+		r.position += Vector2(0, 8)
+		r.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		r.modulate = Color(1, 1, 1) if i == 0 else Color(0.6, 0.6, 0.65)
+		holder.add_child(r)
+	if layers == 0:
+		var empty := Panel.new()
+		empty.set_anchors_preset(Control.PRESET_FULL_RECT)
+		empty.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		holder.add_child(empty)
+	var l := Label.new()
+	l.text = "Deck\n(%d)" % ps.deck.size()
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	l.set_anchors_preset(Control.PRESET_FULL_RECT)
+	l.add_theme_font_size_override("font_size", 22)
+	l.add_theme_color_override("font_outline_color", Color(0, 0, 0))
+	l.add_theme_constant_override("outline_size", 6)
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	holder.add_child(l)
+	return holder
 
 
 ## The discard pile: the top card faded, so it is not mistaken for anything in play. Click to browse it.
@@ -825,106 +872,35 @@ func _discard_pile(ps: PlayerState, p: int, width: float = BOARD_CARD_W) -> Cont
 	return holder
 
 
-## The enchantment slots (the enchantment limit): each one is a drop area. Dropping onto a card when all slots are
-## full replaces that enchantment.
+## The enchantments in play, side by side. Right-click one of your own to remove it.
 func _enchantment_area(ps: PlayerState) -> Control:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 6)
-	var limit: int = int(game.rules.enchantment_limit)
-	for i in limit:
-		var zone := DropZone.new()
-		zone.custom_minimum_size = Vector2(BOARD_CARD_W + 4.0, BOARD_CARD_H)
-		var empty := StyleBoxFlat.new()
-		empty.bg_color = Color(0.08, 0.09, 0.13) if i >= ps.enchantments.size() else Color(0, 0, 0, 0)
-		empty.set_border_width_all(1)
-		empty.border_color = Color(0.2, 0.34, 0.24) if i >= ps.enchantments.size() else Color(0, 0, 0, 0)
-		empty.set_content_margin_all(2)
-		var hover := empty.duplicate() as StyleBoxFlat
-		hover.set_border_width_all(4)
-		hover.border_color = Color(1.0, 0.9, 0.25)
-		zone.normal_style = empty
-		zone.hover_style = hover
-		zone.add_theme_stylebox_override("panel", empty)
-		if i < ps.enchantments.size():
-			var v := CardView.create(ps.enchantments[i], BOARD_CARD_W, null, true)
-			_wire_drop(v, {"kind": "ench", "owner": ps.index, "index": i})
-			zone.add_child(v)
-		else:
-			var l := Label.new()
-			l.text = "Enchantment\nslot %d" % (i + 1)
-			l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-			l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-			l.add_theme_color_override("font_color", Color(0.4, 0.5, 0.42))
-			l.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			zone.add_child(l)
-		_wire_drop(zone, {"kind": "ench", "owner": ps.index, "index": i})
-		row.add_child(zone)
+	for i in ps.enchantments.size():
+		var v := CardView.create(ps.enchantments[i], BOARD_CARD_W, null, true)
+		if ps.index == game.active:
+			v.right_pressed.connect(_on_enchantment_right_click.bind(i))  # right-click: remove it
+		_wire_drop(v, {"kind": "ench", "owner": ps.index})
+		row.add_child(v)
 	return row
 
 
 
 func _render_hand() -> void:
-	_clear(_hand_row)
+	_hand_row.set_views([])
 	var p: int = game.active
 	if viewer != p or _cover.visible:
 		_hand_label.text = "Hand hidden"
 		return
 	var ps: PlayerState = game.players[p]
 	_hand_label.text = "Your hand (%d cards) · Mana %d · Colors that attacked this turn: %s" % [ps.hand.size(), ps.mana, ", ".join(ps.colors_used) if not ps.colors_used.is_empty() else "none"]
+	var views: Array = []
 	for i in ps.hand.size():
 		var v := CardView.create(ps.hand[i], _hand_w)
 		v.drag_data = {"hand_index": i, "kind": str(ps.hand[i].get("kind", "")), "player": p}  # drag it onto the board
 		v.pressed.connect(_on_hand_card.bind(i))
-		_hand_row.add_child(v)
-	call_deferred("_fix_hand_scroll")
-
-
-## Makes the hand cards as big as the window allows, so there is no empty strip between the hand and the
-## messages bar (and no overflow either).
-func _fit_hand_size() -> void:
-	if _left_box == null or _hand_scroll == null or not is_inside_tree():
-		return
-	var leftover: float = _left_box.size.y - _left_box.get_combined_minimum_size().y
-	if absf(leftover) < 4.0:
-		return
-	var new_w: float = clampf(_hand_w + leftover * 490.0 / 650.0, 160.0, 300.0)
-	if absf(new_w - _hand_w) < 2.0:
-		return
-	_hand_w = new_w
-	_hand_scroll.custom_minimum_size = Vector2(0, _hand_w * 650.0 / 490.0 + 24.0)
-	refresh()
-
-
-## After the hand changes: the scroll bar only shows when the hand is wider than the window (its space stays
-## reserved, so the layout never jumps), and a hand that fits starts at the left edge.
-func _fix_hand_scroll() -> void:
-	if _hand_scroll == null or not is_instance_valid(_hand_row) or not is_inside_tree():
-		return
-	await get_tree().process_frame  # let the old (freed) cards leave the row before measuring it
-	if not is_instance_valid(_hand_row):
-		return
-	var content: float = _hand_row.get_combined_minimum_size().x
-	var bar: HScrollBar = _hand_scroll.get_h_scroll_bar()
-	if content <= _hand_scroll.size.x:
-		_hand_scroll.scroll_horizontal = 0
-		bar.modulate.a = 0.0
-		bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	else:
-		_hand_scroll.scroll_horizontal = mini(_hand_scroll.scroll_horizontal, int(content - _hand_scroll.size.x))
-		bar.modulate.a = 1.0
-		bar.mouse_filter = Control.MOUSE_FILTER_STOP
-
-
-## The mouse wheel scrolls the hand sideways (a plain wheel normally only scrolls up and down).
-func _on_hand_gui_input(event: InputEvent) -> void:
-	if event is InputEventMouseButton and event.pressed:
-		var step: int = int(_hand_w)
-		if event.button_index == MOUSE_BUTTON_WHEEL_DOWN or event.button_index == MOUSE_BUTTON_WHEEL_RIGHT:
-			_hand_scroll.scroll_horizontal += step
-			_hand_scroll.accept_event()
-		elif event.button_index == MOUSE_BUTTON_WHEEL_UP or event.button_index == MOUSE_BUTTON_WHEEL_LEFT:
-			_hand_scroll.scroll_horizontal -= step
-			_hand_scroll.accept_event()
+		views.append(v)
+	_hand_row.set_views(views)
 
 
 func ps_hand_width() -> float:
@@ -1118,9 +1094,25 @@ func _on_view_discard(p: int) -> void:
 	busy = true
 	var opts: Array = []
 	for card in game.players[p].discard:
-		opts.append({"label": "%s (%s)" % [card.get("name", "?"), card.get("kind", "")], "value": 0})
+		opts.append({"label": "%s (%s)" % [card.get("name", "?"), card.get("kind", "")], "value": 0, "card": card})
 	await choose("Player %d's discard pile (%d cards)" % [p, opts.size()], opts, 0, 0)
 	busy = false
+
+
+## Right-click on one of your enchantments in play: offers to remove it (it goes to your discard pile).
+func _on_enchantment_right_click(index: int) -> void:
+	if not _my_turn():
+		return
+	var ps: PlayerState = game.players[game.active]
+	if index >= ps.enchantments.size():
+		return
+	var name: String = str(ps.enchantments[index].get("name", "this enchantment"))
+	busy = true
+	var ans: Variant = await choose("Enchantment: %s" % name, [{"label": "Remove %s (it goes to your discard pile)" % name, "value": "remove"}], 1, 1)
+	busy = false
+	if ans != null and not (ans as Array).is_empty() and str((ans as Array)[0]) == "remove":
+		_report(game.remove_own_enchantment(game.active, index))
+	refresh()
 
 
 ## Cards are played by dragging them onto the board, so a plain click only says so.
@@ -1153,8 +1145,8 @@ func _can_drop(data: Variant, target: Dictionary) -> bool:
 	if int((data as Dictionary).get("player", -1)) != p:
 		return false
 	match str(data.kind):
-		"champion":  # into one of your slots (on an occupied slot only to sacrifice)
-			return int(target.get("owner", -1)) == p and (str(target.kind) == "slot" or str(target.kind) == "champion")
+		"champion":  # into your own play area (sacrifice summons: anywhere in it; the menu asks who to sacrifice)
+			return int(target.get("owner", -1)) == p and str(target.kind) == "play"
 		"enchantment":
 			return int(target.get("owner", -1)) == p and (str(target.kind) == "ench")
 		"spell":
@@ -1165,24 +1157,15 @@ func _can_drop(data: Variant, target: Dictionary) -> bool:
 func _on_drop(data: Variant, target: Dictionary) -> void:
 	if not _can_drop(data, target) or busy:
 		return
-	var ctx: Dictionary = {}
-	match str(target.kind):
-		"slot", "champion":
-			ctx["slot"] = int(target.get("slot", -1))
-			ctx["champion"] = int(target.get("champion", -1))
-			ctx["owner"] = int(target.owner)
-		"ench":
-			ctx["ench_index"] = int(target.get("index", -1))
-		_:
-			ctx["owner"] = int(target.get("owner", -1))
 	busy = true
-	await play_hand_card(int(data.hand_index), ctx)
+	await play_hand_card(int(data.hand_index), {"owner": int(target.get("owner", -1))})
 	busy = false
 	refresh()
 
 
 ## Everything that happens when a hand card is played: its choices, then the engine call. ctx says where it was
-## dropped: {"slot", "champion", "owner"} on a champion slot, {"ench_index"} on an enchantment slot, {"owner"} on the board.
+## dropped: {"owner"} is the player whose area it landed on. Every choice (who to sacrifice, which champion a spell
+## goes on, which enchantment to replace) is a menu.
 func play_hand_card(i: int, ctx: Dictionary = {}) -> Dictionary:
 	var p: int = game.active
 	var ps: PlayerState = game.players[p]
@@ -1195,11 +1178,7 @@ func play_hand_card(i: int, ctx: Dictionary = {}) -> Dictionary:
 			problem = Preflight.summon_problem(game, p, i)
 		"enchantment":
 			var full: bool = ps.enchantments.size() >= int(game.rules.enchantment_limit)
-			var replace_at: int = int(ctx.get("ench_index", -1)) if full else -1
-			if full and (replace_at < 0 or replace_at >= ps.enchantments.size()):
-				problem = "You already have the maximum number of enchantments (%d): drop it onto one of them to replace it." % int(game.rules.enchantment_limit)
-			else:
-				problem = Preflight.enchantment_problem(game, p, i, full)
+			problem = Preflight.enchantment_problem(game, p, i, full)  # when full, the menu asks which one to replace
 		"spell":
 			problem = Preflight.spell_problem(game, p, i)
 	if problem == "" and kind == "champion":
@@ -1239,13 +1218,15 @@ func play_hand_card(i: int, ctx: Dictionary = {}) -> Dictionary:
 			res = game.summon(p, i, sc.sacrifices, "", int(ctx.get("slot", -1)))
 	elif kind == "enchantment":
 		var full2: bool = ps.enchantments.size() >= int(game.rules.enchantment_limit)
-		if full2:
-			var old: Dictionary = ps.enchantments[int(ctx.ench_index)]
-			var ans: Variant = await choose("Replace %s with %s?" % [old.get("name", "this enchantment"), card.get("name", "the new one")],
-					[{"label": "Replace %s with %s" % [old.get("name", "?"), card.get("name", "?")], "value": "go"}, {"label": "Cancel", "value": "cancel"}], 1, 1)
-			if ans == null or (ans as Array).is_empty() or str((ans as Array)[0]) != "go":
+		if full2:  # all enchantment places are used: choose which one to replace
+			var eopts: Array = []
+			for k in ps.enchantments.size():
+				var e: Dictionary = ps.enchantments[k]
+				eopts.append({"label": "%s (%d turns left)" % [e.get("name", "?"), int(e.get("turns_left", 0))], "value": k, "card": e})
+			var pick: Variant = await choose("Replace which enchantment with %s?" % card.get("name", "the new one"), eopts, 1, 1)
+			if pick == null or (pick as Array).is_empty():
 				return {"ok": false, "error": ""}
-			res = game.replace_enchantment(p, i, int(ctx.ench_index))
+			res = game.replace_enchantment(p, i, int((pick as Array)[0]))
 		else:
 			res = game.play_enchantment(p, i)
 	elif kind == "spell":
@@ -1266,6 +1247,12 @@ func play_hand_card(i: int, ctx: Dictionary = {}) -> Dictionary:
 			return {"ok": false, "error": ""}
 		else:
 			res = game.play_spell(p, i, effect_index, tf.target)
+			if res.ok and not ps.pending_wizardry.is_empty():  # Wizardry: you choose which of the drawn cards to discard
+				var opts2: Array = []
+				for k in ps.pending_wizardry.size():
+					opts2.append({"label": str(ps.pending_wizardry[k].get("name", "?")), "value": k})
+				var pick2: Variant = await choose("Wizardry: discard which of the %d cards you drew?" % opts2.size(), opts2, 1, 1)
+				game.wizardry_discard(p, int((pick2 as Array)[0]) if pick2 != null and not (pick2 as Array).is_empty() else 0)
 	_report(res)
 	return res
 

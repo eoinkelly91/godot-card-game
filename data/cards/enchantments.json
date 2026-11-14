@@ -72,7 +72,7 @@
   "id": "super_shrink",
   "name": "Super Shrink",
   "kind": "enchantment",
-  "cost": 3,
+  "cost": 5,
   "text": [
    "All your opponents active champions have their HP reduced by 20"
   ],

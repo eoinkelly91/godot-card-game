@@ -110,6 +110,9 @@ static func enchantment_problem(g: Game, p: int, hand_index: int, replacing: boo
 	if me.is_first_turn():
 		return "You cannot play enchantments on your first turn."
 	if LockRules.is_locked(g, p, "enchantment"):
+		for c in g.players[1 - p].champions:
+			if c.has_ability() and str(c.card.ability.get("lock_enemy", "")) == "enchantment":
+				return "%s stops you playing enchantments while it is in play." % c.card_name()
 		return "Your enchantments are locked."
 	if not replacing and me.enchantments.size() >= int(g.rules.enchantment_limit):
 		return "You already have the maximum number of enchantments (%d)." % int(g.rules.enchantment_limit)

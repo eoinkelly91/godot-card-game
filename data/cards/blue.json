@@ -219,8 +219,9 @@
   ],
   "ability": {
    "text": "If this champion has 50 or more damage on him remove it all.",
-   "trigger": "passive",
-   "clear_damage_at": 50
+   "trigger": "start_of_turn",
+   "op": "clear_damage_if",
+   "at_least": 50
   }
  },
  {
@@ -369,7 +370,7 @@
      ],
      "amount": 20
     },
-    "text": "10 + 20 damage for every active Brickeen or Brickzard in play."
+    "text": "10 + This attack does an extra 20 damage for every active Brickeen or Brickzard in play."
    }
   ]
  },
@@ -395,7 +396,7 @@
      ],
      "amount": 30
     },
-    "text": "20 + 30 damage for every active Brickeen or Brickzard in play."
+    "text": "20 + This attack does an extra 30 damage for every active Brickeen or Brickzard in play."
    }
   ]
  },
@@ -455,7 +456,7 @@
     "name": "Air Spear",
     "damage": 10,
     "optional_discard_bonus": 50,
-    "text": "10 + discard a card for an extra 50 damage."
+    "text": "10 + optionally discard a card for an extra 50 damage."
    }
   ]
  },
@@ -475,7 +476,7 @@
     "name": "Air Spear",
     "damage": 20,
     "optional_discard_bonus": 50,
-    "text": "20 + discard a card for an extra 50 damage."
+    "text": "20 + optionally discard a card for an extra 50 damage."
    },
    {
     "name": "Spear Swipe",
@@ -493,7 +494,7 @@
   "class": "basic",
   "color": "Blue",
   "type": "Creature",
-  "hp": 50,
+  "hp": 40,
   "summon": {},
   "attacks": [
    {
@@ -507,7 +508,7 @@
    }
   ],
   "ability": {
-   "text": "This champion gets an extra 10HP for each of your own creatures in play.",
+   "text": "This champion gets an extra 10HP for each of your own creatures in play including Water Hound.",
    "trigger": "passive",
    "hp_per_own_creature": 10
   }

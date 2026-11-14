@@ -34,6 +34,9 @@ func _run() -> void:
 	me.enchantments.append(SummonRules._running(cards["field_medics"]))
 	StatusRules.add_attack_buff(g, 1 - p, 0, 1)
 	g.players[1 - p].buffs.append({"kind": "outgoing_reduction", "amount": 20, "turns_left": 2})
+	if me.champions.size() >= 2:
+		me.champions[0].attached = [cards["fusion"], cards["power_source"]]
+		me.champions[1].attached = [cards["warrior_idol"]] if cards.has("warrior_idol") else [cards["fusion"]]
 	ui.viewer = p
 	ui._cover.visible = false
 	ui.refresh()

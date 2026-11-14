@@ -79,7 +79,7 @@ ATTACK_EFFECTS = {
 # ---- abilities, keyed by champion name -----------------------------------------------------------
 ABILITIES = {
     "Blackthorn Dragon": {"trigger": "start_of_turn", "op": "coin_protect"},
-    "Ramaire": {"trigger": "passive", "lock_enemy": "spell"},
+    "Ramaire": {"trigger": "passive", "lock_enemy": "enchantment"},
     "Warlord": {"trigger": "passive", "lock_enemy": "spell"},
     "Harmlobeast": {"trigger": "passive", "lock_enemy": "fortress"},
     "Gluto": {"trigger": "passive", "when_attacked_damage_attacker": 20},
@@ -87,7 +87,7 @@ ABILITIES = {
     "Gyptjeous": {"trigger": "passive", "when_hit_over_damage_attacker": {"over": 50, "amount": 20}},
     "Grimn": {"trigger": "passive", "stored_bonus_if_idle": 20},
     "Gnome": {"trigger": "passive", "immune_to_attackers_max_hp_over": 60},
-    "Dynamo": {"trigger": "passive", "clear_damage_at": 50},
+    "Dynamo": {"trigger": "start_of_turn", "op": "clear_damage_if", "at_least": 50},
     "Psybar": {"trigger": "start_of_turn", "op": "coin_lock", "what": "draw", "turns": 1},
     "Marcos the Gladiator": {"trigger": "on_attack", "bonus_per": {"count": "own_champions", "amount": 10}},
     "Psytwist": {"trigger": "on_attack", "bonus_per": {"count": "spirits_in_play", "amount": 10}},
