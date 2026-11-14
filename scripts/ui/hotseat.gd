@@ -60,6 +60,7 @@ var _choice_title: Label
 var _choice_hint: Label
 var _choice_list: CardItemList
 var _choice_ok: Button
+var _choice_all: Button
 var _choice_min: int = 1
 var _choice_max: int = 1
 var _choice_none_row: bool = false
@@ -158,15 +159,19 @@ func _build_ui() -> void:
 	_opp_info = _info_label()
 	_opp_info.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	opp_head.add_child(_opp_info)
-	_opp_discard_btn = _button("Opponents Discard Pile", _on_view_opp_discard)
-	opp_head.add_child(_opp_discard_btn)
 	_opp_deck_label = Label.new()
 	_opp_deck_label.add_theme_font_size_override("font_size", 13)
 	opp_head.add_child(_opp_deck_label)
+	_opp_discard_btn = _button("Discard Pile", _on_view_opp_discard)
+	_opp_discard_btn.add_theme_font_size_override("font_size", 13)  # the same size as the rest of the line
+	opp_head.add_child(_opp_discard_btn)
 	_opp_box = VBoxContainer.new()
 	left.add_child(_opp_box)
 	_me_box = VBoxContainer.new()
 	left.add_child(_me_box)
+	var spacer := Control.new()  # any spare height goes here, between the play area and the info bar
+	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	left.add_child(spacer)
 	_me_info = _info_label()  # below the play area, above the hand
 	left.add_child(_me_info)
 	_attack_hint = Label.new()  # directly under the "Player N (YOUR TURN)" bar
@@ -373,6 +378,9 @@ func _build_overlays() -> void:
 	var crow := HBoxContainer.new()
 	_choice_ok = _button("OK", _on_choice_ok)
 	crow.add_child(_choice_ok)
+	_choice_all = _button("Select All", _on_choice_select_all)
+	_choice_all.visible = false
+	crow.add_child(_choice_all)
 	crow.add_child(_button("Cancel", func() -> void: _choice_done.emit(null)))
 	chb.add_child(crow)
 
@@ -391,9 +399,10 @@ func _build_overlays() -> void:
 
 ## Options: Array of {"label", "value", "disabled"?}. Returns an Array of chosen values, or null if cancelled.
 ## min_n = 0 and max_n = 0 shows a read-only list.
-func choose(title: String, options: Array, min_n: int = 1, max_n: int = 1) -> Variant:
+func choose(title: String, options: Array, min_n: int = 1, max_n: int = 1, select_all: bool = false) -> Variant:
 	if auto_chooser.is_valid():
 		return auto_chooser.call(title, options, min_n, max_n)
+	_choice_all.visible = select_all and max_n >= 1  # "Select All": the required number, picked at random if there are more
 	_choice_title.text = title
 	_choice_min = min_n
 	_choice_max = max_n
@@ -435,6 +444,21 @@ func choose(title: String, options: Array, min_n: int = 1, max_n: int = 1) -> Va
 		else:
 			out.append(options[i].value)
 	return out
+
+
+## "Select All" in the sacrifice menu: chooses the required number of champions at once. With more candidates than
+## needed, the ones sacrificed are picked at random.
+func _on_choice_select_all() -> void:
+	var rows: Array = []
+	for i in _choice_list.item_count:
+		if _choice_none_row and i == 0:
+			continue
+		if not _choice_list.is_item_disabled(i):
+			rows.append(i)
+	rows.shuffle()
+	var picked: Array = rows.slice(0, mini(_choice_max, rows.size()))
+	picked.sort()
+	_choice_done.emit(picked)
 
 
 func _on_choice_ok() -> void:
@@ -694,10 +718,10 @@ func refresh() -> void:
 	var mine: bool = viewer == p and not game.finished and not _cover.visible
 	_render_board(_opp_box, _opp_info, 1 - p, false)
 	_render_board(_me_box, _me_info, p, true)
-	_opp_discard_btn.text = "Opponents Discard Pile (%d)" % game.players[1 - p].discard.size()
+	_opp_discard_btn.text = "Discard Pile (%d)" % game.players[1 - p].discard.size()
 	_clear(_my_deck_box)
 	_my_deck_box.add_child(_deck_pile(game.players[p], _hand_w - 18.0))  # the same size as the discard pile
-	_opp_deck_label.text = "   Opponent's deck: %d" % game.players[1 - p].deck.size()
+	_opp_deck_label.text = "   Deck: %d" % game.players[1 - p].deck.size()
 	_clear(_my_discard_box)
 	_my_discard_box.add_child(_discard_pile(game.players[p], p, _hand_w - 18.0))  # as tall as the hand, with END TURN under it
 	_render_hand()
@@ -899,6 +923,10 @@ func _render_hand() -> void:
 		var v := CardView.create(ps.hand[i], _hand_w)
 		v.drag_data = {"hand_index": i, "kind": str(ps.hand[i].get("kind", "")), "player": p}  # drag it onto the board
 		v.pressed.connect(_on_hand_card.bind(i))
+		v.double_clicked.connect(_on_hand_double_click.bind(i))
+		v.tooltip_text = ""  # no hover preview for cards in your hand
+		v.drop_check = _can_reorder.bind(i)  # dropping another hand card on this one puts it in front of this one
+		v.drop_do = _reorder_hand.bind(i)
 		views.append(v)
 	_hand_row.set_views(views)
 
@@ -1112,6 +1140,32 @@ func _on_enchantment_right_click(index: int) -> void:
 	busy = false
 	if ans != null and not (ans as Array).is_empty() and str((ans as Array)[0]) == "remove":
 		_report(game.remove_own_enchantment(game.active, index))
+	refresh()
+
+
+## Double-clicking a hand card plays it as if it had been dropped into your own play area.
+func _on_hand_double_click(i: int) -> void:
+	if not _my_turn() or busy or i >= game.players[game.active].hand.size():
+		return
+	busy = true
+	await play_hand_card(i, {"owner": game.active})
+	busy = false
+	refresh()
+
+
+func _can_reorder(data: Variant, _target_index: int) -> bool:
+	return data is Dictionary and (data as Dictionary).has("hand_index") and int((data as Dictionary).get("player", -1)) == game.active and _my_turn()
+
+
+## Drops hand card data.hand_index in front of (to the left of) the hand card at target_index.
+func _reorder_hand(data: Variant, target_index: int) -> void:
+	var hand: Array = game.players[game.active].hand
+	var from: int = int((data as Dictionary).hand_index)
+	if from == target_index or from >= hand.size() or target_index >= hand.size():
+		return
+	var card: Dictionary = hand[from]
+	hand.remove_at(from)
+	hand.insert(target_index if from > target_index else target_index - 1, card)
 	refresh()
 
 

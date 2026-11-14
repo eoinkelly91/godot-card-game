@@ -9,6 +9,7 @@ extends Control
 
 signal pressed
 signal right_pressed
+signal double_clicked
 
 const DW := 490.0
 const DH := 650.0
@@ -192,11 +193,17 @@ func _get_drag_data(_at_position: Vector2) -> Variant:
 	holder.add_child(ghost)
 	set_drag_preview(holder)
 	modulate.a = 0.3  # the card stays in the hand, faded, until the drag ends
+	_drag_source = true
 	return drag_data
 
 
+var _drag_source: bool = false
+var _skip_release: bool = false
+
+
 func _notification(what: int) -> void:
-	if what == NOTIFICATION_DRAG_END:
+	if what == NOTIFICATION_DRAG_END and _drag_source:  # (every card is told a drag ended; only the dragged one restores)
+		_drag_source = false
 		modulate.a = 1.0
 
 
@@ -214,8 +221,14 @@ func _gui_input(event: InputEvent) -> void:
 		right_pressed.emit()
 	elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 		if drag_data != null:  # a draggable card clicks on release (a drag takes the release away)
-			if not event.pressed:
-				pressed.emit()
+			if event.pressed and event.double_click:
+				_skip_release = true
+				double_clicked.emit()
+			elif not event.pressed:
+				if _skip_release:
+					_skip_release = false
+				else:
+					pressed.emit()
 		elif event.pressed:
 			pressed.emit()
 
@@ -515,7 +528,12 @@ func _draw_stats_row() -> void:
 	# shrink the HP text so "100/100HP" always fits its cell
 	var hp_px: float = minf(24.0 * big, (125.0 - 12.0) / (float(hp_text.length()) * 0.74))
 	var hp_color: Color = DARK
-	if live != null:  # red: HP is lowered, green: raised, yellow: effects are at work but the HP is the normal amount
+	if live != null and live.hp_override >= 0:  # Gaia: red below its printed HP, green above it
+		if live.max_hp() < int(card.get("hp", 0)):
+			hp_color = Color(0.85, 0.1, 0.1)
+		elif live.max_hp() > int(card.get("hp", 0)):
+			hp_color = Color(0.0, 0.55, 0.1)
+	elif live != null:  # red: HP is lowered, green: raised, yellow: effects are at work but the HP is the normal amount
 		match HpRules.hp_mood(live):
 			"negative":
 				hp_color = Color(0.85, 0.1, 0.1)

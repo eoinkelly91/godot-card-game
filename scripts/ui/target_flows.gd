@@ -46,7 +46,9 @@ func _one(title: String, options: Array) -> Variant:
 
 
 ## An array of values (possibly empty) or null (cancelled).
-func _many(title: String, options: Array, min_n: int, max_n: int) -> Variant:
+func _many(title: String, options: Array, min_n: int, max_n: int, select_all: bool = false) -> Variant:
+	if select_all:
+		return await chooser.choose(title, options, min_n, max_n, true)
 	return await chooser.choose(title, options, min_n, max_n)
 
 
@@ -350,5 +352,5 @@ func summon_choices(p: int, hand_index: int) -> Dictionary:
 			pool.append(c)
 	if pool.size() < need:
 		return _err("You need %d champion(s) of the right color to sacrifice (a champion that has just attacked cannot be sacrificed)." % need)
-	var picked: Variant = await _many("Sacrifice %d champion(s) for %s (their damage carries over)" % [need, card.get("name", "?")], _champs(pool), need, need)
+	var picked: Variant = await _many("Sacrifice %d champion(s) for %s (their damage carries over)" % [need, card.get("name", "?")], _champs(pool), need, need, true)
 	return _cancel() if picked == null else {"sacrifices": picked}

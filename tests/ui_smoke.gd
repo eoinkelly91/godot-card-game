@@ -26,7 +26,7 @@ func auto(_title: String, options: Array, min_n: int, _max_n: int) -> Variant:
 
 
 ## The test script is the chooser for TargetFlows in the flow tests.
-func choose(title: String, options: Array, min_n: int, max_n: int) -> Variant:
+func choose(title: String, options: Array, min_n: int, max_n: int, _select_all: bool = false) -> Variant:
 	return auto(title, options, min_n, max_n)
 
 
@@ -54,6 +54,7 @@ func _run() -> void:
 	await _test_fortress_card_and_board()
 	await _test_drag_and_drop_and_new_display()
 	await _test_second_batch()
+	await _test_third_batch()
 	_test_art_fits_box()
 	print("\n%d UI checks passed, %d failed" % [passed, failed])
 	quit(1 if failed > 0 else 0)
@@ -750,3 +751,71 @@ func _first_champion_holder() -> Control:
 	if first is CardView:  # no attached cards: wrap-less view; give it a holder-like size
 		return first
 	return first
+
+
+func _test_third_batch() -> void:
+	var g := _fresh_state()
+	ui.game = g
+	ui.flows = TargetFlows.new(g, ui)
+	ui.viewer = 0
+	ui._cover.visible = false
+	var p0: PlayerState = g.players[0]
+	p0.hand = [cards["gob"], cards["syranite"], cards["capeasant"]]
+	ui.refresh()
+	var views: Array = ui._hand_row.get_views()
+	# hand cards: no hover preview, double-click plays, dropping on a card puts the dragged one in front of it
+	check((views[0] as CardView).tooltip_text == "", "hovering a card in the hand shows no preview")
+	var n0: int = p0.champions.size()
+	g.players[0].summons_this_turn = 0
+	await ui._on_hand_double_click(0)
+	check(p0.champions.size() == n0 + 1 and p0.champions.back().card_name() == "Gob", "double-clicking a hand card plays it like dropping it in the play area")
+	p0.hand = [cards["gob"], cards["syranite"], cards["capeasant"]]
+	ui.refresh()
+	var data := {"hand_index": 2, "kind": "champion", "player": 0}
+	check(ui._can_reorder(data, 0), "a hand card can be dropped on another hand card")
+	ui._reorder_hand(data, 0)
+	check(str(p0.hand[0].name) == str(cards["capeasant"].name) and str(p0.hand[1].name) == str(cards["gob"].name) and p0.hand.size() == 3, "it goes in front of that card (dragged from the right)")
+	ui._reorder_hand({"hand_index": 0, "kind": "champion", "player": 0}, 2)
+	check(str(p0.hand[1].name) == str(cards["capeasant"].name) and str(p0.hand[2].name) == str(cards["syranite"].name) or p0.hand.size() == 3, "dragged from the left it lands just before the target")
+	# Select All in the sacrifice menu: exactly the required number, at random
+	ui._choice_list.clear()
+	for i in 4:
+		ui._choice_list.add_item("c%d" % i)
+	ui._choice_none_row = false
+	ui._choice_max = 2
+	var got: Array = []
+	ui._choice_done.connect(func(v: Variant) -> void: got.append(v), CONNECT_ONE_SHOT)
+	ui._on_choice_select_all()
+	check(got.size() == 1 and (got[0] as Array).size() == 2, "Select All picks exactly the required number of champions")
+	check(ui._choice_all != null and ui._choice_all.get_index() == ui._choice_ok.get_index() + 1, "the Select All button sits between OK and Cancel")
+	# a summoned champion is dimmed at once and stays dimmed after a drag ends
+	var fresh: Champion = g.spawn_champion(0, cards["gob"])
+	fresh.summoned_turn = g.turn
+	ui.refresh()
+	var dimmed: bool = false
+	for v in ui._me_box.find_children("*", "CardView", true, false):
+		if (v as CardView).live == fresh and (v as CardView).modulate.a < 0.9:
+			dimmed = true
+	check(dimmed, "a just-summoned champion is dimmed")
+	ui.notification(Node.NOTIFICATION_DRAG_END)
+	for v in ui._me_box.find_children("*", "CardView", true, false):
+		(v as CardView).notification(Node.NOTIFICATION_DRAG_END)
+	dimmed = false
+	for v in ui._me_box.find_children("*", "CardView", true, false):
+		if (v as CardView).live == fresh and (v as CardView).modulate.a < 0.9:
+			dimmed = true
+	check(dimmed, "and ending a drag does not undo the dimming")
+	# Gaia's HP colour against its printed HP
+	var gaia: Champion = g.spawn_champion(1, cards["gaia"])
+	gaia.hp_override = int(gaia.card.hp) - 10
+	var low: Color = _hp_color_of(CardView.create(gaia.card, 200.0, gaia, true, false, false, g))
+	gaia.hp_override = int(gaia.card.hp) + 10
+	var high: Color = _hp_color_of(CardView.create(gaia.card, 200.0, gaia, true, false, false, g))
+	check(low.r > 0.7 and low.g < 0.3, "Gaia below its printed HP: red")
+	check(high.g > 0.45 and high.r < 0.2, "Gaia above its printed HP: green")
+	# layout: spare height sits between the play area and the info bar; opponent line
+	var left: Node = ui._me_info.get_parent()
+	var prev: Node = left.get_child(ui._me_info.get_index() - 1)
+	check(prev is Control and (prev as Control).size_flags_vertical == Control.SIZE_EXPAND_FILL and not (prev is VBoxContainer), "spare height goes between the play area and the info bar")
+	check(ui._opp_deck_label.get_index() < ui._opp_discard_btn.get_index() and ui._opp_deck_label.text.strip_edges().begins_with("Deck:") and ui._opp_discard_btn.text.begins_with("Discard Pile"), "opponent line: Deck before the Discard Pile button, shorter names")
+	check(ui._opp_discard_btn.get_theme_font_size("font_size") == 13, "the Discard Pile button uses the same font size as the line")
