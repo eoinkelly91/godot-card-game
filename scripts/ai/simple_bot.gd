@@ -29,13 +29,19 @@ static func take_turn(g: Game, p: int) -> void:
 	for i in range(ps.hand.size() - 1, -1, -1):
 		if i < ps.hand.size() and str(ps.hand[i].get("kind", "")) == "enchantment":
 			g.play_enchantment(p, i)
-	var order: Array = range(ps.hand.size())
-	order.sort_custom(func(a: int, b: int) -> bool: return _champion_value(ps.hand[a]) > _champion_value(ps.hand[b]))
-	for i in order:
-		if str(ps.hand[i].get("kind", "")) != "champion":
-			continue
-		if g.summon(p, i, _sacrifices(ps, ps.hand[i])).ok:
-			break
+	var progress: bool = true  # basic champions can be summoned freely; only one other summon per turn
+	var summon_rounds: int = 0
+	while progress and summon_rounds < 12:
+		progress = false
+		summon_rounds += 1
+		var order: Array = range(ps.hand.size())
+		order.sort_custom(func(a: int, b: int) -> bool: return _champion_value(ps.hand[a]) > _champion_value(ps.hand[b]))
+		for i in order:
+			if str(ps.hand[i].get("kind", "")) != "champion":
+				continue
+			if g.summon(p, i, _sacrifices(ps, ps.hand[i])).ok:
+				progress = true
+				break
 
 	# Attack.
 	if ps.is_first_turn():

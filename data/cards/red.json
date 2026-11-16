@@ -6,7 +6,7 @@
   "class": "legendary",
   "color": "Red",
   "type": "Creature",
-  "hp": 150,
+  "hp": 160,
   "summon": {
    "sacrifice": 3
   },
@@ -29,7 +29,7 @@
   "class": "basic",
   "color": "Red",
   "type": "Human",
-  "hp": 60,
+  "hp": 70,
   "summon": {},
   "attacks": [
    {
@@ -38,7 +38,7 @@
    },
    {
     "name": "Harpoon",
-    "damage": 40,
+    "damage": 30,
     "mana_cost": 1
    }
   ]
@@ -50,7 +50,7 @@
   "class": "elite",
   "color": "Red",
   "type": "Human",
-  "hp": 90,
+  "hp": 80,
   "summon": {
    "sacrifice": 1
   },
@@ -82,12 +82,12 @@
   "attacks": [
    {
     "name": "Slice",
-    "damage": 30
+    "damage": 20
    },
    {
     "name": "Honourable Task",
     "damage": 70,
-    "mana_cost": 1,
+    "mana_cost": 2,
     "self_damage": 20,
     "text": "70 + This champion does 20 damage to itself."
    }
@@ -123,9 +123,13 @@
   "class": "basic",
   "color": "Red",
   "type": "Creature",
-  "hp": 50,
+  "hp": 60,
   "summon": {},
   "attacks": [
+   {
+    "name": "Fork",
+    "damage": 10
+   },
    {
     "name": "Revolt",
     "damage": 0,
@@ -143,7 +147,7 @@
   "class": "elite",
   "color": "Red",
   "type": "Creature",
-  "hp": 70,
+  "hp": 80,
   "summon": {
    "sacrifice": 1
   },
@@ -203,7 +207,7 @@
   "class": "elite",
   "color": "Red",
   "type": "Human",
-  "hp": 80,
+  "hp": 100,
   "summon": {
    "sacrifice": 1
   },
@@ -230,7 +234,7 @@
   "class": "basic",
   "color": "Red",
   "type": "Creature",
-  "hp": 50,
+  "hp": 60,
   "summon": {},
   "attacks": [
    {
@@ -315,14 +319,14 @@
   "class": "basic",
   "color": "Red",
   "type": "Creature",
-  "hp": 60,
+  "hp": 50,
   "summon": {},
   "attacks": [
    {
     "name": "Savage",
     "damage": 50,
-    "self_damage": 10,
-    "text": "50  + This champion does 10 damage to itself."
+    "self_damage": 20,
+    "text": "50  + This champion does 20 damage to itself."
    }
   ]
  },
@@ -408,7 +412,7 @@
   "class": "basic",
   "color": "Red",
   "type": "Human",
-  "hp": 50,
+  "hp": 60,
   "summon": {},
   "attacks": [
    {
@@ -461,7 +465,7 @@
    }
   ],
   "ability": {
-   "text": "If there are any cards attached to your opponents champions, at hte start of your turn choose one of them and discard it.",
+   "text": "If there are any cards attached to your opponents champions, at the start of your turn choose one of them and discard it.",
    "trigger": "start_of_turn",
    "op": "minotaur_discard"
   }

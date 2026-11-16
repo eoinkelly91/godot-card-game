@@ -115,6 +115,9 @@ func _init() -> void:
 		test_volcanic_horn_coin_is_fair,
 		test_wizardry_discard_and_remove_enchantment,
 		test_ramaire_blocks_enchantments_and_water_hound_counts_itself,
+		test_random_decks,
+		test_early_turn_colour_limits,
+		test_new_spell_effects_and_attacks,
 	]
 	for t in tests:
 		var before_failed := failed
@@ -160,6 +163,7 @@ func new_game(first: int = 0, past_first_turns: bool = true) -> Game:
 func to_attack(g: Game) -> void:
 	g.next_step(g.active)
 	g.next_step(g.active)
+	g.players[g.active].turns_taken = maxi(g.players[g.active].turns_taken, 4)  # past the early-turn colour limits
 
 
 func custom_champion(color: String, type: String, hp: int, attacks: Array, ability: Variant = null,
@@ -214,9 +218,10 @@ func test_setup_and_first_turns() -> void:
 
 func test_first_turn_restrictions() -> void:
 	var g := new_game(0, false)
-	g.players[0].hand = [card("ember_scout"), card("war_banner"), card("fire_bolt")]
+	g.players[0].hand = [card("grave_wisp"), card("war_banner"), card("fire_bolt"), card("ember_scout")]
 	check(not g.castle(0).ok, "no castling on a first turn")
-	check(g.summon(0, 0).ok, "summoning is allowed on a first turn")
+	check(not g.summon(0, 3).ok, "only Basic champions can be summoned on a first turn")
+	check(g.summon(0, 0).ok, "a Basic champion can be summoned on a first turn")
 	check(not g.play_enchantment(0, 0).ok, "no enchantments on a first turn")
 	g.next_step(0)
 	check(not g.play_spell(0, 0, 0, {"champion": g.players[0].champions[0].uid}).ok, "no spells on a first turn")
@@ -231,19 +236,20 @@ func test_fortress_triggers_after_first_turn() -> void:
 	var f := Game.new()
 	f.setup([filler.duplicate(), filler.duplicate()], 7, 0)
 	f.start()
-	check(f.players[0].mana == 3 and f.players[0].hand.size() == 8, "first turn: 2 starting mana + 1, and a card is drawn")
+	check(f.players[0].mana == 5 and f.players[0].hand.size() == 8, "first turn: 4 starting mana + 1, and a card is drawn")
 	f.end_turn(0)
-	check(f.players[1].mana == 3 and f.players[1].hand.size() == 8, "the second player gets the same on their first turn")
+	check(f.players[1].mana == 5 and f.players[1].hand.size() == 8, "the second player gets the same on their first turn")
 	f.end_turn(1)
-	check(f.players[0].mana == 4, "and +1 mana every turn after that")
+	check(f.players[0].mana == 6, "and +1 mana every turn after that")
 
 
 func test_one_summon_per_turn() -> void:
 	var g := new_game()
-	g.players[0].hand = [card("ember_scout"), card("ember_scout")]
+	g.players[0].hand = [card("ember_scout"), card("ember_scout"), card("ember_scout")]
 	check(g.summon(0, 0).ok, "first summon works")
-	check(not g.summon(0, 0).ok, "second summon the same turn is refused")
-	check(g.players[0].mana == 4, "5 - 1 cost = 4 (the Fortress already triggered at the start of the turn)")
+	check(g.summon(0, 0).ok, "a second summon the same turn works")
+	check(not g.summon(0, 0).ok, "a third summon the same turn is refused")
+	check(g.players[0].mana == 3, "5 - 1 - 1 = 3")
 
 
 func test_play_area_limit_and_sacrifice_on_full_board() -> void:
@@ -791,7 +797,7 @@ func test_real_card_data() -> void:
 			check(not (atk.has("mana_cost") and atk.has("requires")), "%s: %s does not mix mana and an HP threshold" % [id, atk.name])
 	check(champions == 76, "76 champions load (got %d)" % champions)
 	check(by_color == {"Red": 21, "Blue": 22, "White": 15, "Purple": 18}, "champions per color: %s" % str(by_color))
-	check(rc("mersoilder").attacks[1].mana_cost == 2 and rc("mersoilder").attacks[1].coin_bonus == 20, "Mersoilder's Engage costs 2 mana and has a 20 coin bonus")
+	check(rc("mersoilder").attacks[1].mana_cost == 1 and rc("mersoilder").attacks[1].coin_bonus == 20, "Mersoilder's Engage costs 2 mana and has a 20 coin bonus")
 	check(rc("harmlobeast").attacks.is_empty() and rc("harmlobeast").has("ability"), "Harmlobeast has an ability and no attack")
 	check(rc("stanter").attacks[1].requires.self_hp_at_least == 70, "Stanter's Divine Wind needs 70 HP")
 	check(rc("amustas").summon.sacrifice == 3, "Amustas needs 3 sacrifices")
@@ -940,7 +946,7 @@ func test_coin_attacks() -> void:
 	g7.players[0].mana = 1
 	g7.forced_coins = [true, false, true]
 	to_attack(g7)
-	check(g7.attack(0, cape.uid, 0, {}).ok, "Revolt needs no target")
+	check(g7.attack(0, cape.uid, 1, {}).ok, "Revolt needs no target")
 	check(e1.damage == 10 and e2.damage == 0 and e3.damage == 10, "Revolt: 10 damage to each champion whose coin is Heads")
 
 
@@ -948,7 +954,7 @@ func test_self_damage_and_splash() -> void:
 	var g := real_game()
 	var joseph := spawn(g, 0, "joseph_the_knight")
 	var t := spawn(g, 1, "amustas")
-	g.players[0].mana = 1
+	g.players[0].mana = 2
 	to_attack(g)
 	g.attack(0, joseph.uid, 1, {"champion": t.uid})
 	check(t.damage == 70 and joseph.damage == 20, "Honourable Task: 70 damage and 20 to itself")
@@ -975,19 +981,23 @@ func test_self_damage_and_splash() -> void:
 	g4.attack(0, td.uid, 1, {"champion": f1.uid})
 	check(f1.damage == 80 and f2.damage == 10 and own.damage == 10 and td.damage == 0, "Burnout: 70 to the target and 10 to every champion including your own, but not Tree Dragon itself")
 	var g5 := real_game()
-	var tig := spawn(g5, 0, "tigrodon")
-	tig.damage = 100
+	var tig := spawn(g5, 0, "gorth")
+	tig.damage = 40
 	var t5 := spawn(g5, 1, "amustas")
 	g5.players[0].mana = 2
 	to_attack(g5)
-	g5.attack(0, tig.uid, 1, {"champion": t5.uid})
+	g5.attack(0, tig.uid, 0, {"champion": t5.uid})
 	check(g5.players[0].champions.is_empty() and g5.players[1].kills == 1, "a champion destroyed by its own recoil scores a point for the opponent")
 	var g6 := real_game()
 	var psy := spawn(g6, 0, "psyville")
 	var h1 := spawn(g6, 1, "amustas")
 	var h2 := spawn(g6, 1, "amustas")
+	var h3 := spawn(g6, 1, "amustas")
+	var h4 := spawn(g6, 1, "amustas")
+	g6.players[0].mana = 1
 	to_attack(g6)
-	check(g6.attack(0, psy.uid, 0, {}).ok and h1.damage == 10 and h2.damage == 10, "Trident: 10 damage to each enemy champion")
+	check(not g6.attack(0, psy.uid, 0, {"champion": h1.uid}).ok, "Trident needs three targets when there are three or more")
+	check(g6.attack(0, psy.uid, 0, {"champions": [h1.uid, h2.uid, h3.uid]}).ok and h1.damage == 10 and h2.damage == 10 and h3.damage == 10 and h4.damage == 0, "Trident: 10 damage to each of three enemy champions")
 
 
 func test_attack_bonuses() -> void:
@@ -1013,7 +1023,7 @@ func test_attack_bonuses() -> void:
 	var t4 := spawn(g4, 1, "amustas")
 	g4.players[0].mana = 1
 	to_attack(g4)
-	check(g4.attack(0, psybar.uid, 1 - 1, {"champion": t4.uid}).ok, "Psybar attacks")
+	check(g4.attack(0, psybar.uid, 1, {"champion": t4.uid}).ok, "Psybar attacks")
 	check(t4.damage == 30, "Demonic: 10 + 10 per enchantment in play (got %d)" % t4.damage)
 	var g5 := real_game()
 	var gc := spawn(g5, 0, "the_magician_gcairo")
@@ -1074,13 +1084,13 @@ func test_defensive_abilities() -> void:
 	var g2 := real_game()
 	var troll := spawn(g2, 1, "small_troll")
 	var hitter := spawn(g2, 0, "joseph_the_knight")
-	g2.players[0].mana = 1
+	g2.players[0].mana = 2
 	to_attack(g2)
 	var r := g2.attack(0, hitter.uid, 1, {"champion": troll.uid})
 	check(r.fizzled and troll.damage == 0 and hitter.damage == 0, "Small Troll prevents an attack over 30, with all its effects")
 	var g3 := real_game()
 	var troll3 := spawn(g3, 1, "small_troll")
-	var h3 := spawn(g3, 0, "joseph_the_knight")
+	var h3 := spawn(g3, 0, "warlord")
 	to_attack(g3)
 	check(g3.attack(0, h3.uid, 0, {"champion": troll3.uid}).damage == 30 and troll3.damage == 30, "Small Troll takes an attack of exactly 30")
 	var g4 := real_game()
@@ -1096,7 +1106,7 @@ func test_reactive_abilities() -> void:
 	var a := spawn(g, 0, "syranite")
 	to_attack(g)
 	g.attack(0, a.uid, 0, {"champion": gluto.uid})
-	check(a.damage == 20 and gluto.damage == 20, "Gluto deals 20 to an attacker (and takes the 20 attack)")
+	check(a.damage == 10 and gluto.damage == 20, "Gluto deals 10 to an attacker (and takes the 20 attack)")
 	var g2 := real_game()
 	var gyp := spawn(g2, 1, "gyptjeous")
 	var big := spawn(g2, 0, "amustas")
@@ -1500,21 +1510,21 @@ func test_spirit_chain() -> void:
 func test_wizardry_archaeology_decoder() -> void:
 	var g := real_game()
 	g.players[0].deck = [rc("gob"), rc("gob"), rc("gob"), rc("fu"), rc("pog"), rc("syranite")]
-	g.players[0].mana = 2
+	g.players[0].mana = 4
 	g.players[0].hand = [rc("wizardry")]
 	g.play_spell(0, 0, 0, {"discard_choice": 0})
 	check(g.players[0].hand.size() == 2 and g.players[0].discard.size() == 2, "Wizardry effect 1: draw 3, discard 1 of them (hand 2)")
 	var g2 := real_game()
-	g2.players[0].deck = [rc("gob"), rc("fu"), rc("pog"), rc("syranite"), rc("amustas")]
-	g2.players[0].mana = 2
+	g2.players[0].deck = [rc("gob"), rc("fu"), rc("pog"), rc("syranite"), rc("amustas"), rc("gorth")]
+	g2.players[0].mana = 4
 	g2.players[0].hand = [rc("wizardry")]
-	g2.play_spell(0, 0, 1, {"order": [4, 3, 2, 1, 0]})
-	check(g2.players[0].deck.back().id == "gob", "Wizardry effect 2 rearranges the top 5 (the old fifth card is now on top)")
+	g2.play_spell(0, 0, 1, {"order": [5, 4, 3, 2, 1, 0]})
+	check(g2.players[0].deck.back().id == "gob", "Wizardry effect 2 rearranges the top 6 (the old sixth card is now on top)")
 	var g3 := real_game()
 	g3.players[0].deck = [rc("gob"), rc("fu")]
-	g3.players[0].mana = 2
+	g3.players[0].mana = 4
 	g3.players[0].hand = [rc("wizardry")]
-	check(g3.play_spell(0, 0, 1).ok, "with fewer than 5 cards left, Wizardry uses what is there")
+	check(g3.play_spell(0, 0, 1).ok, "with fewer than 6 cards left, Wizardry uses what is there")
 	var g4 := real_game()
 	g4.players[0].mana = 3
 	g4.players[0].discard = [rc("fire_bolt") if false else rc("heal"), rc("amustas")]
@@ -1681,14 +1691,14 @@ func test_mist_of_grief_spell_deaths() -> void:
 	check(g.players[0].mana == mana + 1, "a champion lost to a spell (Treason) gives Mist of Grief mana")
 	var g2 := real_game()
 	g2.players[0].enchantments = [rc("mist_of_grief")]
-	var own := spawn(g2, 0, "tigrodon")
-	own.damage = 100
+	var own := spawn(g2, 0, "gorth")
+	own.damage = 40
 	var t := spawn(g2, 1, "amustas")
 	to_attack(g2)
 	g2.players[0].mana = 2
 	var m2: int = g2.players[0].mana
-	g2.attack(0, own.uid, 1, {"champion": t.uid})
-	check(g2.players[0].mana == m2 - 2 + 1, "a champion that dies to its own recoil also gives mana (paid 2 for Savage... got %d)" % g2.players[0].mana)
+	g2.attack(0, own.uid, 0, {"champion": t.uid})
+	check(g2.players[0].mana == m2 + 1, "a champion that dies to its own recoil also gives mana (got %d)" % g2.players[0].mana)
 
 
 func test_champion_summon_by_sacrifice_or_mana_not_both() -> void:
@@ -1837,7 +1847,7 @@ func test_dual_spear() -> void:
 	var gl6 := spawn(g5, 1, "gluto")
 	to_attack(g5)
 	g5.attack(0, eo5.uid, 0, {"champions": [n5.uid, gl6.uid]})
-	check(eo5.damage == 20, "Gluto reacts when it is the second target of Dual Spear (20 damage to Elite-O)")
+	check(eo5.damage == 10, "Gluto reacts when it is the second target of Dual Spear (10 damage to Elite-O)")
 
 
 func test_staff_attack() -> void:
@@ -2045,7 +2055,7 @@ func test_start_mana_castle_lock_and_poison() -> void:
 		filler.append(rc("syranite"))
 	var fresh := Game.new()
 	fresh.setup([filler.duplicate(), filler.duplicate()], 7, 0)
-	check(fresh.players[0].mana == 2 and fresh.players[1].mana == 2, "each player starts with 2 mana")
+	check(fresh.players[0].mana == 4 and fresh.players[1].mana == 4, "each player starts with 4 mana")
 	var g := real_game()
 	g.rules.castle_locked_turns = 5
 	spawn(g, 0, "syranite")
@@ -2436,26 +2446,68 @@ func test_super_shrink_three_turns_and_sacrifice_summons() -> void:
 
 
 func test_castled_players_summon_twice() -> void:
+	# Two summons a turn, Basic or not (sacrifice summons count too), castled or not.
 	var g := real_game()
-	spawn(g, 0, "syranite")
+	g.players[0].turns_taken = 3
 	g.players[0].castled = true
-	g.players[0].hand = [rc("gob"), rc("cyris"), rc("psyville")]
-	check(g.summon(0, 0).ok and g.summon(0, 0).ok, "a castled player may summon two champions")
-	var r: Dictionary = g.summon(0, 0)
-	check(not r.ok and "two champions" in str(r.error), "but not three")
-	var g2 := real_game()
-	g2.players[0].hand = [rc("gob"), rc("cyris")]
-	check(g2.summon(0, 0).ok and not g2.summon(0, 0).ok, "an uncastled player may summon only one")
-	var g3 := real_game()  # summoned first, castled afterwards: the second summon is still allowed
-	spawn(g3, 0, "syranite")
-	g3.players[0].hand = [rc("gob"), rc("cyris")]
-	g3.players[0].turns_taken = 9
-	g3.players[0].castles_used = 0
-	g3.players[0].champions.clear()
-	g3.spawn_champion(0, rc("syranite"))
-	check(g3.summon(0, 0).ok, "summon first")
-	g3.players[0].champions.remove_at(0)
-	check(g3.castle(0).ok and g3.summon(0, 0).ok, "castle after summoning, then summon again")
+	for i in 4:
+		spawn(g, 0, "gob")
+	g.players[0].hand = [rc("grey_goblin"), rc("grey_goblin"), rc("grey_goblin")]
+	check(g.summon(0, 0, [g.players[0].champions[0].uid]).ok and g.summon(0, 0, [g.players[0].champions[0].uid]).ok, "two sacrifice summons are allowed")
+	var r: Dictionary = g.summon(0, 0, [g.players[0].champions[0].uid])
+	check(not r.ok and "already summoned 2" in str(r.error), "but not three")
+	var g2 := real_game()  # a mix: a basic and a sacrifice summon
+	g2.players[0].turns_taken = 3
+	for i in 3:
+		spawn(g2, 0, "gob")
+	g2.players[0].hand = [rc("gob"), rc("grey_goblin"), rc("gob")]
+	check(g2.summon(0, 0).ok and g2.summon(0, 0, [g2.players[0].champions[0].uid]).ok and not g2.summon(0, 0).ok, "a basic and a sacrifice summon, then no more")
+	var g3 := real_game()  # two basics, no more
+	g3.players[0].hand = [rc("gob"), rc("gob"), rc("gob")]
+	check(g3.summon(0, 0).ok and g3.summon(0, 0).ok and not g3.summon(0, 0).ok, "two Basic champions, not three")
+	check(g3.players[0].summons_this_turn == 2, "both count")
+	var g4 := real_game()  # on a first turn only Basic champions, still at most two
+	g4.players[0].turns_taken = 1
+	g4.players[0].hand = [rc("grey_goblin"), rc("gob"), rc("gob"), rc("gob")]
+	check(not g4.summon(0, 0).ok, "a first turn does not allow non-Basic summons")
+	check(g4.summon(0, 1).ok and g4.summon(0, 1).ok and not g4.summon(0, 1).ok, "a first turn: at most two Basic champions")
+
+
+func test_early_turn_colour_limits() -> void:
+	# The player who goes first (X): 1 colour on their 2nd turn. The other (Y): 2 colours. Otherwise no limit.
+	for first in [0, 1]:
+		for who in [0, 1]:
+			var g := real_game()
+			g.first_player = first
+			g.active = who
+			var a := spawn(g, who, "gob")        # Purple
+			var b := spawn(g, who, "capeasant")  # Red
+			var c := spawn(g, who, "gorth")      # Red
+			var d := spawn(g, who, "suburn")
+			var foes: Array = [spawn(g, 1 - who, "gorth"), spawn(g, 1 - who, "gorth"), spawn(g, 1 - who, "gorth"), spawn(g, 1 - who, "gorth")]
+			var by_colour: Dictionary = {}
+			for ch in [a, b, c, d]:
+				if not by_colour.has(ch.color()):
+					by_colour[ch.color()] = ch
+			var champs: Array = by_colour.values()
+			g.players[who].turns_taken = 2
+			var attacked := 0
+			for ch in champs:
+				if g.attack(who, ch.uid, 0, {"champion": g.players[1 - who].champions[0].uid}).ok:
+					attacked += 1
+			var allowed: int = mini(1 if who == first else 2, champs.size())
+			check(attacked == allowed, "Player %d's 2nd turn (first player %d): %d colour(s) may attack (%d colours, %d attacked)" % [who, first, allowed, champs.size(), attacked])
+			if champs.size() > allowed:
+				var blocked: Champion = champs[champs.size() - 1]
+				check("2nd turn" in Preflight.attack_problem(g, who, blocked), "the reason is explained")
+			var g2 := real_game()
+			g2.active = who
+			var u := spawn(g2, who, "gob")
+			var v := spawn(g2, who, "capeasant")
+			for turn_no in [1, 3, 4, 9]:
+				g2.players[who].turns_taken = turn_no
+				check(Preflight.color_limit_problem(g2, who, u.color()) == "" and Preflight.color_limit_problem(g2, who, v.color()) == "", "turn %d of player %d: no colour limit" % [turn_no, who])
+
 
 
 func test_fixed_slots() -> void:
@@ -2592,3 +2644,110 @@ func test_ramaire_blocks_enchantments_and_water_hound_counts_itself() -> void:
 	spawn(g2, 0, "gorth")
 	HpRules.recalc(g2)
 	check(wh.max_hp() == 40 + 20, "and each other creature of yours in play (+10 each)")
+
+
+func test_random_decks() -> void:
+	var cards: Dictionary = CardDB.load_cards()
+	var rng := RandomNumberGenerator.new()
+	var combos: Array = [["Red"], ["Blue"], ["White"], ["Purple"], ["Red", "Purple", "White"], ["Red", "Blue", "White", "Purple"]]
+	var all_ok := true
+	var colours_ok := true
+	var one_legendary := true
+	var full := true
+	for combo in combos:
+		for s in 25:
+			rng.seed = s + 100
+			var spec: Dictionary = CardDB.random_deck(cards, combo, rng)
+			if not CardDB.deck_problems(cards, spec).is_empty():
+				all_ok = false
+			var total := 0
+			var legendaries := 0
+			var fortresses := 0
+			for id in spec:
+				total += int(spec[id])
+				var c: Dictionary = cards[id]
+				if str(c.kind) == "champion" and not combo.has(str(c.color)):
+					colours_ok = false
+				if CardDB.deck_group(c) == "legendary":
+					legendaries += 1
+				if str(c.kind) == "fortress":
+					fortresses += 1
+			if legendaries != 1 or fortresses != 1:
+				one_legendary = false
+			if total != 61:
+				full = false
+	check(all_ok, "random decks follow the composition limits")
+	check(colours_ok, "random decks only hold champions of the chosen colours")
+	check(one_legendary, "random decks have one Legendary and one Fortress")
+	check(full, "random decks are full (60 cards + the Fortress)")
+	rng.seed = 5
+	var spec_a: Dictionary = CardDB.random_deck(cards, ["Red", "Purple", "White"], rng)
+	var other: Dictionary = CardDB.random_deck(cards, ["Red", "Purple", "White"], rng)
+	check(spec_a != other, "two random decks differ")
+	var g := Game.new()  # a random deck can be played
+	g.setup([CardDB.build_deck(cards, spec_a), CardDB.build_deck(cards, other)], 3, -1, [CardDB.deck_fortress(cards, spec_a), CardDB.deck_fortress(cards, other)])
+	g.start()
+	var steps := 0
+	while not g.finished and steps < 400:
+		steps += 1
+		SimpleBot.take_turn(g, g.active)
+	check(g.finished, "the bot can play a whole game with random decks")
+
+
+func test_new_spell_effects_and_attacks() -> void:
+	# Daggers: the champion's attack value on the card (preview) already includes the +30
+	var g := real_game()
+	var a := spawn(g, 0, "gorth")  # Savage 50
+	g.players[0].mana = 5
+	g.players[0].turns_taken = 4
+	g.players[0].hand = [rc("daggers")]
+	var atk: Dictionary = a.card.attacks[0]
+	var before: int = DamageRules.preview(g, a, atk)
+	check(g.play_spell(0, 0, 0, {"champion": a.uid}).ok, "play Daggers on a champion")
+	check(DamageRules.preview(g, a, atk) == before + 30, "the card shows the attack +30 after Daggers (%d -> %d)" % [before, DamageRules.preview(g, a, atk)])
+	var notes: Array = DamageRules.explain(g, a, atk)
+	check(notes.any(func(n: String) -> bool: return "+30" in n), "and the hover panel says where the +30 comes from")
+	# Panthdar: Wounded Strike +20 when not at full HP
+	var g2 := real_game()
+	var pd := spawn(g2, 0, "panthdar")
+	var wounded: Dictionary = pd.card.attacks[1]
+	check(DamageRules.preview(g2, pd, wounded) == 10, "Wounded Strike: 10 at full HP")
+	pd.damage = 10
+	check(DamageRules.preview(g2, pd, wounded) == 30, "Wounded Strike: 30 when Panthdar is damaged")
+	# Spirit Chain effect 2: -30 attack damage for the target's next turn
+	var g3 := real_game()
+	var foe3 := spawn(g3, 1, "gorth")
+	g3.players[0].mana = 5
+	g3.players[0].turns_taken = 4
+	g3.players[0].hand = [rc("spirit_chain")]
+	check(g3.play_spell(0, 0, 1, {"champion": foe3.uid}).ok, "Spirit Chain, effect 2")
+	check(DamageRules.preview(g3, foe3, foe3.card.attacks[0]) == 20, "its attack (50) does 30 less (20)")
+	g3.end_turn(0)
+	check(DamageRules.preview(g3, foe3, foe3.card.attacks[0]) == 20, "still reduced on its owner's turn")
+	g3.end_turn(1)
+	check(DamageRules.preview(g3, foe3, foe3.card.attacks[0]) == 50, "and back to normal after that turn")
+	# Mystery effect 2: 1 mana per attached card
+	var g4 := real_game()
+	var m4 := spawn(g4, 0, "gorth")
+	m4.attached = [rc("fusion"), rc("power_source")]
+	g4.players[0].mana = 3
+	g4.players[0].turns_taken = 4
+	g4.players[0].hand = [rc("mystery")]
+	check(g4.play_spell(0, 0, 1).ok and g4.players[0].mana == 2, "Mystery effect 2: pay 3, gain 2 for two attached cards (mana %d)" % g4.players[0].mana)
+	# Rain of Dragons effect 2: heal creatures by 20
+	var g5 := real_game()
+	var cr := spawn(g5, 0, "gorth")
+	cr.damage = 30
+	g5.players[0].mana = 3
+	g5.players[0].turns_taken = 4
+	g5.players[0].hand = [rc("rain_of_dragons")]
+	check(g5.play_spell(0, 0, 1).ok and cr.damage == 10, "Rain of Dragons effect 2 heals creatures by 20")
+	# Reconstruction effect 2: damage your active champions and move them onto the Fortress
+	var g6 := real_game()
+	var r1 := spawn(g6, 0, "gorth")
+	var r2 := spawn(g6, 0, "amustas")
+	g6.players[0].turns_taken = 4
+	g6.players[0].hand = [rc("reconstruction")]
+	check(g6.play_spell(0, 0, 1).ok and r1.damage == 10 and r2.damage == 10 and g6.players[0].castled, "Reconstruction effect 2: 10 damage each and the champions move onto the Fortress")
+	# Wizardry looks at six cards
+	check(int(rc("wizardry").effects[1].count) == 6, "Wizardry looks at 6 cards")

@@ -123,12 +123,17 @@
   "kind": "spell",
   "cost": 0,
   "text": [
-   "Discard as many cards as you want from your hand, for each one repair your fortress by 30HP"
+   "Discard as many cards as you want from your hand, for each one repair your fortress by 30HP",
+   "Take 10 damage from each of your active champions and move them onto your Fortress."
   ],
   "effects": [
    {
     "op": "repair_fortress",
     "per_card": 30
+   },
+   {
+    "op": "damage_and_castle",
+    "amount": 10
    }
   ]
  },
@@ -138,11 +143,17 @@
   "kind": "spell",
   "cost": 2,
   "text": [
-   "Choose an opponents champion, this champion cannot attck next turn."
+   "Choose an opponents champion, this champion cannot attck next turn.",
+   "Choose an opponents champion, their attack damage is reduced by 30 on your opponents next turn."
   ],
   "effects": [
    {
     "op": "no_attack",
+    "turns": 1
+   },
+   {
+    "op": "reduce_attack",
+    "amount": 30,
     "turns": 1
    }
   ]
@@ -151,10 +162,10 @@
   "id": "wizardry",
   "name": "Wizardry",
   "kind": "spell",
-  "cost": 2,
+  "cost": 4,
   "text": [
    "Draw 3 cards and discard one of them.",
-   "Look at the next 5 cards of your deck and rearrange them as you like."
+   "Look at the next 6 cards of your deck and rearrange them as you like."
   ],
   "effects": [
    {
@@ -164,7 +175,7 @@
    },
    {
     "op": "rearrange_top",
-    "count": 5
+    "count": 6
    }
   ]
  },
@@ -339,11 +350,16 @@
   "kind": "spell",
   "cost": 3,
   "text": [
-   "Remove any spell cards attached to an opponents champion."
+   "Remove any spell cards attached to an opponents champion.",
+   "Gain 1 mana for every spell card you have attached to your champions."
   ],
   "effects": [
    {
     "op": "mystery_remove"
+   },
+   {
+    "op": "gain_mana_per_attached",
+    "per_card": 1
    }
   ]
  },
@@ -368,11 +384,17 @@
   "kind": "spell",
   "cost": 2,
   "text": [
-   "Creatures deal an additional 20 damage with their attacks this turn."
+   "Creatures deal an additional 20 damage with their attacks this turn.",
+   "Heal all of your creature champions by 20 this turn."
   ],
   "effects": [
    {
     "op": "type_attack_bonus",
+    "type": "Creature",
+    "amount": 20
+   },
+   {
+    "op": "heal_type",
     "type": "Creature",
     "amount": 20
    }

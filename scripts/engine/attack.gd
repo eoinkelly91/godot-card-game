@@ -159,6 +159,9 @@ static func attack(g: Game, p: int, attacker_uid: int, attack_index: int, target
 				break
 		if token < 0:
 			return g._fail("You already attacked with %s this turn." % attacker.color())
+	var cl: String = Preflight.color_limit_problem(g, p, attacker.color())
+	if cl != "":
+		return g._fail(cl)
 	var req_err: String = _requirement_error(attacker, atk)
 	if req_err != "":
 		return g._fail(req_err)

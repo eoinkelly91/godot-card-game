@@ -60,7 +60,7 @@ static func end_of_turn(_g: Game, p: int) -> void:
 				champion.statuses.erase(st)
 			elif kind == "stored_bonus":  # Grimn: a saved bonus lasts one turn
 				champion.statuses.erase(st)
-			elif kind == "no_attack" or kind == "duel" or kind == "reduce_incoming":  # count their owner's own turns
+			elif kind == "no_attack" or kind == "duel" or kind == "reduce_incoming" or kind == "attack_reduction":  # count their owner's own turns
 				st.turns_left = int(st.turns_left) - 1
 				if int(st.turns_left) <= 0:
 					champion.statuses.erase(st)

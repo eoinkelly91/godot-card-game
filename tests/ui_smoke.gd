@@ -55,6 +55,7 @@ func _run() -> void:
 	await _test_drag_and_drop_and_new_display()
 	await _test_second_batch()
 	await _test_third_batch()
+	await _test_bot_mode()
 	_test_art_fits_box()
 	print("\n%d UI checks passed, %d failed" % [passed, failed])
 	quit(1 if failed > 0 else 0)
@@ -136,7 +137,7 @@ func _test_every_spell_flow() -> void:
 				var res: Dictionary = g.play_spell(0, 0, ei, tf.target)
 				check(res.ok, "%s effect %d: the engine accepts it (%s)" % [id, ei, str(res.get("error", ""))])
 				count += 1
-	check(count == 33, "all 33 spell effects went through (%d)" % count)
+	check(count == 37, "all 37 spell effects went through (%d)" % count)
 	# A flow reports problems instead of crashing: no damaged champion for Mist of Despair.
 	var g2 := _fresh_state()
 	for c in g2.players[0].champions:
@@ -272,7 +273,21 @@ func _test_card_views() -> void:
 	check(live.get_child_count() >= 4, "a live board card with statuses draws")
 	live.free()
 	check(CardView.image_path("gluto") != "", "art is found for Gluto")
-	check(CardView.image_path("big_troll") == "", "Big Troll has no art yet and gets a placeholder")
+	var no_art: String = ""
+	for cid in cards:  # some cards still have no artwork at all and get a coloured placeholder
+		CardView.use_ai_art = false
+		var old_only: String = CardView.image_path(cid)
+		CardView.use_ai_art = true
+		if old_only == "" and CardView.image_path(cid) == "":
+			no_art = cid
+			break
+	check(no_art == "" or CardView.image_path(no_art) == "", "a card without any art gets a placeholder")
+	CardView.use_ai_art = true
+	check(CardView.image_path("lava_titan").contains("cards_ai"), "the new artwork is used where a card has it")
+	CardView.use_ai_art = false
+	check(CardView.image_path("lava_titan").contains("art/cards/"), "the original drawings are still there and used when the new art is switched off")
+	CardView.use_ai_art = true
+	check(CardView.image_path("gaia").contains("art/cards/"), "a card without new art falls back to the original drawing")
 	check(CardView.image_path("elite_o") != "" and CardView.image_path("lava_titan") != "", "Elite-O and Lava Titan art was renamed to match")
 
 
@@ -285,7 +300,23 @@ func _test_first_turn_gnome_and_new_game() -> void:
 	ui._cover.visible = false
 	g.next_step(0)
 	ui.refresh()
-	check(ui._me_info.text.contains("SUMMONING AVAILABLE"), "the info line says summoning is available in the Summon step")
+	check(ui._me_info.text.contains("FIRST TURN: YOU CAN ONLY SUMMON BASIC CHAMPIONS") and ui._me_info.text.contains("[color=#ffd940]FIRST TURN"), "the first turn tells you in yellow that only Basic champions can be summoned")
+	check(ui._me_info.text.contains("SUMMONING AVAILABLE (2)"), "summoning available (2) on a first turn too")
+	g.players[0].turns_taken = 3
+	ui.refresh()
+	check(not ui._me_info.text.contains("FIRST TURN") and ui._me_info.text.contains("SUMMONING AVAILABLE (2)"), "from the second turn on: no first-turn note, SUMMONING AVAILABLE (2)")
+	g.players[0].summons_this_turn = 1
+	ui.refresh()
+	check(ui._me_info.text.contains("SUMMONING AVAILABLE (1)"), "after one summon: (1)")
+	g.players[0].summons_this_turn = 0
+	g.first_player = 0
+	g.players[0].turns_taken = 2
+	ui.refresh()
+	check(ui._me_info.text.contains("[color=#ffd940]ATTACK WITH ONE COLOUR ONLY THIS TURN"), "player X is told on their turn 2 that they can attack with one colour only")
+	g.players[0].turns_taken = 3
+	ui.refresh()
+	check(not ui._me_info.text.contains("ONE COLOUR"), "and not on later turns")
+	g.players[0].turns_taken = 1
 	ui._status.text = ""
 	await ui._on_own_champion(g.players[0].champions[0].uid)
 	check(ui._status.text.contains("first turn") and not g.players[0].colors_used.has("Red"), "clicking a champion on a first turn only explains why it cannot attack")
@@ -356,6 +387,7 @@ func _test_early_messages_and_previews() -> void:
 	var red2: Champion = g4.spawn_champion(0, cards["syranite"])
 	g4.next_step(0)
 	g4.next_step(0)
+	g4.players[0].turns_taken = 4  # past the early-turn colour limits
 	check(g4.attack(0, red1.uid, 0, {"champion": g4.players[1].champions[0].uid}).ok, "first Red attack works")
 	check("already attacked with Red" in Preflight.attack_problem(g4, 0, red2, -1), "a second Red champion is refused up front")
 	var txt: String = Preflight.attackers_text(g4, 0)
@@ -384,9 +416,14 @@ func _test_early_messages_and_previews() -> void:
 	# Summon problems up front
 	var g9 := _fresh_state()
 	g9.next_step(0)
-	g9.players[0].summons_this_turn = 1
+	g9.players[0].summons_this_turn = 2
+	g9.players[0].turns_taken = 3
+	g9.players[0].hand = [cards["grey_goblin"]]
+	check("already summoned 2" in Preflight.summon_problem(g9, 0, 0), "a third summon is refused up front")
 	g9.players[0].hand = [cards["gob"]]
-	check("already summoned" in Preflight.summon_problem(g9, 0, 0), "a second summon is refused up front")
+	check("already summoned 2" in Preflight.summon_problem(g9, 0, 0), "Basic champions count too")
+	g9.players[0].summons_this_turn = 1
+	check(Preflight.summon_problem(g9, 0, 0) == "", "one more summon is still allowed")
 
 
 func _test_castle_reveal_scroll_and_tags() -> void:
@@ -491,7 +528,7 @@ func _test_fortress_card_and_board() -> void:
 	ui.refresh()
 	check(not ui._nothing_left_to_do() and not ui._btn_end.has_theme_stylebox_override("normal"), "END TURN is not highlighted while summoning is available")
 	check(ui._me_info.text.contains("[color=#ffd940]SUMMONING AVAILABLE"), "SUMMONING AVAILABLE is yellow")
-	nl.players[0].summons_this_turn = 1
+	nl.players[0].summons_this_turn = 2
 	for c in nl.players[0].champions:
 		c.attacked_this_turn = true
 	nl.players[0].colors_used = ["Red", "Blue", "White", "Purple"]
@@ -819,3 +856,36 @@ func _test_third_batch() -> void:
 	check(prev is Control and (prev as Control).size_flags_vertical == Control.SIZE_EXPAND_FILL and not (prev is VBoxContainer), "spare height goes between the play area and the info bar")
 	check(ui._opp_deck_label.get_index() < ui._opp_discard_btn.get_index() and ui._opp_deck_label.text.strip_edges().begins_with("Deck:") and ui._opp_discard_btn.text.begins_with("Discard Pile"), "opponent line: Deck before the Discard Pile button, shorter names")
 	check(ui._opp_discard_btn.get_theme_font_size("font_size") == 13, "the Discard Pile button uses the same font size as the line")
+
+
+func _test_bot_mode() -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 9
+	var spec: Dictionary = CardDB.random_deck(cards, ["Red", "Purple", "White"], rng)
+	ui.start_new_game("", "red_blue", 7, 1, spec, {})
+	check(ui.bot_player == 1, "playing against a bot: the bot is Player 1")
+	# the bot keeps its hand and the human's mulligan screen comes up without a "take the device" screen
+	check(ui.mulligan_player == 0 and ui._mull.visible and not ui._cover.visible, "the human mulligans first, with no cover screen")
+	ui._on_keep()
+	check(ui.mulligan_player == -1 or ui.game.started, "the bot keeps its hand automatically and the game starts")
+	var turns_before: int = ui.game.turn
+	var guard := 0
+	while not ui.game.finished and guard < 6:
+		guard += 1
+		if ui.game.active == 0 and ui.viewer == 0:
+			await ui._on_end_turn()
+		await ui.get_tree().create_timer(0.9).timeout
+	check(ui.game.turn >= turns_before + 4, "the bot takes its turns and the game moves on (turn %d -> %d)" % [turns_before, ui.game.turn])
+	check(ui.game.finished or (ui.game.active == 0 and ui.viewer == 0 and not ui.busy), "after the bot's turn it is the human's turn again")
+	var found_bot_label: bool = false
+	for l in ui.find_children("*", "RichTextLabel", true, false):
+		if "(Bot)" in (l as RichTextLabel).text:
+			found_bot_label = true
+	check(found_bot_label, "the bot's player is labelled (Bot)")
+	check(ui._bot_msg.text.begins_with("Bot's last turn") and ui._bot_msg.visible, "what the bot did is shown under its information bar")
+	check(ui._bot_msg.get_index() == ui._opp_info.get_parent().get_index() + 1, "right below the bot's information line")
+	check(ui._deck0.get_item_text(ui._deck0.item_count - 1) == ui.RANDOM_DECK and ui._color_rows.size() == 2 and ui._color_checks[0].size() == 4, "the setup screen offers a random deck with four colour check boxes")
+	ui._deck0.select(ui._deck0.item_count - 1)
+	ui._on_deck_choice(ui._deck0.item_count - 1, 0)
+	check((ui._color_rows[0] as Control).visible and not (ui._color_rows[1] as Control).visible, "the colour boxes show up for the player who picked the random deck")
+	check(ui._bot_check != null, "the setup screen has a bot check box")

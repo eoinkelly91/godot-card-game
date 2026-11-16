@@ -5,7 +5,7 @@ class_name HandFan
 extends Control
 
 const GAP := 8.0          # space between cards while they all fit
-const HOVER_SCALE := 1.28
+const HOVER_SCALE := 1.2
 var card_w: float = 245.0
 var card_h: float = 325.0
 var _views: Array[CardView] = []
@@ -71,7 +71,7 @@ func _relayout() -> void:
 func _on_enter(v: CardView) -> void:
 	if not is_instance_valid(v):
 		return
-	v.z_index = 100
+	v.z_index = 100  # the card pops out: in front of its neighbours and a little larger (grows upwards from its bottom edge)
 	var t := create_tween().set_parallel(true)
 	t.tween_property(v, "scale", Vector2(HOVER_SCALE, HOVER_SCALE), 0.08)
 	t.tween_property(v, "rotation_degrees", 0.0, 0.08)

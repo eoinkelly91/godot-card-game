@@ -31,6 +31,7 @@ var _me_box: VBoxContainer
 var _hand_row: HandFan
 var _my_deck_box: VBoxContainer
 var _opp_deck_label: Label
+var _bot_msg: Label
 var _hand_label: Label
 var _status: Label
 var _attack_hint: Label
@@ -66,6 +67,13 @@ var _choice_max: int = 1
 var _choice_none_row: bool = false
 var _end: Control
 var _end_label: Label
+const RANDOM_DECK := "Random deck (choose colours)"
+var _bot_check: CheckBox
+var _art_check: CheckBox
+var _color_rows: Array = []    # per player: the row with the colour check boxes (shown for a random deck)
+var _color_checks: Array = []  # per player: the four colour CheckBoxes
+var bot_player: int = -1       # the player the bot plays for, or -1 for two humans
+var _bot_summary: String = ""  # what the bot did on its last turn, shown on the status line
 var _deck0: OptionButton
 var _deck1: OptionButton
 var _seed: LineEdit
@@ -165,6 +173,12 @@ func _build_ui() -> void:
 	_opp_discard_btn = _button("Discard Pile", _on_view_opp_discard)
 	_opp_discard_btn.add_theme_font_size_override("font_size", 13)  # the same size as the rest of the line
 	opp_head.add_child(_opp_discard_btn)
+	_bot_msg = Label.new()  # what the bot did on its last turn, right under its information bar
+	_bot_msg.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_bot_msg.add_theme_font_size_override("font_size", 13)
+	_bot_msg.add_theme_color_override("font_color", Color(0.65, 0.9, 0.65))
+	_bot_msg.visible = false
+	left.add_child(_bot_msg)
 	_opp_box = VBoxContainer.new()
 	left.add_child(_opp_box)
 	_me_box = VBoxContainer.new()
@@ -304,7 +318,7 @@ func _build_overlays() -> void:
 	_setup = _overlay(self, 0.92)
 	var sb := _centered_box(_setup, 460)
 	var title := Label.new()
-	title.text = "Tactical Card Game - hotseat"
+	title.text = "Tactical Card Game"
 	title.add_theme_font_size_override("font_size", 24)
 	sb.add_child(title)
 	_deck0 = OptionButton.new()
@@ -313,8 +327,18 @@ func _build_overlays() -> void:
 	for n in names:
 		_deck0.add_item(str(n))
 		_deck1.add_item(str(n))
+	_deck0.add_item(RANDOM_DECK)  # the last entry: a random deck for the colours ticked below
+	_deck1.add_item(RANDOM_DECK)
 	if names.size() > 1:
 		_deck1.select(1)
+	_art_check = CheckBox.new()
+	_art_check.text = "Use the new artwork (untick for the original drawings)"
+	_art_check.button_pressed = CardView.use_ai_art
+	sb.add_child(_art_check)
+	_bot_check = CheckBox.new()
+	_bot_check.text = "Play against a bot (you are Player 0, the bot is Player 1)"
+	sb.add_child(_bot_check)
+	var which: int = 0
 	for pair in [["Player 0 deck", _deck0], ["Player 1 deck", _deck1]]:
 		var row := HBoxContainer.new()
 		var l := Label.new()
@@ -324,6 +348,24 @@ func _build_overlays() -> void:
 		pair[1].size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.add_child(pair[1])
 		sb.add_child(row)
+		var crow := HBoxContainer.new()  # colours for a random deck
+		var cl := Label.new()
+		cl.text = "   Random deck colours"
+		cl.custom_minimum_size = Vector2(130, 0)
+		crow.add_child(cl)
+		var checks: Array = []
+		for col in CardDB.COLORS:
+			var cb := CheckBox.new()
+			cb.text = col
+			cb.button_pressed = true
+			crow.add_child(cb)
+			checks.append(cb)
+		crow.visible = false
+		sb.add_child(crow)
+		_color_rows.append(crow)
+		_color_checks.append(checks)
+		(pair[1] as OptionButton).item_selected.connect(_on_deck_choice.bind(which))
+		which += 1
 	var srow := HBoxContainer.new()
 	var sl := Label.new()
 	sl.text = "Seed (optional)"
@@ -482,18 +524,54 @@ func _show_setup() -> void:
 	_setup.visible = true
 
 
+func _on_deck_choice(index: int, which: int) -> void:
+	var opt: OptionButton = _deck0 if which == 0 else _deck1
+	(_color_rows[which] as Control).visible = opt.get_item_text(index) == RANDOM_DECK
+
+
+## The colours ticked for player which's random deck.
+func _chosen_colors(which: int) -> Array:
+	var out: Array = []
+	for cb in _color_checks[which]:
+		if (cb as CheckBox).button_pressed:
+			out.append((cb as CheckBox).text)
+	return out
+
+
 func _on_start_pressed() -> void:
+	CardView.use_ai_art = _art_check.button_pressed
 	var names: Array = decks.keys()
 	var s: int = int(_seed.text) if _seed.text.is_valid_int() else 0
-	start_new_game(str(names[_deck0.selected]), str(names[_deck1.selected]), s)
+	var rng := RandomNumberGenerator.new()
+	if s != 0:
+		rng.seed = s
+	else:
+		rng.randomize()
+	var specs: Array = [{}, {}]
+	var picks: Array = [_deck0, _deck1]
+	var chosen: Array = ["", ""]
+	for w in 2:
+		var opt: OptionButton = picks[w]
+		if opt.get_item_text(opt.selected) == RANDOM_DECK:
+			specs[w] = CardDB.random_deck(cards, _chosen_colors(w), rng)
+			chosen[w] = "random"
+		else:
+			chosen[w] = str(opt.get_item_text(opt.selected))
+	start_new_game(chosen[0], chosen[1], s, 1 if _bot_check.button_pressed else -1, specs[0], specs[1])
 
 
-func start_new_game(deck0: String, deck1: String, seed_value: int = 0) -> void:
+## bot: the player the bot controls (1 to play against a bot, -1 for two humans). spec0 / spec1: a ready-made deck
+## ({card id: copies}) instead of the named deck (the random decks).
+func start_new_game(deck0: String, deck1: String, seed_value: int = 0, bot: int = -1, spec0: Dictionary = {}, spec1: Dictionary = {}) -> void:
 	_setup.visible = false
+	bot_player = bot
+	_bot_summary = ""
+	var d0: Dictionary = spec0 if not spec0.is_empty() else decks[deck0]
+	var d1: Dictionary = spec1 if not spec1.is_empty() else decks[deck1]
 	game = Game.new()
 	# Each deck's Fortress card is played automatically at the start
-	game.setup([CardDB.build_deck(cards, decks[deck0]), CardDB.build_deck(cards, decks[deck1])], seed_value, -1,
-			[CardDB.deck_fortress(cards, decks[deck0]), CardDB.deck_fortress(cards, decks[deck1])])
+	game.setup([CardDB.build_deck(cards, d0), CardDB.build_deck(cards, d1)], seed_value, -1,
+			[CardDB.deck_fortress(cards, d0), CardDB.deck_fortress(cards, d1)])
 	flows = TargetFlows.new(game, self)
 	viewer = -1
 	_status.text = ""
@@ -510,6 +588,13 @@ func _next_mulligan(p: int) -> void:
 		_mull.visible = false
 		game.start()
 		_begin_turn_cover()
+		return
+	if bot_player >= 0:
+		if p == bot_player:  # the bot always keeps its hand
+			_next_mulligan(p + 1)
+		else:  # a single human: no "take the device" screen
+			_cover_for_mulligan = true
+			_on_reveal()
 		return
 	_show_cover("Mulligans: Player %d, take the device." % p, true)
 
@@ -559,6 +644,9 @@ func _begin_turn_cover() -> void:
 		return
 	# No "take the device" screen between turns: the next player's turn starts immediately.
 	_cover_for_mulligan = false
+	if bot_player >= 0 and game.active == bot_player:
+		_run_bot_turn()
+		return
 	_on_reveal()
 
 
@@ -575,6 +663,31 @@ func _on_reveal() -> void:
 		_status.text += "  |  Click your Fortress to castle or uncastle."
 	refresh()
 	call_deferred("_prompt_minotaur")
+
+
+## The bot's whole turn: it plays legal moves found by trying them (SimpleBot), then the human's turn begins.
+## What it did is shown on the status line (and is in the LOG).
+func _run_bot_turn() -> void:
+	busy = true
+	viewer = -1  # the bot's hand stays hidden
+	_status.text = "Bot (Player %d) is playing..." % bot_player
+	_bot_summary = ""
+	_bot_msg.text = "Bot is playing..."
+	refresh()
+	await get_tree().create_timer(0.6).timeout
+	var mark: int = game.log_lines.size()
+	SimpleBot.take_turn(game, bot_player)
+	var done: Array = []
+	for line in game.log_lines.slice(mark):
+		if str(line).begins_with("P%d " % bot_player) and not str(line).contains("draws"):
+			done.append(str(line).trim_prefix("P%d " % bot_player))
+	_bot_msg.text = "Bot's last turn: " + ("  •  ".join(done.slice(0, 10)) if not done.is_empty() else "did nothing") + ("  •  ..." if done.size() > 10 else "")
+	busy = false
+	if game.finished:
+		refresh()
+		return
+	_cover_for_mulligan = false
+	_on_reveal()
 
 
 ## Shows what the start-of-turn triggers did (poison damage, coin flips, Fortress mana...) in the status line.
@@ -722,6 +835,7 @@ func refresh() -> void:
 	_clear(_my_deck_box)
 	_my_deck_box.add_child(_deck_pile(game.players[p], _hand_w - 18.0))  # the same size as the discard pile
 	_opp_deck_label.text = "   Deck: %d" % game.players[1 - p].deck.size()
+	_bot_msg.visible = bot_player >= 0 and bot_player == 1 - p and _bot_msg.text != ""
 	_clear(_my_discard_box)
 	_my_discard_box.add_child(_discard_pile(game.players[p], p, _hand_w - 18.0))  # as tall as the hand, with END TURN under it
 	_render_hand()
@@ -744,10 +858,12 @@ func _render_board(box: VBoxContainer, info: RichTextLabel, p: int, is_active: b
 	_clear(box)
 	var ps: PlayerState = game.players[p]
 	var summoning: bool = is_active and _summoning_available(ps)
-	info.text = "Player %d%s   Mana %d   Hand %d   Kills %d/%d   Castles used %d/%d%s%s" % [
-		p, "  (YOUR TURN)" if is_active else "", ps.mana, ps.hand.size(), ps.kills,
+	info.text = "%s%s   Mana %d   Hand %d   Kills %d/%d   Castles used %d/%d%s%s%s" % [
+		"Player %d%s" % [p, " (Bot)" if p == bot_player else ""], "  (YOUR TURN)" if is_active else "", ps.mana, ps.hand.size(), ps.kills,
 		int(game.rules.annihilation_goal), ps.castles_used, int(game.rules.castles_per_game),
-		("   [color=#ffd940]SUMMONING AVAILABLE%s[/color]" % _summons_suffix(ps)) if summoning else "",
+		("   [color=#ffd940]SUMMONING AVAILABLE (%d)[/color]" % _summons_left(ps)) if summoning else "",
+		("   [color=#ffd940]FIRST TURN: YOU CAN ONLY SUMMON BASIC CHAMPIONS[/color]" if is_active and ps.is_first_turn() and not game.finished else "") \
+		+ ("   [color=#ffd940]ATTACK WITH ONE COLOUR ONLY THIS TURN[/color]" if is_active and ps.turns_taken == 2 and p == game.first_player and not game.finished else ""),
 		("   [CASTLED: Fortress vulnerable to attack, champions encamped, turns remaining:%d]" % maxi(0, int(game.rules.max_castled_turns) - ps.castled_turns)) if ps.castled else ""]
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 10)
@@ -793,6 +909,8 @@ func _area_zone(color: Color, target: Dictionary) -> DropZone:
 func _champion_flow(ps: PlayerState, is_active: bool) -> Control:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 6)
+	row.alignment = BoxContainer.ALIGNMENT_CENTER  # the first champion starts in the middle; the row fills out from there
+	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	for c in ps.champions:
 		var v := CardView.create(c.card, BOARD_CARD_W, c, true, c.attacked_this_turn and is_active, ps.castled, game, Color(0.95, 0.15, 0.15))  # red once it has attacked
 		if is_active:
@@ -840,7 +958,7 @@ func fortress_card(ps: PlayerState) -> Dictionary:
 func _deck_pile(ps: PlayerState, width: float) -> Control:
 	var holder := Control.new()
 	holder.custom_minimum_size = Vector2(width, width * 650.0 / 490.0)
-	var back: Texture2D = load("res://art/ui/card_background.png")
+	var back: Texture2D = load("res://art/ui/card_cover2.png" if CardView.use_ai_art else "res://art/ui/card_background.png")
 	var layers: int = mini(3, ps.deck.size())
 	for i in range(layers - 1, -1, -1):  # a little stack: the lower cards peek out
 		var r := TextureRect.new()
@@ -970,14 +1088,12 @@ func _fortress_options() -> Array:
 
 ## The same condition as the "SUMMONING AVAILABLE" text.
 func _summoning_available(ps: PlayerState) -> bool:
-	return not game.finished and ps.summons_this_turn < game.summons_allowed(ps.index)  # summoning works at any time during your turn
+	return not game.finished and _summons_left(ps) > 0  # summoning works at any time during your turn
 
 
-## " (2)" while castled (two summons left), " (1)" when one of the two is left; nothing when it is the usual single summon.
-func _summons_suffix(ps: PlayerState) -> String:
-	if game.summons_allowed(ps.index) <= 1:
-		return ""
-	return " (%d)" % (game.summons_allowed(ps.index) - ps.summons_this_turn)
+## How many more champions this player may summon this turn.
+func _summons_left(ps: PlayerState) -> int:
+	return maxi(0, game.summons_allowed(ps.index) - ps.summons_this_turn)
 
 
 var _minotaur_prompted_turn: int = -1

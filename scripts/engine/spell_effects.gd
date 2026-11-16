@@ -54,8 +54,14 @@ static func validate(g: Game, p: int, hand_index: int, effect: Dictionary, targe
 			var ri: int = int(target.get("discard_index", -1))
 			if ri < 0 or ri >= me.discard.size() or str(me.discard[ri].get("kind", "")) != str(effect.get("kind", "spell")):
 				return "Pick a %s card in your discard pile." % str(effect.get("kind", "spell"))
-		"drain_mana", "drain_mana_per_card", "gain_mana_per_enchantment", "opponent_discards", "summon_discount", "wizardry_draw", "rearrange_top":
+		"drain_mana", "drain_mana_per_card", "gain_mana_per_enchantment", "opponent_discards", "summon_discount", "wizardry_draw", "rearrange_top", \
+		"gain_mana_per_attached", "heal_type":
 			pass
+		"damage_and_castle":  # Reconstruction: your active champions take damage and move onto the Fortress
+			if me.castled:
+				return "You are already castled."
+			if me.active_champions().is_empty():
+				return "You have no active champions to move onto your Fortress."
 		"remove_enchantment":  # target {"enchantment": index into the opponent's enchantments}
 			var ei: int = int(target.get("enchantment", -1))
 			if ei < 0 or ei >= foe.enchantments.size():
@@ -84,7 +90,7 @@ static func validate(g: Game, p: int, hand_index: int, effect: Dictionary, targe
 			var err: String = _discard_choice_error(me, hand_index, target)
 			if err != "":
 				return err
-		"no_attack":
+		"no_attack", "reduce_attack":
 			if foe.castled or g._champion_of(foe, int(target.get("champion", -1))) == null:
 				return "Pick an enemy champion in the active play area."
 		"return_champion":  # target {"discard_index": i}
@@ -231,6 +237,30 @@ static func apply(g: Game, p: int, hand_index: int, effect: Dictionary, target: 
 			var before: int = me.fortress_hp
 			me.fortress_hp = mini(cap, me.fortress_hp + k * int(effect.get("per_card", 50)))
 			g._log("P%d discards %d card(s) and repairs the Fortress by %d." % [p, k, me.fortress_hp - before])
+		"reduce_attack":  # Spirit Chain, effect 2
+			var rt: Champion = g._champion_of(foe, int(target.champion))
+			rt.statuses.append({"kind": "attack_reduction", "amount": int(effect.get("amount", 30)), "turns_left": int(effect.get("turns", 1))})
+			g._log("%s's attacks do %d less damage on its owner's next turn." % [rt.describe(), int(effect.get("amount", 30))])
+		"heal_type":  # Rain of Dragons, effect 2: heal all your champions of a type
+			var healed: int = 0
+			for hc in me.champions:
+				if hc.champion_type() == str(effect.get("type", "Creature")):
+					hc.damage = maxi(0, hc.damage - int(effect.get("amount", 20)))
+					healed += 1
+			g._log("P%d heals %d %s champion(s) by %d." % [p, healed, str(effect.get("type", "Creature")), int(effect.get("amount", 20))])
+		"gain_mana_per_attached":  # Mystery, effect 2
+			var attached: int = 0
+			for ac in me.champions:
+				attached += ac.attached.size()
+			me.mana += attached * int(effect.get("per_card", 1))
+			g._log("P%d gains %d mana (cards attached to their champions)." % [p, attached * int(effect.get("per_card", 1))])
+		"damage_and_castle":  # Reconstruction, effect 2
+			for dc in me.active_champions().duplicate():
+				DamageRules.damage_champion(g, dc, int(effect.get("amount", 10)), 1 - p)
+			if not g.finished and not me.castled:
+				me.castled = true
+				me.castled_turns = 1
+				g._log("P%d moves their champions onto the Fortress (castled)." % p)
 		"no_attack":
 			var t: Champion = g._champion_of(foe, int(target.champion))
 			t.statuses.append({"kind": "no_attack", "turns_left": int(effect.get("turns", 1))})

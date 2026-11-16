@@ -43,6 +43,9 @@ static func attack_problem(g: Game, p: int, attacker: Champion, atk_index: int =
 				token = true
 		if not token:
 			return "You already attacked with %s this turn." % attacker.color()
+	var cl: String = color_limit_problem(g, p, attacker.color())
+	if cl != "":
+		return cl
 	if atk_index >= 0:
 		return _attack_cost_problem(g, me, attacker, attacks[atk_index])
 	var first: String = ""
@@ -91,8 +94,10 @@ static func summon_problem(g: Game, p: int, hand_index: int) -> String:
 	var me: PlayerState = g.players[p]
 	if LockRules.is_locked(g, p, "summon"):
 		return "You cannot summon this turn."
+	if CardDB.expected_class(me.hand[hand_index]) != "basic" and me.is_first_turn():
+		return "On your first turn you can only summon Basic champions."
 	if me.summons_this_turn >= g.summons_allowed(p):
-		return "You already summoned %s this turn." % ("two champions" if g.summons_allowed(p) > 1 else "a champion")
+		return "You have already summoned %d champions this turn." % g.summons_allowed(p)
 	var req: Dictionary = me.hand[hand_index].get("summon", {})
 	var mana: int = int(req.get("mana", 0))
 	if int(req.get("sacrifice", 0)) == 0 and me.summon_discount > 0:
@@ -100,6 +105,17 @@ static func summon_problem(g: Game, p: int, hand_index: int) -> String:
 	if me.mana < mana:
 		return "%s needs %d mana (you have %d)." % [me.hand[hand_index].get("name", "This champion"), mana, me.mana]
 	return ""
+
+
+## Early attacks are limited in colours only on the 2nd turn of the player who goes first (player X): one colour.
+## Everyone else, and every later turn, has no limit. Returns the reason a champion of this colour may not attack, or "".
+static func color_limit_problem(g: Game, p: int, color: String) -> String:
+	var me: PlayerState = g.players[p]
+	if me.turns_taken != 2 or p != g.first_player:
+		return ""
+	if me.colors_used.has(color) or me.colors_used.is_empty():
+		return ""
+	return "On your 2nd turn you can attack with only 1 colour (%s already attacked)." % ", ".join(me.colors_used)
 
 
 static func enchantment_problem(g: Game, p: int, hand_index: int, replacing: bool = false) -> String:

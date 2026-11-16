@@ -91,6 +91,13 @@ static func calc(g: Game, attacker: Champion, atk: Dictionary, target: Champion,
 	if spell_bonus != 0:
 		total += float(spell_bonus)
 		notes.append("+%d from a spell played with the attack" % spell_bonus)
+	for nst in attacker.statuses:  # Daggers: +N on this champion's next attack this turn (shown on the card until used)
+		if str(nst.kind) == "next_attack_bonus":
+			total += float(nst.amount)
+			notes.append("+%d from a spell (its next attack this turn)" % int(nst.amount))
+	if atk.has("bonus_if_self_damaged") and attacker.damage > 0:  # Panthdar's Wounded Strike
+		total += float(atk.bonus_if_self_damaged)
+		notes.append("+%d because %s is not at full HP" % [int(atk.bonus_if_self_damaged), attacker.card_name()])
 	var buffs: int = StatusRules.attack_bonus(g.players[attacker.owner])
 	if buffs != 0:
 		total += float(buffs)
@@ -110,7 +117,7 @@ static func calc(g: Game, attacker: Champion, atk: Dictionary, target: Champion,
 	var lair: int = int(g.players[attacker.owner].fortress_def.get("creature_bonus_damage", 0))  # Beasts Lair
 	if lair > 0 and total > 0.0 and attacker.champion_type() == "Creature":
 		total += float(lair)
-		notes.append("+%d from your Fortress (%s)" % [lair, str(g.players[attacker.owner].fortress_def.get("name", "Fortress"))])
+		notes.append("+%d from Fortress (%s)" % [lair, str(g.players[attacker.owner].fortress_def.get("name", "Fortress"))])
 	var before_ench: float = total
 	total = apply_enchantments(total, g.players[attacker.owner], enchant_order, attacker.color(), false)
 	if absf(total - before_ench) > 0.01:
@@ -119,6 +126,13 @@ static func calc(g: Game, attacker: Champion, atk: Dictionary, target: Champion,
 	if shield > 0:
 		notes.append("-%d from Grand Shield" % mini(shield, int(total)))
 	total = maxf(0.0, total - float(shield))
+	var chain: int = 0  # Spirit Chain (effect 2): this champion's attacks do less on its owner's next turn
+	for cst in attacker.statuses:
+		if str(cst.kind) == "attack_reduction":
+			chain += int(cst.amount)
+	if chain > 0:
+		notes.append("-%d from Spirit Chain" % mini(chain, int(total)))
+		total = maxf(0.0, total - float(chain))
 	var rounded: int = round_down_10(total)
 	if rounded != int(total):
 		notes.append("Rounded down to the nearest 10")

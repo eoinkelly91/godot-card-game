@@ -29,7 +29,7 @@
   "class": "basic",
   "color": "Purple",
   "type": "Human",
-  "hp": 50,
+  "hp": 60,
   "summon": {},
   "attacks": [
    {
@@ -38,10 +38,10 @@
    },
    {
     "name": "Pyro Trick",
-    "damage": 50,
+    "damage": 40,
     "mana_cost": 1,
     "coin_fizzle": true,
-    "text": "50 + Flip a coin, if tails this attack does nothing."
+    "text": "40 + Flip a coin, if tails this attack does nothing."
    }
   ]
  },
@@ -52,7 +52,7 @@
   "class": "basic",
   "color": "Purple",
   "type": "Creature",
-  "hp": 40,
+  "hp": 50,
   "summon": {},
   "attacks": [
    {
@@ -98,7 +98,7 @@
   "class": "elite",
   "color": "Purple",
   "type": "Human",
-  "hp": 70,
+  "hp": 80,
   "summon": {
    "sacrifice": 1
   },
@@ -133,18 +133,17 @@
   "attacks": [
    {
     "name": "Trident",
-    "damage": 0,
-    "requires": {
-     "self_hp_at_least": 30
-    },
-    "no_target": true,
-    "damage_each_enemy": 10,
-    "text": "Do 10 damage to each of your opponents active champions."
+    "damage": 10,
+    "mana_cost": 1,
+    "multi_target": 3,
+    "text": "Do 10 damage to three of your opponents active champions."
    },
    {
     "name": "Demonic",
     "damage": 0,
-    "mana_cost": 1,
+    "requires": {
+     "self_hp_at_least": 40
+    },
     "per_own_enchantment": 10,
     "text": "This attack does 10 damage for each of your enchantments in play."
    }
@@ -163,9 +162,15 @@
   },
   "attacks": [
    {
+    "name": "Haunt",
+    "damage": 20
+   },
+   {
     "name": "Demonic",
     "damage": 10,
-    "mana_cost": 1,
+    "requires": {
+     "self_hp_at_least": 40
+    },
     "per_enchantment_in_play": 10,
     "text": "10 + This attack does an extra 10 damage for every enchantment in play."
    }
@@ -185,7 +190,7 @@
   "class": "legendary",
   "color": "Purple",
   "type": "Creature",
-  "hp": 120,
+  "hp": 130,
   "summon": {
    "sacrifice": 3
   },
@@ -213,15 +218,15 @@
   "class": "heroic",
   "color": "Purple",
   "type": "Spirit",
-  "hp": 100,
+  "hp": 110,
   "summon": {
    "sacrifice": 2
   },
   "attacks": [
    {
     "name": "Black Magic",
-    "damage": 50,
-    "mana_cost": 1
+    "damage": 60,
+    "mana_cost": 2
    }
   ],
   "ability": {
@@ -268,7 +273,7 @@
     "name": "Staff Attack",
     "damage": 10,
     "optional_discard_bonus": 30,
-    "text": "10 + Optioanlly discard a card to do plus 30 damage."
+    "text": "10 + Optionally discard a card to do plus 30 damage."
    },
    {
     "name": "Divine Wind",
@@ -341,6 +346,12 @@
    {
     "name": "Claw Blade",
     "damage": 20
+   },
+   {
+    "name": "Wounded Strike",
+    "damage": 10,
+    "bonus_if_self_damaged": 20,
+    "text": "10 + This attack does an extra 20 damage if Panthdar is not at full HP."
    }
   ]
  },
@@ -379,7 +390,7 @@
     "name": "Spear Leap",
     "damage": 10,
     "heal_self": 10,
-    "text": "10 + remove 10 damage from Dragon Soilder."
+    "text": "10 + Remove 10 damage from Dragon Soilder."
    }
   ]
  },

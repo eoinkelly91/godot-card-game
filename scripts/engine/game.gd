@@ -22,7 +22,7 @@ enum Step { OPEN, ATTACKED }
 
 const DEFAULT_RULES := {
 	"start_hand": 7,
-	"start_mana": 2,
+	"start_mana": 4,           # becomes 5 on the first turn (+1 mana at the start of every turn)
 	"max_mulligans": 2,
 	"board_limit": 6,                        # champions in the active play area, and in the encampment area
 	"enchantment_limit": 3,
@@ -38,7 +38,8 @@ const DEFAULT_RULES := {
 	"max_turns": 400,                        # safety net for simulations (counts every player's turn)
 	"fortress": {"hp": 500},   # the default Fortress; a deck's Fortress card replaces it (hp and its ability)
 	"max_attached_cards": 2,   # a champion can carry at most this many attached cards
-	"castled_summons": 2,      # champions you may summon in a turn while castled (1 otherwise)
+	"summons_per_turn": 2,     # champions you may summon in a turn (Basic or not)
+	"castled_summons": 2,      # the same limit while castled
 	"mana_per_turn": 1,        # every player always gets this much mana at the start of their turn
 }
 
@@ -300,7 +301,7 @@ func spawn_champion(p: int, card: Dictionary, slot: int = -1) -> Champion:
 
 ## How many champions p may summon this turn: 2 while castled, otherwise 1.
 func summons_allowed(p: int) -> int:
-	return int(rules.castled_summons) if players[p].castled else 1
+	return int(rules.castled_summons) if players[p].castled else int(rules.summons_per_turn)
 
 
 ## An enchantment card as it goes to the discard pile or back to a hand (without its running turn counter).

@@ -14,11 +14,15 @@ static func summon(g: Game, p: int, hand_index: int, sacrifice_uids: Array = [],
 	var ps: PlayerState = g.players[p]
 	if LockRules.is_locked(g, p, "summon"):
 		return g._fail("You cannot summon this turn.")
-	if ps.summons_this_turn >= g.summons_allowed(p):
-		return g._fail("You already summoned %s this turn." % ("two champions" if g.summons_allowed(p) > 1 else "a champion"))
 	if hand_index < 0 or hand_index >= ps.hand.size():
 		return g._fail("Bad hand index.")
 	var card: Dictionary = ps.hand[hand_index]
+	# Two summons a turn, Basic or not (sacrifice and mana summons count too). On your first turn only Basic champions.
+	var non_basic: bool = str(card.get("kind", "")) == "champion" and CardDB.expected_class(card) != "basic"
+	if non_basic and ps.is_first_turn():
+		return g._fail("On your first turn you can only summon Basic champions.")
+	if ps.summons_this_turn >= g.summons_allowed(p):
+		return g._fail("You have already summoned %d champions this turn." % g.summons_allowed(p))
 	if str(card.get("kind", "")) != "champion":
 		return g._fail("That is not a champion card.")
 
@@ -82,7 +86,7 @@ static func summon(g: Game, p: int, hand_index: int, sacrifice_uids: Array = [],
 	HpRules.recalc(g)  # Super Shrink and the like apply to the new champion at once, before carried-over damage is counted
 	champion.damage = mini(carried, champion.max_hp())  # damage counters carry over permanently
 	ps.summoned_this_turn = true
-	ps.summons_this_turn += 1  # sacrifice summons use up a summon too
+	ps.summons_this_turn += 1
 	var where: String = "the encampment area" if ps.castled else "the active play area"
 	g._log("P%d summons %s into %s." % [p, champion.describe(), where])
 	if champion.is_destroyed():

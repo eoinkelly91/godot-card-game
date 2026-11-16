@@ -78,16 +78,25 @@ static func bold_font() -> FontVariation:
 	return _bold
 
 
+## Which artwork set is used: the new AI artwork (art/cards_ai) where a card has it, otherwise the original drawings
+## (art/cards). With use_ai_art off, only the original drawings are used. Both sets are kept side by side.
+static var use_ai_art: bool = true
+
+
 static func image_path(card_id: String) -> String:
-	for ext in ["jpg", "png", "jpeg"]:
-		var path: String = "res://art/cards/%s.%s" % [card_id, ext]
-		if ResourceLoader.exists(path):
-			return path
+	var folders: Array = ["cards_ai", "cards"] if use_ai_art else ["cards"]
+	for folder in folders:
+		for ext in ["jpg", "png", "jpeg"]:
+			var path: String = "res://art/%s/%s.%s" % [folder, card_id, ext]
+			if ResourceLoader.exists(path):
+				return path
 	return ""
 
 
 ## The full-size card shown when hovering.
 func _make_custom_tooltip(_for_text: String) -> Object:
+	if drag_data != null:  # a card in your hand never shows the delayed preview (it only pops out under the mouse)
+		return null
 	var main: CardView = CardView.create(card, 340.0, live, false, false, encamped, game)
 	if live == null:
 		return main
@@ -178,6 +187,10 @@ func _panel_line(box: VBoxContainer, text: String, color: Color = Color(-1, 0, 0
 var drag_data: Variant = null
 var drop_check: Callable = Callable()
 var drop_do: Callable = Callable()
+
+
+func _get_tooltip(_at_position: Vector2) -> String:
+	return "" if drag_data != null else tooltip_text
 
 
 func _get_drag_data(_at_position: Vector2) -> Variant:

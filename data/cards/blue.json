@@ -27,7 +27,7 @@
   "class": "basic",
   "color": "Blue",
   "type": "Creature",
-  "hp": 60,
+  "hp": 70,
   "summon": {},
   "attacks": [
    {
@@ -50,7 +50,7 @@
   "class": "heroic",
   "color": "Blue",
   "type": "Creature",
-  "hp": 120,
+  "hp": 130,
   "summon": {
    "sacrifice": 2
   },
@@ -62,9 +62,9 @@
    }
   ],
   "ability": {
-   "text": "Do 20 damage to any champion that attacks this champion.",
+   "text": "Do 10 damage to any champion that attacks this champion.",
    "trigger": "passive",
-   "when_attacked_damage_attacker": 20
+   "when_attacked_damage_attacker": 10
   }
  },
  {
@@ -86,7 +86,7 @@
    {
     "name": "Engage",
     "damage": 20,
-    "mana_cost": 2,
+    "mana_cost": 1,
     "coin_bonus": 20,
     "text": "20+ Flip a coin if Heads, this attack does plus 20 damage."
    }
@@ -99,7 +99,7 @@
   "class": "legendary",
   "color": "Blue",
   "type": "Creature",
-  "hp": 130,
+  "hp": 150,
   "summon": {
    "sacrifice": 3
   },
@@ -111,7 +111,7 @@
      "class": "basic",
      "amount": 20
     },
-    "text": "20 + This attack does plus 20 versus basic champions."
+    "text": "20 + This attack does plus 20 damage vs basic champions."
    },
    {
     "name": "Path of Destruction",
@@ -129,7 +129,7 @@
   "class": "heroic",
   "color": "Blue",
   "type": "Creature",
-  "hp": 120,
+  "hp": 130,
   "summon": {
    "sacrifice": 2
   },
@@ -157,7 +157,7 @@
   "class": "elite",
   "color": "Blue",
   "type": "Spirit",
-  "hp": 80,
+  "hp": 90,
   "summon": {
    "sacrifice": 1
   },
@@ -231,7 +231,7 @@
   "class": "elite",
   "color": "Blue",
   "type": "Human",
-  "hp": 80,
+  "hp": 90,
   "summon": {
    "sacrifice": 1
   },
@@ -274,7 +274,7 @@
   "class": "basic",
   "color": "Blue",
   "type": "Human",
-  "hp": 50,
+  "hp": 60,
   "summon": {},
   "attacks": [
    {
@@ -313,7 +313,7 @@
   "class": "basic",
   "color": "Blue",
   "type": "Human",
-  "hp": 60,
+  "hp": 50,
   "summon": {},
   "attacks": [
    {
@@ -331,7 +331,7 @@
   "class": "elite",
   "color": "Blue",
   "type": "Human",
-  "hp": 80,
+  "hp": 70,
   "summon": {
    "sacrifice": 1
   },
@@ -428,7 +428,7 @@
   "class": "basic",
   "color": "Blue",
   "type": "Spirit",
-  "hp": 50,
+  "hp": 60,
   "summon": {},
   "attacks": [
    {
@@ -455,8 +455,8 @@
    {
     "name": "Air Spear",
     "damage": 10,
-    "optional_discard_bonus": 50,
-    "text": "10 + optionally discard a card for an extra 50 damage."
+    "optional_discard_bonus": 30,
+    "text": "10 + optionally discard a card for an extra 30 damage."
    }
   ]
  },
@@ -475,8 +475,8 @@
    {
     "name": "Air Spear",
     "damage": 20,
-    "optional_discard_bonus": 50,
-    "text": "20 + optionally discard a card for an extra 50 damage."
+    "optional_discard_bonus": 30,
+    "text": "20 + optionally discard a card for an extra 30 damage."
    },
    {
     "name": "Spear Swipe",

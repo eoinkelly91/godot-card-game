@@ -82,7 +82,7 @@ func spell_target(p: int, hand_index: int, effect_index: int, preset: int = -1) 
 					if op == "bonus_damage" and Preflight.attack_problem(g, p, pc) != "":
 						return _err("%s cannot attack this turn, so the bonus would be wasted." % pc.card_name())
 					return _t({"champion": preset})
-			"poison", "no_attack", "damage", "mystery_remove":
+			"poison", "no_attack", "reduce_attack", "damage", "mystery_remove":
 				if not mine:
 					if foe.castled:
 						return _err("The opponent's champions are encamped and cannot be targeted.")
@@ -91,7 +91,8 @@ func spell_target(p: int, hand_index: int, effect_index: int, preset: int = -1) 
 					return _t({"champion": preset})
 	match op:
 		"lock", "draw", "gain_mana", "buff_attack", "drain_mana", "drain_mana_per_card", "gain_mana_per_enchantment", "opponent_discards", \
-		"summon_discount", "type_attack_bonus", "reduce_enemy_attacks", "damage_all_enemies", "shuffle_weak_champions":
+		"summon_discount", "type_attack_bonus", "reduce_enemy_attacks", "damage_all_enemies", "shuffle_weak_champions", \
+		"gain_mana_per_attached", "heal_type", "damage_and_castle":
 			return _t({})
 		"wizardry_draw":  # the discard is chosen afterwards, once the cards are drawn (Game.wizardry_discard)
 			return _t({"defer_discard": true})
@@ -130,7 +131,7 @@ func spell_target(p: int, hand_index: int, effect_index: int, preset: int = -1) 
 				return _t({"fortress": 1 - p})
 			var d: Variant = await _one("Damage which champion?", _champs(foe.champions))
 			return _cancel() if d == null else _t({"champion": d})
-		"poison", "no_attack":
+		"poison", "no_attack", "reduce_attack":
 			var err: String = _enemy_champions_ok(p)
 			if err != "":
 				return _err(err)
@@ -303,7 +304,7 @@ func attack_target(p: int, attacker: Champion, atk_index: int) -> Dictionary:
 					and attacker.max_hp() > int(fc.card.ability.immune_to_attackers_max_hp_over)):
 				legal.append(fc)
 		if legal.is_empty():
-			return _err("%s cannot attack the opponent's champions (it has too many HP for Gnome)." % attacker.card_name())
+			return _err("%s cannot attack the opponent's champions (Gnome's Ability: Its base HP is too high)." % attacker.card_name())
 		var forced: Champion = null  # Duel: the dueled champion must attack its duelist
 		for st in attacker.statuses:
 			if str(st.kind) == "duel":

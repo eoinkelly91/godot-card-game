@@ -101,6 +101,78 @@ static func deck_problems(cards: Dictionary, spec: Dictionary) -> Array:
 	return problems
 
 
+const COLORS := ["Red", "Blue", "White", "Purple"]
+const MAX_COPIES := 4  # a random deck never holds more than this many copies of one champion
+
+
+## A random deck for the chosen colours, as a deck spec ({card id: copies}) that follows the composition limits:
+## one Legendary (from a random one of the colours), then Heroic, Elite and Basic champions of those colours, 12 spells,
+## all 6 enchantments and a random Fortress. Cards are picked at random; when the colours do not have enough different
+## champions of a group, extra copies are added (up to MAX_COPIES each).
+static func random_deck(cards: Dictionary, colors: Array, rng: RandomNumberGenerator) -> Dictionary:
+	if colors.is_empty():
+		colors = COLORS
+	var spec: Dictionary = {}
+	var groups: Dictionary = {"legendary": [], "heroic": [], "elite": [], "basic": []}
+	var spells: Array = []
+	var enchants: Array = []
+	var fortresses: Array = []
+	for id in cards:
+		var c: Dictionary = cards[id]
+		match str(c.get("kind", "")):
+			"champion":
+				if colors.has(str(c.get("color", ""))):
+					groups[expected_class(c)].append(id)
+			"spell":
+				spells.append(id)
+			"enchantment":
+				enchants.append(id)
+			"fortress":
+				fortresses.append(id)
+	if not (groups["legendary"] as Array).is_empty():  # the Legendary comes first, from a random one of the colours
+		var legs: Array = groups["legendary"]
+		spec[legs[rng.randi_range(0, legs.size() - 1)]] = 1
+	for group in ["heroic", "elite", "basic"]:
+		var pool: Array = groups[group]
+		var want: int = int(DECK_LIMITS[group])
+		if pool.is_empty():
+			continue
+		var bag: Array = []
+		while spec_count(spec, cards, group) < want and bag.size() < want * 4:
+			var round_ids: Array = pool.duplicate()
+			_shuffle(round_ids, rng)
+			for id in round_ids:
+				if spec_count(spec, cards, group) >= want:
+					break
+				if int(spec.get(id, 0)) < MAX_COPIES:
+					spec[id] = int(spec.get(id, 0)) + 1
+				bag.append(id)
+	_shuffle(spells, rng)
+	for id in spells.slice(0, int(DECK_LIMITS["spell"])):
+		spec[id] = 1
+	for id in enchants.slice(0, int(DECK_LIMITS["enchantment"])):
+		spec[id] = 1
+	if not fortresses.is_empty():
+		spec[fortresses[rng.randi_range(0, fortresses.size() - 1)]] = 1
+	return spec
+
+
+static func spec_count(spec: Dictionary, cards: Dictionary, group: String) -> int:
+	var n: int = 0
+	for id in spec:
+		if deck_group(cards[id]) == group:
+			n += int(spec[id])
+	return n
+
+
+static func _shuffle(a: Array, rng: RandomNumberGenerator) -> void:
+	for i in range(a.size() - 1, 0, -1):
+		var j: int = rng.randi_range(0, i)
+		var t: Variant = a[i]
+		a[i] = a[j]
+		a[j] = t
+
+
 static func load_decks(path: String = "res://data/decks.json") -> Dictionary:
 	var parsed: Variant = _read_json(path)
 	if typeof(parsed) != TYPE_DICTIONARY:
