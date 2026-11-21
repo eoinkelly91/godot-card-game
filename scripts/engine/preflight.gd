@@ -43,6 +43,8 @@ static func attack_problem(g: Game, p: int, attacker: Champion, atk_index: int =
 				token = true
 		if not token:
 			return "You already attacked with %s this turn." % attacker.color()
+	if attacker.encamped_flag or attacker.is_encamped(g.turn):
+		return "%s is encamped and cannot attack." % attacker.card_name()
 	var cl: String = color_limit_problem(g, p, attacker.color())
 	if cl != "":
 		return cl
@@ -96,8 +98,9 @@ static func summon_problem(g: Game, p: int, hand_index: int) -> String:
 		return "You cannot summon this turn."
 	if CardDB.expected_class(me.hand[hand_index]) != "basic" and me.is_first_turn():
 		return "On your first turn you can only summon Basic champions."
-	if me.summons_this_turn >= g.summons_allowed(p):
-		return "You have already summoned %d champions this turn." % g.summons_allowed(p)
+	var slot_err: String = g.summon_slot_problem(p, CardDB.expected_class(me.hand[hand_index]) != "basic")
+	if slot_err != "":
+		return slot_err
 	var req: Dictionary = me.hand[hand_index].get("summon", {})
 	var mana: int = int(req.get("mana", 0))
 	if int(req.get("sacrifice", 0)) == 0 and me.summon_discount > 0:
@@ -156,9 +159,9 @@ static func castle_problem(g: Game, p: int) -> String:
 	if me.castles_used >= int(g.rules.castles_per_game):
 		return "You have already used your castle this game."
 	var active: int = me.active_champions().size()
-	var need: int = int(g.rules.castle_active_champions)
-	if active != need:
-		return "You can only castle with exactly %d champion in the active play area (you have %d)." % [need, active]
+	var need: int = int(g.rules.castle_max_champions)
+	if active < 1 or active > need:
+		return "You can only castle with 1 or %d champions in the active play area (you have %d)." % [need, active]
 	return ""
 
 

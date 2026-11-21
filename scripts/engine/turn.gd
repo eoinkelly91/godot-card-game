@@ -9,6 +9,7 @@ extends RefCounted
 ## Starts the turn of g.active.
 static func begin(g: Game) -> void:
 	g.turn += 1
+	g.refresh_encamp()  # a champion summoned through sacrifice is awake again from its owner's next turn
 	if g.turn > int(g.rules.max_turns):
 		g._finish(2, "Turn limit reached")
 		return
@@ -35,13 +36,15 @@ static func begin(g: Game) -> void:
 		skip_draw = true
 		g._log("P%d cannot draw this turn." % p)
 	if not skip_draw:
-		var draws: int = int(g.rules.castled_draws) if ps.castled else 1  # castled players draw extra cards
+		var draws: int = int(g.rules.castled_draws) if ps.castled else int(g.rules.draws_per_turn)  # castled players draw an extra card
+		if ps.is_first_turn():
+			draws = int(g.rules.first_turn_draws)
 		for i in draws:
 			if ps.deck.is_empty():
 				g._finish(1 - p, "Decking out")
 				return
 			ps.hand.append(ps.deck.pop_back())
-		g._log("P%d draws %s." % [p, "a card" if draws == 1 else "%d cards (castled)" % draws])
+		g._log("P%d draws %d card%s." % [p, draws, "" if draws == 1 else "s"])
 	_run_start_triggers(g, p)  # poison, abilities and the Fortress come first, before any castling decision
 
 
@@ -64,11 +67,14 @@ static func castle(g: Game, p: int) -> Dictionary:
 	if ps.castles_used >= int(g.rules.castles_per_game):
 		return g._fail("You have already used your castle this game.")
 	var active: int = ps.active_champions().size()
-	if active != int(g.rules.castle_active_champions):
-		return g._fail("You can only castle with exactly %d champion in the active play area (you have %d)." % [int(g.rules.castle_active_champions), active])
+	if active < 1 or active > int(g.rules.castle_max_champions):
+		return g._fail("You can only castle with 1 or %d champions in the active play area (you have %d)." % [int(g.rules.castle_max_champions), active])
 	ps.castled = true
 	ps.castles_used += 1
 	ps.castled_turns = 1
+	for cc in ps.champions:  # encamping removes any status effects
+		cc.statuses.clear()
+	g.refresh_encamp()
 	g._log("P%d castles: the Fortress moves to the active play area and the champions are encamped." % p)
 	return g._ok()
 
@@ -111,8 +117,9 @@ static func _run_start_triggers(g: Game, p: int) -> void:
 	var mark: int = g.log_lines.size()
 	g.start_summary_turn = g.turn
 	g.start_summary = []
-	ps.mana += int(g.rules.mana_per_turn)
-	g._log("P%d gains %d mana." % [p, int(g.rules.mana_per_turn)])
+	var gain: int = int(g.rules.castled_mana_per_turn) if ps.castled else int(g.rules.mana_per_turn)  # castled: one extra
+	ps.mana += gain
+	g._log("P%d gains %d mana." % [p, gain])
 	StatusRules.run_start_of_turn(g, p)
 	g._check_win()
 	g._log("P%d start of turn: mana %d, hand %d." % [p, ps.mana, ps.hand.size()])

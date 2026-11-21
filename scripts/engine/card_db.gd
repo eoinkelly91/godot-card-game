@@ -66,8 +66,8 @@ static func expected_class(card: Dictionary) -> String:
 
 
 ## Deck composition: the most cards of each group a deck may hold (and the most cards in total).
-const DECK_LIMITS := {"legendary": 1, "heroic": 6, "elite": 10, "basic": 25, "enchantment": 6, "spell": 12, "fortress": 1}
-const DECK_MAX_CARDS := 61  # 60 cards to draw + the one Fortress, which is played automatically at the start
+const DECK_LIMITS := {"legendary": 1, "heroic": 6, "elite": 10, "basic": 35, "enchantment": 6, "spell": 12, "fortress": 1}
+const DECK_MAX_CARDS := 71  # 70 cards to draw + the one Fortress, which is played automatically at the start
 
 
 ## Which composition group a card belongs to ("basic", "elite", "heroic", "legendary", "enchantment", "spell").
@@ -102,7 +102,7 @@ static func deck_problems(cards: Dictionary, spec: Dictionary) -> Array:
 
 
 const COLORS := ["Red", "Blue", "White", "Purple"]
-const MAX_COPIES := 4  # a random deck never holds more than this many copies of one champion
+const MAX_COPIES := 5  # a random deck never holds more than this many copies of one champion (a single-colour deck needs 5 to fill its Basic slots)
 
 
 ## A random deck for the chosen colours, as a deck spec ({card id: copies}) that follows the composition limits:

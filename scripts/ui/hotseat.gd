@@ -861,7 +861,7 @@ func _render_board(box: VBoxContainer, info: RichTextLabel, p: int, is_active: b
 	info.text = "%s%s   Mana %d   Hand %d   Kills %d/%d   Castles used %d/%d%s%s%s" % [
 		"Player %d%s" % [p, " (Bot)" if p == bot_player else ""], "  (YOUR TURN)" if is_active else "", ps.mana, ps.hand.size(), ps.kills,
 		int(game.rules.annihilation_goal), ps.castles_used, int(game.rules.castles_per_game),
-		("   [color=#ffd940]SUMMONING AVAILABLE (%d)[/color]" % _summons_left(ps)) if summoning else "",
+		("   [color=#ffd940]SUMMONING AVAILABLE (%s)[/color]" % _summons_text(ps)) if summoning else "",
 		("   [color=#ffd940]FIRST TURN: YOU CAN ONLY SUMMON BASIC CHAMPIONS[/color]" if is_active and ps.is_first_turn() and not game.finished else "") \
 		+ ("   [color=#ffd940]ATTACK WITH ONE COLOUR ONLY THIS TURN[/color]" if is_active and ps.turns_taken == 2 and p == game.first_player and not game.finished else ""),
 		("   [CASTLED: Fortress vulnerable to attack, champions encamped, turns remaining:%d]" % maxi(0, int(game.rules.max_castled_turns) - ps.castled_turns)) if ps.castled else ""]
@@ -1091,9 +1091,24 @@ func _summoning_available(ps: PlayerState) -> bool:
 	return not game.finished and _summons_left(ps) > 0  # summoning works at any time during your turn
 
 
-## How many more champions this player may summon this turn.
+## How many more champions this player may summon this turn, as text: "1 basic, 1 sacrifice" (+ "1 any" when castled).
+func _summons_text(ps: PlayerState) -> String:
+	var left: Dictionary = game.summons_left(ps.index)
+	var parts: Array = []
+	if int(left.basic) > 0:
+		parts.append("%d basic" % int(left.basic))
+	if int(left.sacrifice) > 0:
+		parts.append("%d sacrifice" % int(left.sacrifice))
+	if int(left.extra) > 0 and not ps.is_first_turn():
+		parts.append("%d any" % int(left.extra))
+	elif int(left.extra) > 0:
+		parts.append("%d basic" % int(left.extra))
+	return ", ".join(parts)
+
+
 func _summons_left(ps: PlayerState) -> int:
-	return maxi(0, game.summons_allowed(ps.index) - ps.summons_this_turn)
+	var left: Dictionary = game.summons_left(ps.index)
+	return int(left.basic) + int(left.sacrifice) + int(left.extra)
 
 
 var _minotaur_prompted_turn: int = -1

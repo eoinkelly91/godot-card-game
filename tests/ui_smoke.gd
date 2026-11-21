@@ -56,6 +56,8 @@ func _run() -> void:
 	await _test_second_batch()
 	await _test_third_batch()
 	await _test_bot_mode()
+	await _test_summon_protection_display()
+	await _test_shielded_label()
 	_test_art_fits_box()
 	print("\n%d UI checks passed, %d failed" % [passed, failed])
 	quit(1 if failed > 0 else 0)
@@ -301,14 +303,14 @@ func _test_first_turn_gnome_and_new_game() -> void:
 	g.next_step(0)
 	ui.refresh()
 	check(ui._me_info.text.contains("FIRST TURN: YOU CAN ONLY SUMMON BASIC CHAMPIONS") and ui._me_info.text.contains("[color=#ffd940]FIRST TURN"), "the first turn tells you in yellow that only Basic champions can be summoned")
-	check(ui._me_info.text.contains("SUMMONING AVAILABLE (2)"), "summoning available (2) on a first turn too")
+	check(ui._me_info.text.contains("SUMMONING AVAILABLE (2 basic)"), "on a first turn you can summon two Basic champions")
 	g.players[0].turns_taken = 3
 	ui.refresh()
-	check(not ui._me_info.text.contains("FIRST TURN") and ui._me_info.text.contains("SUMMONING AVAILABLE (2)"), "from the second turn on: no first-turn note, SUMMONING AVAILABLE (2)")
-	g.players[0].summons_this_turn = 1
+	check(not ui._me_info.text.contains("FIRST TURN") and ui._me_info.text.contains("SUMMONING AVAILABLE (1 basic, 1 sacrifice)"), "from the second turn on: no first-turn note, 1 basic and 1 sacrifice")
+	g.players[0].basic_summons_this_turn = 1
 	ui.refresh()
-	check(ui._me_info.text.contains("SUMMONING AVAILABLE (1)"), "after one summon: (1)")
-	g.players[0].summons_this_turn = 0
+	check(ui._me_info.text.contains("SUMMONING AVAILABLE (1 sacrifice)"), "after the Basic summon: 1 sacrifice")
+	g.players[0].basic_summons_this_turn = 0
 	g.first_player = 0
 	g.players[0].turns_taken = 2
 	ui.refresh()
@@ -416,25 +418,25 @@ func _test_early_messages_and_previews() -> void:
 	# Summon problems up front
 	var g9 := _fresh_state()
 	g9.next_step(0)
-	g9.players[0].summons_this_turn = 2
+	g9.players[0].sacrifice_summons_this_turn = 1
 	g9.players[0].turns_taken = 3
 	g9.players[0].hand = [cards["grey_goblin"]]
-	check("already summoned 2" in Preflight.summon_problem(g9, 0, 0), "a third summon is refused up front")
+	check("sacrifice summon" in Preflight.summon_problem(g9, 0, 0), "a second sacrifice summon is refused up front")
 	g9.players[0].hand = [cards["gob"]]
-	check("already summoned 2" in Preflight.summon_problem(g9, 0, 0), "Basic champions count too")
-	g9.players[0].summons_this_turn = 1
-	check(Preflight.summon_problem(g9, 0, 0) == "", "one more summon is still allowed")
+	check(Preflight.summon_problem(g9, 0, 0) == "", "but a Basic summon is still allowed")
+	g9.players[0].basic_summons_this_turn = 1
+	check("Basic champion" in Preflight.summon_problem(g9, 0, 0), "and then a second Basic summon is refused")
 
 
 func _test_castle_reveal_scroll_and_tags() -> void:
-	# Castle button: needs exactly one active champion
+	# Castle button: needs one or two active champions
 	var g := _fresh_state()  # three champions each
 	ui.game = g
 	ui.flows = TargetFlows.new(g, ui)
 	ui.viewer = 0
 	ui._cover.visible = false
 	ui.refresh()
-	check(ui._fortress_options().is_empty() and "exactly 1" in Preflight.castle_problem(g, 0), "the Fortress offers no castling with 3 champions, and says why")
+	check(ui._fortress_options().is_empty() and "1 or 2" in Preflight.castle_problem(g, 0), "the Fortress offers no castling with 3 champions, and says why")
 	g.players[0].champions.resize(1)
 	ui.refresh()
 	var copts: Array = ui._fortress_options()
@@ -503,20 +505,20 @@ func _test_fortress_card_and_board() -> void:
 	check(rows.size() == 1, "each player has a single row (champions, Fortress, enchantments)")
 	ui.refresh()
 	check(ui._me_info.text.contains("CASTLED: Fortress vulnerable to attack, champions encamped, turns remaining:2"), "a castled player's info line explains the castle and the turns remaining")
-	# Hand limit: ending the turn with 12 cards asks for 2 discards first
+	# Hand limit: ending the turn with 15 cards asks for 2 discards first
 	var hl := _fresh_state()
 	ui.game = hl
 	ui.flows = TargetFlows.new(hl, ui)
 	ui.viewer = 0
 	hl.next_step(0)
-	for i in 12:
+	for i in 15:
 		hl.players[0].hand.append(cards["syranite"])
 	var asked: Array = [0]
 	ui.auto_chooser = func(t: String, o: Array, _mn: int, _mx: int) -> Variant:
 		asked[0] += 1
 		return [0]
 	await ui._on_end_turn()
-	check(asked[0] == 2 and hl.active == 1 and hl.players[0].hand.size() == 10, "ending the turn with 12 cards asks for 2 discards, then ends")
+	check(asked[0] == 2 and hl.active == 1 and hl.players[0].hand.size() == 13, "ending the turn with 15 cards asks for 2 discards, then ends")
 	ui.auto_chooser = Callable(self, "auto")
 	# END TURN is highlighted when nothing is left to do
 	var nl := _fresh_state()
@@ -528,7 +530,8 @@ func _test_fortress_card_and_board() -> void:
 	ui.refresh()
 	check(not ui._nothing_left_to_do() and not ui._btn_end.has_theme_stylebox_override("normal"), "END TURN is not highlighted while summoning is available")
 	check(ui._me_info.text.contains("[color=#ffd940]SUMMONING AVAILABLE"), "SUMMONING AVAILABLE is yellow")
-	nl.players[0].summons_this_turn = 2
+	nl.players[0].basic_summons_this_turn = 1
+	nl.players[0].sacrifice_summons_this_turn = 1
 	for c in nl.players[0].champions:
 		c.attacked_this_turn = true
 	nl.players[0].colors_used = ["Red", "Blue", "White", "Purple"]
@@ -626,7 +629,8 @@ func _test_drag_and_drop_and_new_display() -> void:
 	g.spawn_champion(0, cards["syranite"])
 	g.spawn_champion(0, cards["syranite"])
 	check(p0.champions.size() == 6, "board is full")
-	p0.summons_this_turn = 0
+	p0.basic_summons_this_turn = 0
+	p0.sacrifice_summons_this_turn = 0
 	var r3: Dictionary = await ui.play_hand_card(4 if p0.hand.size() > 4 else 0, {"owner": 0})
 	check(not r3.ok and ui._status.text == "Your play area is full.", "a basic champion on a full board says the play area is full")
 	# enchantments: slots full -> replace with a confirmation
@@ -640,11 +644,15 @@ func _test_drag_and_drop_and_new_display() -> void:
 	p0.castled = true
 	p0.summons_this_turn = 0
 	ui.refresh()
-	check(ui._me_info.text.contains("SUMMONING AVAILABLE (2)"), "castled: SUMMONING AVAILABLE (2)")
-	p0.summons_this_turn = 1
+	p0.basic_summons_this_turn = 0
+	p0.sacrifice_summons_this_turn = 0
 	ui.refresh()
-	check(ui._me_info.text.contains("SUMMONING AVAILABLE (1)"), "castled with one summon used: (1)")
-	p0.summons_this_turn = 2
+	check(ui._me_info.text.contains("SUMMONING AVAILABLE (1 basic, 1 sacrifice, 1 any)"), "castled: one extra summon of either kind")
+	p0.basic_summons_this_turn = 1
+	ui.refresh()
+	check(ui._me_info.text.contains("SUMMONING AVAILABLE (1 sacrifice, 1 any)"), "castled with the Basic summon used")
+	p0.basic_summons_this_turn = 2
+	p0.sacrifice_summons_this_turn = 1
 	ui.refresh()
 	check(not ui._me_info.text.contains("SUMMONING AVAILABLE"), "both summons used: no message")
 	p0.castled = false
@@ -882,10 +890,48 @@ func _test_bot_mode() -> void:
 		if "(Bot)" in (l as RichTextLabel).text:
 			found_bot_label = true
 	check(found_bot_label, "the bot's player is labelled (Bot)")
-	check(ui._bot_msg.text.begins_with("Bot's last turn") and ui._bot_msg.visible, "what the bot did is shown under its information bar")
+	var waited := 0
+	while not ui.game.finished and (ui.game.active != 0 or ui.busy) and waited < 10:
+		waited += 1
+		await ui.get_tree().create_timer(0.5).timeout
+	check(ui._bot_msg.text.begins_with("Bot's last turn") and (ui._bot_msg.visible or ui.game.finished), "what the bot did is shown under its information bar (text=%s visible=%s active=%d)" % [ui._bot_msg.text, str(ui._bot_msg.visible), ui.game.active])
 	check(ui._bot_msg.get_index() == ui._opp_info.get_parent().get_index() + 1, "right below the bot's information line")
 	check(ui._deck0.get_item_text(ui._deck0.item_count - 1) == ui.RANDOM_DECK and ui._color_rows.size() == 2 and ui._color_checks[0].size() == 4, "the setup screen offers a random deck with four colour check boxes")
 	ui._deck0.select(ui._deck0.item_count - 1)
 	ui._on_deck_choice(ui._deck0.item_count - 1, 0)
 	check((ui._color_rows[0] as Control).visible and not (ui._color_rows[1] as Control).visible, "the colour boxes show up for the player who picked the random deck")
 	check(ui._bot_check != null, "the setup screen has a bot check box")
+
+
+func _test_summon_protection_display() -> void:
+	var g := _fresh_state()
+	ui.game = g
+	ui.flows = TargetFlows.new(g, ui)
+	ui.viewer = 0
+	ui._cover.visible = false
+	var fresh: Champion = g.spawn_champion(0, cards["grey_goblin"])
+	fresh.summoned_turn = g.turn  # summoned this turn, through sacrifice
+	var v: CardView = CardView.create(fresh.card, 200.0, fresh, true, false, false, g)
+	check(v._asleep() and v._status_tags().any(func(t: String) -> bool: return "SUMMONED THIS TURN" in t), "a champion summoned this turn is dimmed (Zzz) with the status Summoned this turn")
+	fresh.summoned_turn = g.turn - 1
+	g.active = 1
+	var v2: CardView = CardView.create(fresh.card, 200.0, fresh, true, false, false, g)
+	check(not v2._asleep() and not v2._status_tags().any(func(t: String) -> bool: return "ENCAMPED" in t or "SUMMONED" in t), "on the opponent's turn it can be attacked: awake, no Encamped or Summoned status")
+	var basic: Champion = g.spawn_champion(0, cards["gob"])
+	basic.attached = [cards["fusion"]]
+	var v4: CardView = CardView.create(basic.card, 200.0, basic, true, false, false, g)
+	check(v4._status_tags().any(func(t: String) -> bool: return "ARMED" in t), "a champion with cards attached is Armed")
+	var castled_view: CardView = CardView.create(basic.card, 200.0, basic, true, false, true, g)
+	check(castled_view._asleep() and castled_view._status_tags().any(func(t: String) -> bool: return "ENCAMPED" in t), "a castled (encamped) champion is dimmed and tagged Encamped")
+	g.active = 0
+
+
+func _test_shielded_label() -> void:
+	var g := _fresh_state()
+	ui.game = g
+	ui.flows = TargetFlows.new(g, ui)
+	var foe: PlayerState = g.players[1]
+	var bd: Champion = g.spawn_champion(1, cards["blackthorn_dragon"])
+	bd.statuses.append({"kind": "protected", "turns_left": 1})
+	var opts: Array = ui.flows._champs([bd])
+	check(opts.size() == 1 and "(shielded)" in str(opts[0].label), "a shielded champion says (shielded) beside its name in the target menu (%s)" % str(opts[0].label if opts.size() > 0 else ""))

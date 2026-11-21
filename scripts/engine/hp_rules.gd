@@ -13,6 +13,7 @@ static func recalc(g: Game) -> void:
 	if g.hp_recalc_busy or g.players.size() < 2:
 		return
 	g.hp_recalc_busy = true
+	g.refresh_encamp()
 	for round in 6:  # a destruction can change what Gaia copies, so repeat until nothing changes
 		_update(g)
 		var doomed: Array = []

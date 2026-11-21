@@ -159,6 +159,8 @@ static func attack(g: Game, p: int, attacker_uid: int, attack_index: int, target
 				break
 		if token < 0:
 			return g._fail("You already attacked with %s this turn." % attacker.color())
+	if attacker.encamped_flag or attacker.is_encamped(g.turn):
+		return g._fail("%s is encamped and cannot attack." % attacker.card_name())
 	var cl: String = Preflight.color_limit_problem(g, p, attacker.color())
 	if cl != "":
 		return g._fail(cl)
@@ -171,32 +173,35 @@ static func attack(g: Game, p: int, attacker_uid: int, attack_index: int, target
 
 	var target_champion: Champion = null
 	var extra_targets: Array = []
+	var open_champs: Array = foe.active_champions()  # the champions that can be attacked (not Encamped); with none, the Fortress can be
 	if bool(atk.get("no_target", false)):
 		target = {}  # attacks that hit every enemy champion need no target
 	elif int(atk.get("multi_target", 0)) > 1 and target.has("champions"):
-		if foe.castled:
+		if open_champs.is_empty():
 			return g._fail("Encamped champions cannot be targeted.")
 		var uids: Array = target.champions
-		if uids.size() != mini(int(atk.multi_target), foe.champions.size()):
-			return g._fail("Pick %d different enemy champions." % mini(int(atk.multi_target), foe.champions.size()))
+		if uids.size() != mini(int(atk.multi_target), open_champs.size()):
+			return g._fail("Pick %d different enemy champions." % mini(int(atk.multi_target), open_champs.size()))
 		for uid in uids:
 			var mc: Champion = g._champion_of(foe, int(uid))
 			if mc == null or mc == target_champion or extra_targets.has(mc):
 				return g._fail("Bad target.")
+			if not open_champs.has(mc):
+				return g._fail("%s is encamped and cannot be targeted." % mc.card_name())
 			if target_champion == null:
 				target_champion = mc
 			else:
 				extra_targets.append(mc)
 	elif target.has("champion"):
-		if int(atk.get("multi_target", 0)) > 1 and foe.champions.size() >= 2 and not foe.castled:
+		if int(atk.get("multi_target", 0)) > 1 and open_champs.size() >= 2:
 			return g._fail("%s needs %d different targets." % [atk.get("name", "This attack"), int(atk.multi_target)])
 		target_champion = g._champion_of(foe, int(target.champion))
 		if target_champion == null:
 			return g._fail("Target must be an enemy champion.")
-		if foe.castled:
-			return g._fail("Encamped champions cannot be targeted; only the Fortress can be attacked.")
+		if not open_champs.has(target_champion):
+			return g._fail("%s is encamped and cannot be attacked; only the Fortress can be attacked while all their champions are encamped." % target_champion.card_name() if open_champs.is_empty() else "%s is encamped and cannot be attacked." % target_champion.card_name())
 	elif target.has("fortress"):
-		if not foe.castled and foe.champions.size() > 0:
+		if not open_champs.is_empty():
 			return g._fail("The Fortress is immune while its owner controls a champion in the active play area.")
 	elif not bool(atk.get("no_target", false)):
 		return g._fail("No target given.")
@@ -214,7 +219,7 @@ static func attack(g: Game, p: int, attacker_uid: int, attack_index: int, target
 		for dst in attacker.statuses:
 			if str(dst.kind) == "duel":
 				var duelist: Champion = g._champion_of(foe, int(dst.duelist))
-				if duelist != null and not foe.castled and target_champion != duelist:
+				if duelist != null and open_champs.has(duelist) and target_champion != duelist:
 					return g._fail("%s must attack %s (Duel)." % [attacker.card_name(), duelist.card_name()])
 	var spell_bonus: int = 0
 	var spell_costs: int = 0

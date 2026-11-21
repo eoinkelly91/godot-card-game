@@ -22,25 +22,30 @@ enum Step { OPEN, ATTACKED }
 
 const DEFAULT_RULES := {
 	"start_hand": 7,
-	"start_mana": 4,           # becomes 5 on the first turn (+1 mana at the start of every turn)
+	"start_mana": 0,           # nobody starts with mana; every turn gives mana_per_turn
 	"max_mulligans": 2,
 	"board_limit": 6,                        # champions in the active play area, and in the encampment area
 	"enchantment_limit": 3,
-	"annihilation_goal": 10,
-	"economic_goal": 30,
-	"max_hand_size": 10,                     # more cards than this at the end of your turn: you discard down to it
+	"annihilation_goal": 15,
+	"economic_goal": 50,
+	"max_hand_size": 13,                     # more cards than this at the end of your turn: you discard down to it
 	"castles_per_game": 1,
-	"castle_locked_turns": 5,                # no castling during a player's first N own turns
-	"castle_active_champions": 1,            # you may only castle with exactly this many champions in the active play area
-	"castled_draws": 2,                      # cards drawn at the start of a turn while castled (1 otherwise)
+	"castle_locked_turns": 2,                # no castling during a player's first N own turns (castle from your 3rd turn)
+	"castle_max_champions": 2,                # you may castle with at most this many active champions (and at least one)
+	"draws_per_turn": 2,                     # cards drawn at the start of every turn
+	"castled_draws": 3,                      # cards drawn at the start of a turn while castled (one extra)
 	"max_castled_turns": 3,                  # own turns, counting the turn you castle on
 	"first_player_skips_first_draw": false,
 	"max_turns": 400,                        # safety net for simulations (counts every player's turn)
 	"fortress": {"hp": 500},   # the default Fortress; a deck's Fortress card replaces it (hp and its ability)
 	"max_attached_cards": 2,   # a champion can carry at most this many attached cards
-	"summons_per_turn": 2,     # champions you may summon in a turn (Basic or not)
-	"castled_summons": 2,      # the same limit while castled
-	"mana_per_turn": 1,        # every player always gets this much mana at the start of their turn
+	"basic_summons_per_turn": 1,      # Basic champions you may summon in a turn
+	"first_turn_basic_summons": 2,    # on your first turn you may summon this many Basic champions (and nothing else)
+	"first_turn_draws": 0,            # cards drawn on your first turn
+	"sacrifice_summons_per_turn": 1,  # non-Basic champions (sacrifice or mana summons) you may summon in a turn
+	"castled_extra_summons": 1,       # while castled: one extra summon of either kind
+	"mana_per_turn": 2,        # every player always gets this much mana at the start of their turn
+	"castled_mana_per_turn": 3,  # while castled: one extra mana
 }
 
 var rules: Dictionary = {}
@@ -299,9 +304,41 @@ func spawn_champion(p: int, card: Dictionary, slot: int = -1) -> Champion:
 	return champion
 
 
-## How many champions p may summon this turn: 2 while castled, otherwise 1.
-func summons_allowed(p: int) -> int:
-	return int(rules.castled_summons) if players[p].castled else int(rules.summons_per_turn)
+## Why p cannot summon a champion of this kind right now ("" when it is allowed). Each turn: one Basic summon and
+## one sacrifice summon; a castled player has one extra summon of either kind.
+func summon_slot_problem(p: int, non_basic: bool) -> String:
+	var ps: PlayerState = players[p]
+	var used_b: int = ps.basic_summons_this_turn
+	var used_n: int = ps.sacrifice_summons_this_turn
+	var free_b: int = int(rules.first_turn_basic_summons) if ps.is_first_turn() else int(rules.basic_summons_per_turn)
+	var free_n: int = int(rules.sacrifice_summons_per_turn)
+	var extra: int = int(rules.castled_extra_summons) if ps.castled else 0
+	var over: int = maxi(0, used_b - free_b) + maxi(0, used_n - free_n)  # extra summons already used
+	if non_basic:
+		if used_n < free_n or over < extra:
+			return ""
+		return "You have already used your sacrifice summon this turn."
+	if used_b < free_b or over < extra:
+		return ""
+	return "You have already summoned %s this turn." % ("both Basic champions" if free_b > 1 else "a Basic champion")
+
+
+## What the summon message shows: how many more of each kind can be summoned this turn.
+func summons_left(p: int) -> Dictionary:
+	var ps: PlayerState = players[p]
+	var free_b: int = int(rules.first_turn_basic_summons) if ps.is_first_turn() else int(rules.basic_summons_per_turn)
+	var free_n: int = int(rules.sacrifice_summons_per_turn)
+	var extra: int = int(rules.castled_extra_summons) if ps.castled else 0
+	var over: int = maxi(0, ps.basic_summons_this_turn - free_b) + maxi(0, ps.sacrifice_summons_this_turn - free_n)
+	return {"basic": maxi(0, free_b - ps.basic_summons_this_turn), "sacrifice": 0 if ps.is_first_turn() else maxi(0, free_n - ps.sacrifice_summons_this_turn),
+			"extra": maxi(0, extra - over)}
+
+
+## Marks every champion that is Encamped right now (castled, or just summoned through sacrifice).
+func refresh_encamp() -> void:
+	for ps in players:
+		for c in ps.champions:
+			c.encamped_flag = ps.castled or c.is_encamped(turn)
 
 
 ## An enchantment card as it goes to the discard pile or back to a hand (without its running turn counter).

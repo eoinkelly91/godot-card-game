@@ -21,8 +21,9 @@ static func summon(g: Game, p: int, hand_index: int, sacrifice_uids: Array = [],
 	var non_basic: bool = str(card.get("kind", "")) == "champion" and CardDB.expected_class(card) != "basic"
 	if non_basic and ps.is_first_turn():
 		return g._fail("On your first turn you can only summon Basic champions.")
-	if ps.summons_this_turn >= g.summons_allowed(p):
-		return g._fail("You have already summoned %d champions this turn." % g.summons_allowed(p))
+	var slot_err: String = g.summon_slot_problem(p, non_basic) if str(card.get("kind", "")) == "champion" else ""
+	if slot_err != "":
+		return g._fail(slot_err)
 	if str(card.get("kind", "")) != "champion":
 		return g._fail("That is not a champion card.")
 
@@ -87,6 +88,11 @@ static func summon(g: Game, p: int, hand_index: int, sacrifice_uids: Array = [],
 	champion.damage = mini(carried, champion.max_hp())  # damage counters carry over permanently
 	ps.summoned_this_turn = true
 	ps.summons_this_turn += 1
+	if non_basic:
+		ps.sacrifice_summons_this_turn += 1
+	else:
+		ps.basic_summons_this_turn += 1
+	g.refresh_encamp()
 	var where: String = "the encampment area" if ps.castled else "the active play area"
 	g._log("P%d summons %s into %s." % [p, champion.describe(), where])
 	if champion.is_destroyed():

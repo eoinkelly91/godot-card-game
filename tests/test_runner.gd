@@ -58,7 +58,7 @@ func _init() -> void:
 		test_castle_basics,
 		test_castle_limits,
 		test_encamped_immunity_and_own_effects,
-		test_poison_continues_while_encamped,
+		test_castling_removes_status_effects,
 		test_start_of_turn_ability_triggers_while_encamped,
 		test_encampment_limit_and_elite_while_castled,
 		test_real_card_data,
@@ -103,7 +103,8 @@ func _init() -> void:
 		test_staff_attack,
 		test_grimn,
 		test_gnome_cannot_be_attacked,
-		test_castle_needs_exactly_one_active_champion,
+		test_castle_needs_one_or_two_active_champions,
+		test_summoned_champions_can_be_attacked_next_turn,
 		test_castled_players_draw_two,
 		test_start_of_turn_summary_and_poison,
 		test_just_attacked_cannot_be_sacrificed,
@@ -206,10 +207,10 @@ func test_setup_and_first_turns() -> void:
 	check(g.players[0].mana == 5 and g.players[1].mana == 5, "starting mana is 5")
 	check(g.players[0].fortress_hp == 500, "Fortress has 500 HP")
 	g.start()
-	check(g.active == 0 and g.players[0].hand.size() == 8, "first player draws on their first turn")
+	check(g.active == 0 and g.players[0].hand.size() == 7, "the first player draws nothing on their first turn")
 	g.end_turn(0)
 	check(g.players[0].mana == 5, "the Fortress does not trigger on a first turn")
-	check(g.active == 1 and g.players[1].hand.size() == 8, "second player draws on their first turn")
+	check(g.active == 1 and g.players[1].hand.size() == 7, "the second player draws nothing on their first turn")
 	g.end_turn(1)
 	check(g.players[1].mana == 5, "no Fortress mana on the second player's first turn either")
 	g.next_step(0)
@@ -236,20 +237,22 @@ func test_fortress_triggers_after_first_turn() -> void:
 	var f := Game.new()
 	f.setup([filler.duplicate(), filler.duplicate()], 7, 0)
 	f.start()
-	check(f.players[0].mana == 5 and f.players[0].hand.size() == 8, "first turn: 4 starting mana + 1, and a card is drawn")
+	check(f.players[0].mana == 2 and f.players[0].hand.size() == 7, "first turn: no starting mana + 2, and no cards are drawn")
 	f.end_turn(0)
-	check(f.players[1].mana == 5 and f.players[1].hand.size() == 8, "the second player gets the same on their first turn")
+	check(f.players[1].mana == 2 and f.players[1].hand.size() == 7, "the second player gets the same on their first turn")
 	f.end_turn(1)
-	check(f.players[0].mana == 6, "and +1 mana every turn after that")
+	check(f.players[0].mana == 4, "and +2 mana every turn after that")
 
 
 func test_one_summon_per_turn() -> void:
+	# One Basic summon and one sacrifice (non-Basic) summon per turn.
 	var g := new_game()
-	g.players[0].hand = [card("ember_scout"), card("ember_scout"), card("ember_scout")]
-	check(g.summon(0, 0).ok, "first summon works")
-	check(g.summon(0, 0).ok, "a second summon the same turn works")
-	check(not g.summon(0, 0).ok, "a third summon the same turn is refused")
-	check(g.players[0].mana == 3, "5 - 1 - 1 = 3")
+	g.players[0].hand = [card("ember_scout"), card("ember_scout"), card("grave_wisp"), card("grave_wisp")]
+	check(g.summon(0, 0).ok, "a non-Basic summon works")
+	check(not g.summon(0, 0).ok, "a second non-Basic summon the same turn is refused")
+	check(g.summon(0, 1).ok, "a Basic summon works as well")
+	check(not g.summon(0, 1).ok, "a second Basic summon is refused")
+	check(g.players[0].mana == 4, "5 - 1 = 4 (the Basic summon is free)")
 
 
 func test_play_area_limit_and_sacrifice_on_full_board() -> void:
@@ -526,13 +529,13 @@ func test_annihilation_points() -> void:
 	g.attack(0, a.uid, 0, {"champion": weak.uid})
 	check(g.players[0].kills == 1, "enemy attack kill = 1 point")
 	var g2 := new_game()
-	g2.players[0].kills = 9
+	g2.players[0].kills = 14
 	var x := g2.spawn_champion(0, card("ember_scout"))
 	var y := g2.spawn_champion(1, card("glass_sage"))
 	y.damage = 20
 	to_attack(g2)
 	g2.attack(0, x.uid, 0, {"champion": y.uid})
-	check(g2.finished and g2.winner == 0, "10th point wins by Annihilation")
+	check(g2.finished and g2.winner == 0, "15th point wins by Annihilation")
 
 
 func test_economic_victory() -> void:
@@ -542,9 +545,15 @@ func test_economic_victory() -> void:
 		filler.append(card("ember_scout"))
 	g.setup([filler.duplicate(), filler.duplicate()], 5, 0)
 	_classic_rules(g)
-	g.players[0].mana = 30
+	g.players[0].mana = 50
 	g.start()
-	check(g.finished and g.winner == 0 and g.win_reason == "Economic Victory", "30 mana at the start of your turn wins")
+	check(g.finished and g.winner == 0 and g.win_reason == "Economic Victory", "50 mana at the start of your turn wins")
+	var g2 := Game.new()
+	g2.setup([filler.duplicate(), filler.duplicate()], 5, 0)
+	_classic_rules(g2)
+	g2.players[0].mana = 49
+	g2.start()
+	check(not g2.finished or g2.win_reason != "Economic Victory", "49 mana is not enough")
 
 
 func test_decking_out() -> void:
@@ -668,7 +677,7 @@ func test_castle_limits() -> void:
 	for i in lines.size():
 		if "castle has run out" in lines[i] and idx_switch < 0:
 			idx_switch = i
-		if "P0 draws a card" in lines[i] and idx_draw < 0:
+		if "P0 draws 2 cards" in lines[i] and idx_draw < 0:
 			idx_draw = i
 	check(not g.players[0].castled, "the castle ran out and the Fortress switched back")
 	check(idx_switch >= 0 and idx_draw > idx_switch, "the switch happens before the draw")
@@ -704,32 +713,31 @@ func test_encamped_immunity_and_own_effects() -> void:
 	check(g.players[1].enchantments.is_empty(), "(no enchantments involved)")
 
 
-func test_poison_continues_while_encamped() -> void:
+func test_castling_removes_status_effects() -> void:
 	var g := new_game()
 	g.spawn_champion(0, card("ember_scout"))
 	var victim := g.spawn_champion(1, custom_champion("Blue", "Human", 20, [{"name": "x", "damage": 10}]))
 	g.players[0].hand = [card("venom_dart")]
 	to_attack(g)
 	check(g.play_spell(0, 0, 0, {"champion": victim.uid}).ok, "poison an enemy champion that is in the active play area")
+	check(not victim.statuses.is_empty(), "it is poisoned")
 	g.end_turn(0)
 	check(g.castle(1).ok, "the victim's owner castles")
-	g.next_step(1)
-	check(victim.damage == 10, "poison keeps ticking while the champion is encamped")
+	check(victim.statuses.is_empty(), "encamping removes its status effects")
+	check(victim.damage == 10, "it had already taken the poison at the start of its turn")
 	g.end_turn(1)
 	g.end_turn(0)
-	g.next_step(1)
-	check(g.players[1].champions.is_empty(), "poison destroys the encamped champion")
-	check(g.players[0].kills == 1, "the opponent scores an Annihilation point for the poison kill")
+	check(victim.damage == 10, "and the poison no longer ticks after the castle")
 
 
 func test_start_of_turn_ability_triggers_while_encamped() -> void:
 	var g := new_game()
 	var ability := {"trigger": "start_of_turn", "op": "gain_mana", "amount": 1}
 	g.spawn_champion(0, custom_champion("Red", "Human", 30, [{"name": "x", "damage": 10}], ability))
-	trig(g)
 	g.castle(0)
-	g.next_step(0)
-	check(g.players[0].mana == 6, "5 + 1 ability, even though the champion is encamped")
+	var before_mana: int = g.players[0].mana
+	trig(g)
+	check(g.players[0].mana == before_mana + int(g.rules.castled_mana_per_turn), "an encamped champion's ability is inactive (only the castle's mana, no +1)")
 	# A champion summoned this turn does not trigger until the owner's next turn.
 	var g2 := new_game()
 	g2.players[0].hand = [custom_champion("Red", "Human", 30, [{"name": "x", "damage": 10}], ability)]
@@ -807,7 +815,7 @@ func test_real_card_data() -> void:
 		for id in decks[deck_name]:
 			total += int(decks[deck_name][id])
 			check(real.has(id), "%s: card %s exists" % [deck_name, id])
-		check(total <= 61 and total >= 60, "%s has 60 or 61 cards (got %d; 60 to draw plus its Fortress)" % [deck_name, total])
+		check(total <= 71 and total >= 70, "%s has 70 or 71 cards (got %d; 70 to draw plus its Fortress)" % [deck_name, total])
 
 
 func test_real_decks_build_and_play() -> void:
@@ -1133,8 +1141,9 @@ func test_passive_locks() -> void:
 	g2.players[0].hand = [rc("crimson_wave")]
 	spawn(g2, 0, "pog")
 	g2.players[1].castled = true
+	g2.refresh_encamp()
 	to_attack(g2)
-	check(not g2.play_spell(0, 0, 0, {"fortress": 1}).ok, "Warlord locks spells even while encamped")
+	check(g2.play_spell(0, 0, 0, {"fortress": 1}).ok, "Warlord's lock is inactive while it is encamped")
 	var g3 := real_game()
 	spawn(g3, 1, "harmlobeast")
 	check(LockRules.is_locked(g3, 0, "fortress") and not LockRules.is_locked(g3, 1, "fortress"), "Harmlobeast stops only the opponent's Fortress effects")
@@ -1580,7 +1589,7 @@ func test_enchantments_start_of_turn() -> void:
 	g2.players[0].enchantments = [rc("enchanted_forest")]
 	var mana: int = g2.players[0].mana
 	trig(g2)
-	check(g2.players[0].mana == mana + 3, "Enchanted Forest: 1 mana per champion, encamped ones included")
+	check(g2.players[0].mana == mana + 3 + 3, "Enchanted Forest: 1 mana per champion, encamped ones included")
 	var g3 := real_game()
 	spawn(g3, 0, "gob")
 	spawn(g3, 0, "gob")
@@ -1919,23 +1928,34 @@ func test_gnome_cannot_be_attacked() -> void:
 	check(other.damage == 50 and gnome2.damage == 0, "side-effect damage from a champion over the limit does not hurt Gnome")
 
 
-func test_castle_needs_exactly_one_active_champion() -> void:
+func test_castle_needs_one_or_two_active_champions() -> void:
 	var g := new_game()
-	check(not g.castle(0).ok and "exactly 1" in str(g.castle(0).error), "you cannot castle with no champions")
+	check(not g.castle(0).ok and "1 or 2" in str(g.castle(0).error), "you cannot castle with no champions")
 	var g2 := new_game()
 	g2.spawn_champion(0, card("ember_scout"))
 	g2.spawn_champion(0, card("ember_scout"))
+	g2.spawn_champion(0, card("ember_scout"))
 	var r2 := g2.castle(0)
-	check(not r2.ok and "you have 2" in str(r2.error), "you cannot castle with two champions (%s)" % str(r2.get("error", "")))
+	check(not r2.ok and "you have 3" in str(r2.error), "you cannot castle with three champions (%s)" % str(r2.get("error", "")))
 	check(Preflight.castle_problem(g2, 0) != "", "the screen can say so up front")
+	check(g2.players[0].castles_used == 0, "a refused castle does not use up your castle")
 	var g3 := new_game()
 	g3.spawn_champion(0, card("ember_scout"))
-	check(Preflight.castle_problem(g3, 0) == "" and g3.castle(0).ok, "with exactly one champion you can castle")
+	check(Preflight.castle_problem(g3, 0) == "" and g3.castle(0).ok, "with one champion you can castle")
 	check(g3.players[0].castles_used == 1, "and it uses your castle")
 	var g4 := new_game()
 	g4.spawn_champion(0, card("ember_scout"))
 	g4.spawn_champion(0, card("ember_scout"))
-	check(not g4.castle(0).ok and g4.players[0].castles_used == 0, "a refused castle does not use up your castle")
+	check(Preflight.castle_problem(g4, 0) == "" and g4.castle(0).ok, "with two champions you can castle too")
+	# real rules: castling from your 3rd turn
+	var g5 := real_game()
+	g5.rules.castle_locked_turns = int(Game.new().rules.castle_locked_turns)  # the real setting
+	check(int(g5.rules.castle_locked_turns) == 2, "the real rule locks castling for your first 2 turns")
+	spawn(g5, 0, "gorth")
+	g5.players[0].turns_taken = 2
+	check(not g5.castle(0).ok, "no castling on your 2nd turn")
+	g5.players[0].turns_taken = 3
+	check(g5.castle(0).ok, "castling is possible from your 3rd turn")
 
 
 func test_castled_players_draw_two() -> void:
@@ -1951,7 +1971,7 @@ func test_castled_players_draw_two() -> void:
 	g.players[0].hand.clear()
 	g.end_turn(0)
 	g.end_turn(1)
-	check(g.players[0].hand.size() == 2, "a castled player draws 2 cards at the start of their turn (got %d)" % g.players[0].hand.size())
+	check(g.players[0].hand.size() == 3, "a castled player draws 3 cards at the start of their turn (got %d)" % g.players[0].hand.size())
 	var g2 := new_game()
 	g2.spawn_champion(0, card("ember_scout"))
 	g2.end_turn(0)
@@ -1959,7 +1979,7 @@ func test_castled_players_draw_two() -> void:
 	g2.players[0].hand.clear()
 	g2.end_turn(0)
 	g2.end_turn(1)
-	check(g2.players[0].hand.size() == 1, "an uncastled player draws 1")
+	check(g2.players[0].hand.size() == 2, "an uncastled player draws 2")
 	var g3 := new_game()
 	g3.spawn_champion(0, card("ember_scout"))
 	g3.castle(0)
@@ -2055,7 +2075,7 @@ func test_start_mana_castle_lock_and_poison() -> void:
 		filler.append(rc("syranite"))
 	var fresh := Game.new()
 	fresh.setup([filler.duplicate(), filler.duplicate()], 7, 0)
-	check(fresh.players[0].mana == 4 and fresh.players[1].mana == 4, "each player starts with 4 mana")
+	check(fresh.players[0].mana == 0 and fresh.players[1].mana == 0, "nobody starts with mana")
 	var g := real_game()
 	g.rules.castle_locked_turns = 5
 	spawn(g, 0, "syranite")
@@ -2104,17 +2124,17 @@ func test_turn_order_summoning_sickness_hand_limit_and_decks() -> void:
 	check(g2.attack(0, fresh.uid, 0, {"champion": foe.uid}).ok, "it can attack on its owner's next turn")
 	# Hand limit: a player discards chosen cards, the engine discards at random if nobody chose
 	var g3 := real_game()
-	for i in 12:
+	for i in 15:
 		g3.players[0].hand.append(rc("syranite"))
-	check(g3.discard_hand_card(0, 0).ok and g3.players[0].hand.size() == 11, "a chosen card is discarded for the hand limit")
+	check(g3.discard_hand_card(0, 0).ok and g3.players[0].hand.size() == 14, "a chosen card is discarded for the hand limit")
 	g3.end_turn(0)
-	check(g3.players[0].hand.size() == 10, "ending the turn leaves at most 10 cards in hand")
+	check(g3.players[0].hand.size() == 13, "ending the turn leaves at most 13 cards in hand")
 	# Deck composition limits
 	var real: Dictionary = CardDB.load_cards()
 	var decks: Dictionary = CardDB.load_decks()
 	for name in decks:
 		check(CardDB.deck_problems(real, decks[name]).is_empty(), "deck %s follows the composition limits" % name)
-	var bad: Dictionary = {"amustas": 2, "syranite": 30}
+	var bad: Dictionary = {"amustas": 2, "syranite": 40}
 	check(CardDB.deck_problems(real, bad).size() == 2, "too many Legendary and Basic cards are reported")
 	check(CardDB.expected_class(real.amustas) == "legendary" and CardDB.expected_class(real.blackthorn_dragon) == "heroic", "classes follow the summons needed")
 
@@ -2437,7 +2457,7 @@ func test_super_shrink_three_turns_and_sacrifice_summons() -> void:
 	g.players[1].hand = [rc("grey_goblin")]
 	check(g.summon(1, 0, [victim.uid]).ok, "the opponent sacrifices the shrunken champion")
 	var fresh: Champion = g.players[1].champions[0]
-	check(fresh.hp_mod == -20 and fresh.max_hp() == int(fresh.card.hp) - 20, "the champion summoned by sacrifice is shrunk too")
+	check(not fresh.encamped_flag and fresh.hp_mod == -20 and fresh.max_hp() == int(fresh.card.hp) - 20, "the champion summoned by sacrifice is shrunk too")
 	for i in 5:
 		if g.players[0].enchantments.is_empty():
 			break
@@ -2446,31 +2466,34 @@ func test_super_shrink_three_turns_and_sacrifice_summons() -> void:
 
 
 func test_castled_players_summon_twice() -> void:
-	# Two summons a turn, Basic or not (sacrifice summons count too), castled or not.
+	# Normally one Basic and one sacrifice summon a turn; a castled player has one extra summon of either kind.
 	var g := real_game()
 	g.players[0].turns_taken = 3
 	g.players[0].castled = true
-	for i in 4:
+	for i in 5:
 		spawn(g, 0, "gob")
-	g.players[0].hand = [rc("grey_goblin"), rc("grey_goblin"), rc("grey_goblin")]
-	check(g.summon(0, 0, [g.players[0].champions[0].uid]).ok and g.summon(0, 0, [g.players[0].champions[0].uid]).ok, "two sacrifice summons are allowed")
-	var r: Dictionary = g.summon(0, 0, [g.players[0].champions[0].uid])
-	check(not r.ok and "already summoned 2" in str(r.error), "but not three")
-	var g2 := real_game()  # a mix: a basic and a sacrifice summon
+	g.players[0].hand = [rc("grey_goblin"), rc("grey_goblin"), rc("grey_goblin"), rc("gob"), rc("gob")]
+	var f: Callable = func() -> Champion: return g.players[0].champions[0]
+	check(g.summon(0, 0, [f.call().uid]).ok, "castled: a sacrifice summon")
+	check(g.summon(0, 0, [f.call().uid]).ok, "castled: a second sacrifice summon (the extra one)")
+	var r3: Dictionary = g.summon(0, 0, [f.call().uid])
+	check(not r3.ok and "sacrifice summon" in str(r3.error), "but not a third")
+	check(g.summon(0, 2).ok, "castled: the Basic summon is still there")
+	check(not g.summon(0, 2).ok, "but the extra summon is already used, so not a second Basic")
+	var g2 := real_game()  # not castled: one of each
 	g2.players[0].turns_taken = 3
 	for i in 3:
 		spawn(g2, 0, "gob")
-	g2.players[0].hand = [rc("gob"), rc("grey_goblin"), rc("gob")]
-	check(g2.summon(0, 0).ok and g2.summon(0, 0, [g2.players[0].champions[0].uid]).ok and not g2.summon(0, 0).ok, "a basic and a sacrifice summon, then no more")
-	var g3 := real_game()  # two basics, no more
-	g3.players[0].hand = [rc("gob"), rc("gob"), rc("gob")]
-	check(g3.summon(0, 0).ok and g3.summon(0, 0).ok and not g3.summon(0, 0).ok, "two Basic champions, not three")
-	check(g3.players[0].summons_this_turn == 2, "both count")
-	var g4 := real_game()  # on a first turn only Basic champions, still at most two
+	g2.players[0].hand = [rc("gob"), rc("grey_goblin"), rc("gob"), rc("grey_goblin")]
+	check(g2.summon(0, 0).ok and g2.summon(0, 0, [g2.players[0].champions[0].uid]).ok, "a Basic and a sacrifice summon")
+	check(not g2.summon(0, 0).ok and not g2.summon(0, 0, [g2.players[0].champions[0].uid]).ok, "and no more")
+	check(g2.players[0].summons_this_turn == 2, "both count")
+	var g4 := real_game()  # on a first turn only Basic champions: one of them
 	g4.players[0].turns_taken = 1
-	g4.players[0].hand = [rc("grey_goblin"), rc("gob"), rc("gob"), rc("gob")]
+	g4.players[0].hand = [rc("grey_goblin"), rc("gob"), rc("gob")]
 	check(not g4.summon(0, 0).ok, "a first turn does not allow non-Basic summons")
-	check(g4.summon(0, 1).ok and g4.summon(0, 1).ok and not g4.summon(0, 1).ok, "a first turn: at most two Basic champions")
+	g4.players[0].hand = [rc("grey_goblin"), rc("gob"), rc("gob"), rc("gob")]
+	check(g4.summon(0, 1).ok and g4.summon(0, 1).ok and not g4.summon(0, 1).ok, "a first turn: you may start by summoning two Basic champions, no more")
 
 
 func test_early_turn_colour_limits() -> void:
@@ -2674,12 +2697,12 @@ func test_random_decks() -> void:
 					fortresses += 1
 			if legendaries != 1 or fortresses != 1:
 				one_legendary = false
-			if total != 61:
+			if total != 71:
 				full = false
 	check(all_ok, "random decks follow the composition limits")
 	check(colours_ok, "random decks only hold champions of the chosen colours")
 	check(one_legendary, "random decks have one Legendary and one Fortress")
-	check(full, "random decks are full (60 cards + the Fortress)")
+	check(full, "random decks are full (70 cards + the Fortress)")
 	rng.seed = 5
 	var spec_a: Dictionary = CardDB.random_deck(cards, ["Red", "Purple", "White"], rng)
 	var other: Dictionary = CardDB.random_deck(cards, ["Red", "Purple", "White"], rng)
@@ -2751,3 +2774,44 @@ func test_new_spell_effects_and_attacks() -> void:
 	check(g6.play_spell(0, 0, 1).ok and r1.damage == 10 and r2.damage == 10 and g6.players[0].castled, "Reconstruction effect 2: 10 damage each and the champions move onto the Fortress")
 	# Wizardry looks at six cards
 	check(int(rc("wizardry").effects[1].count) == 6, "Wizardry looks at 6 cards")
+
+
+func test_summoned_champions_can_be_attacked_next_turn() -> void:
+	var g := real_game()
+	g.players[0].turns_taken = 4
+	spawn(g, 0, "gob")
+	g.players[0].hand = [rc("grey_goblin"), rc("gob")]
+	var fodder: Champion = g.players[0].champions[0]
+	check(g.summon(0, 0, [fodder.uid]).ok and g.summon(0, 0).ok, "a sacrifice summon and a Basic summon")
+	var elite: Champion = null
+	var basic: Champion = null
+	for c in g.players[0].champions:
+		if c.card_name() == "Grey Goblin":
+			elite = c
+		else:
+			basic = c
+	check(not elite.encamped_flag and not basic.encamped_flag, "neither is Encamped")
+	check(g.players[0].active_champions().size() == 2, "both are active")
+	check(not g.attack(0, elite.uid, 0, {}).ok, "a champion cannot attack on the turn it was summoned")
+	g.end_turn(0)
+	g.players[1].turns_taken = 4
+	var hitter := spawn(g, 1, "gorth")
+	check(g.attack(1, hitter.uid, 0, {"champion": elite.uid}).ok, "the opponent can attack a champion summoned through sacrifice on their next turn")
+	var hitter2 := spawn(g, 1, "capeasant")
+	g.players[1].colors_used.clear()
+	check(Preflight.attack_problem(g, 1, hitter2) == "" or "colour" in Preflight.attack_problem(g, 1, hitter2), "and the Basic one too")
+	# Encamped (castled) champions: abilities inactive, attached cards do nothing, only the Fortress can be attacked
+	var g2 := real_game()
+	var gl := spawn(g2, 0, "gluto")
+	var buddy := spawn(g2, 0, "gorth")
+	g2.players[0].castled = true
+	g2.refresh_encamp()
+	check(not gl.has_ability() and gl.has_printed_ability(), "an encamped champion's ability is inactive")
+	check(g2.players[0].active_champions().is_empty() and g2.players[0].encamped_champions().size() == 2, "no active champions while castled")
+	buddy.attached = [rc("fusion")]
+	HpRules.recalc(g2)
+	check(buddy.hp_mod == 0, "cards attached to an encamped champion have no effect")
+	g2.players[1].turns_taken = 4
+	g2.active = 1
+	var h2 := spawn(g2, 1, "gorth")
+	check(not g2.attack(1, h2.uid, 0, {"champion": buddy.uid}).ok and g2.attack(1, h2.uid, 0, {"fortress": 0}).ok, "an Encamped champion cannot be attacked; the Fortress can")

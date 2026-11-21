@@ -45,7 +45,7 @@ static func after_damage(g: Game, p: int, attacker: Champion, atk: Dictionary, t
 
 	# One coin per enemy champion, 10/20 damage to that champion on Heads.
 	if atk.has("coin_each_enemy"):
-		for c in foe.champions.duplicate():
+		for c in foe.active_champions().duplicate():
 			if g.flip_coin():
 				_hit(g, p, attacker, c, int(atk.coin_each_enemy))
 	if atk.has("damage_each_enemy"):
@@ -56,8 +56,8 @@ static func after_damage(g: Game, p: int, attacker: Champion, atk: Dictionary, t
 			if c != target:
 				_hit(g, p, attacker, c, int(atk.splash_enemies))
 	if atk.has("splash_all"):  # every champion in play, your own included, but not the attacker itself
-		var everyone: Array = foe.champions.duplicate()
-		everyone.append_array(me.champions)
+		var everyone: Array = foe.active_champions().duplicate()
+		everyone.append_array(me.active_champions())
 		for c in everyone:
 			if c != attacker:
 				_hit(g, p, attacker, c, int(atk.splash_all))

@@ -14,7 +14,7 @@ static func take_turn(g: Game, p: int) -> void:
 		if ps.castled_turns >= 2:
 			g.uncastle(p)
 	elif ps.castles_used == 0 and not ps.is_first_turn() and ps.champions.size() == 1 and foe.champions.size() >= 3:
-		g.castle(p)  # only possible with exactly one champion in the active play area
+		g.castle(p)  # only possible with one or two champions in the active play area
 
 	while ps.pending_minotaur > 0:  # Minotaur: discard the first attached card it finds
 		var done: bool = false

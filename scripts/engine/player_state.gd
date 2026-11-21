@@ -25,7 +25,9 @@ var buffs: Array = []         # duration effects on this player, e.g. {"kind": "
 var pending_minotaur: int = 0  # Minotaur: attached cards of the opponent that this player may still discard this turn
 var summoned_this_turn: bool = false  # true once at least one champion was summoned this turn
 var pending_wizardry: Array = []  # cards just drawn by Wizardry; the player still has to discard one of them
-var summons_this_turn: int = 0  # champions summoned this turn (castled players may summon twice)
+var summons_this_turn: int = 0
+var basic_summons_this_turn: int = 0      # Basic champions summoned this turn (one allowed, two when castled and the extra is used)
+var sacrifice_summons_this_turn: int = 0  # non-Basic champions (sacrifice or mana) summoned this turn  # champions summoned this turn (castled players may summon twice)
 var colors_used: Array = []   # colors that have attacked this turn
 var extra_attacks: Array = []  # Volcanic Horn tokens: uid of the champion that granted each extra attack
 var summon_discount: int = 0   # Mumified: sacrifices or mana taken off this turn's summon
@@ -38,6 +40,8 @@ func _init(p_index: int) -> void:
 func reset_for_turn() -> void:
 	summoned_this_turn = false
 	summons_this_turn = 0
+	basic_summons_this_turn = 0
+	sacrifice_summons_this_turn = 0
 	colors_used.clear()
 	summon_discount = 0
 	extra_attacks.clear()
@@ -66,10 +70,19 @@ func is_first_turn() -> bool:
 
 ## Champions in the active play area (they can attack and be targeted).
 func active_champions() -> Array[Champion]:
-	var none: Array[Champion] = []
-	return none if castled else champions
+	var out: Array[Champion] = []
+	if castled:
+		return out
+	for c in champions:
+		if not c.encamped_flag:
+			out.append(c)
+	return out
 
 
 ## Champions in the encampment area (they cannot attack and cannot be targeted by the opponent).
 func encamped_champions() -> Array[Champion]:
-	return champions if castled else ([] as Array[Champion])
+	var out: Array[Champion] = []
+	for c in champions:
+		if castled or c.encamped_flag:
+			out.append(c)
+	return out

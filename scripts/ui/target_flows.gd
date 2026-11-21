@@ -33,7 +33,7 @@ func _champs(list: Array, skip: Array = []) -> Array:
 	var out: Array = []
 	for c in list:
 		if not skip.has(c):
-			out.append({"label": g.describe_champion(c) + (" (damage %d)" % c.damage if c.damage > 0 else ""), "value": c.uid})
+			out.append({"label": g.describe_champion(c) + (" (shielded)" if DamageRules.is_protected(c) else "") + (" (damage %d)" % c.damage if c.damage > 0 else ""), "value": c.uid})
 	return out
 
 
@@ -56,7 +56,7 @@ func _enemy_champions_ok(p: int) -> String:
 	var foe: PlayerState = g.players[1 - p]
 	if foe.castled:
 		return "The opponent's champions are encamped and cannot be targeted."
-	if foe.champions.is_empty():
+	if foe.active_champions().is_empty():
 		return "The opponent has no champions."
 	return ""
 
@@ -109,7 +109,7 @@ func spell_target(p: int, hand_index: int, effect_index: int, preset: int = -1) 
 			var at: Variant = await _one("Attach %s to which of your champions?" % str(card.get("name", "this card")), _champs(open_ones))
 			return _cancel() if at == null else _t({"champion": at})
 		"mystery_remove":
-			var carrying: Array = foe.champions.filter(func(c: Champion) -> bool: return not c.attached.is_empty())
+			var carrying: Array = foe.active_champions().filter(func(c: Champion) -> bool: return not c.attached.is_empty())
 			if foe.castled:
 				return _err("The opponent's champions are encamped and cannot be targeted.")
 			if carrying.is_empty():
@@ -127,15 +127,15 @@ func spell_target(p: int, hand_index: int, effect_index: int, preset: int = -1) 
 			var rcd: Variant = await _one("Return which %s to your hand?" % want, opts4)
 			return _cancel() if rcd == null else _t({"discard_index": rcd})
 		"damage":
-			if foe.castled or foe.champions.is_empty():
+			if foe.castled or foe.active_champions().is_empty():
 				return _t({"fortress": 1 - p})
-			var d: Variant = await _one("Damage which champion?", _champs(foe.champions))
+			var d: Variant = await _one("Damage which champion?", _champs(foe.active_champions()))
 			return _cancel() if d == null else _t({"champion": d})
 		"poison", "no_attack", "reduce_attack":
 			var err: String = _enemy_champions_ok(p)
 			if err != "":
 				return _err(err)
-			var e: Variant = await _one("Which enemy champion?", _champs(foe.champions))
+			var e: Variant = await _one("Which enemy champion?", _champs(foe.active_champions()))
 			return _cancel() if e == null else _t({"champion": e})
 		"heal", "cleanse", "bonus_damage":
 			if me.champions.is_empty():
@@ -177,8 +177,8 @@ func spell_target(p: int, hand_index: int, effect_index: int, preset: int = -1) 
 			var err2: String = _enemy_champions_ok(p)
 			if err2 != "":
 				return _err(err2)
-			var need: int = mini(int(effect.get("targets", 3)), foe.champions.size())
-			var picked: Variant = await _many("Pick %d different enemy champion(s)" % need, _champs(foe.champions), need, need)
+			var need: int = mini(int(effect.get("targets", 3)), foe.active_champions().size())
+			var picked: Variant = await _many("Pick %d different enemy champion(s)" % need, _champs(foe.active_champions()), need, need)
 			return _cancel() if picked == null else _t({"champions": picked})
 		"repair_fortress":
 			var cards: Array = _hand_options(me, hand_index, "")
@@ -267,7 +267,7 @@ func _move_counters(p: int, count: int) -> Dictionary:
 			return _cancel()
 		if int(from_uid) == -1:
 			break
-		var to_uid: Variant = await _one("Give them to which enemy champion?", _champs(foe.champions))
+		var to_uid: Variant = await _one("Give them to which enemy champion?", _champs(foe.active_champions()))
 		if to_uid == null:
 			return _cancel()
 		var from_c: Champion = g._champion_of(me, int(from_uid))
@@ -295,11 +295,11 @@ func attack_target(p: int, attacker: Champion, atk_index: int) -> Dictionary:
 	var target: Dictionary = {}
 	if bool(atk.get("no_target", false)):
 		return _t({})
-	if foe.castled or foe.champions.is_empty():
+	if foe.castled or foe.active_champions().is_empty():  # no champion in the active play area: only the Fortress can be attacked
 		target = {"fortress": 1 - p}
 	else:
-		var legal: Array = []  # champions this attacker is allowed to attack (not Gnome if it has too much HP)
-		for fc in foe.champions:
+		var legal: Array = []  # champions this attacker is allowed to attack (not Encamped ones, not Gnome if it has too much HP)
+		for fc in foe.active_champions():
 			if not (fc.has_ability() and fc.card.ability.has("immune_to_attackers_max_hp_over") \
 					and attacker.max_hp() > int(fc.card.ability.immune_to_attackers_max_hp_over)):
 				legal.append(fc)

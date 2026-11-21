@@ -520,6 +520,8 @@ func _asleep() -> bool:
 		return true
 	if game != null and live.summoned_turn == game.turn:
 		return true
+	if live.encamped_flag or (game != null and live.is_encamped(game.turn)):  # encamped (castle or summoned through sacrifice)
+		return true
 	for st in live.statuses:
 		if str(st.kind) == "no_attack":
 			return true
@@ -686,10 +688,12 @@ func _status_tags() -> Array:
 	var tags: Array = []
 	if live == null:
 		return tags
-	if encamped:
-		tags.append("ENCAMPED")
+	if encamped or live.encamped_flag or (game != null and live.is_encamped(game.turn)):
+		tags.append("ENCAMPED: CANNOT ATTACK OR BE ATTACKED")
 	elif game != null and live.summoned_turn == game.turn:
-		tags.append("SUMMONED: CANNOT ATTACK THIS TURN")
+		tags.append("SUMMONED THIS TURN: CANNOT ATTACK")
+	if not live.attached.is_empty():
+		tags.append("ARMED: %d CARD%s ATTACHED" % [live.attached.size(), "" if live.attached.size() == 1 else "S"])
 	for st in live.statuses:
 		match str(st.kind):
 			"poison":
